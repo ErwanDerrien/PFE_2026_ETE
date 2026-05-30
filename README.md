@@ -1,73 +1,70 @@
-# React + TypeScript + Vite
+# PFE 2026 — IDE expérimental et multireprésentationnel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Une application web où un même bloc de code existe en **trois représentations
+synchronisées** :
 
-Currently, two official plugins are available:
+1. **Code source** (éditeur Monaco/CodeMirror)
+2. **Langage naturel** (description générée via l'API Claude)
+3. **Blocs visuels** (graphe React Flow)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Modifier une représentation met les deux autres à jour automatiquement. Le pont
+entre elles est un **AST (Abstract Syntax Tree) Babel**, qui joue le rôle de
+**source unique de vérité** / médiateur central.
 
-## React Compiler
+## Architecture du médiateur AST
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+   code (string)  ──parse()──▶   AST Babel   ──astToGraph()──▶  blocs (GraphModel)
+   code (string)  ◀─generate()─   (vérité)    ◀─graphToAst()──   blocs (GraphModel)
+                                     ▲  │
+                          langage naturel (via API Claude)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **L'AST Babel est l'état canonique.** `source` (code) et `graph` (blocs) sont des
+  *projections* recalculées à chaque écriture.
+- Les vues **lisent** le store partagé et **écrivent** uniquement via ses actions,
+  qui réconcilient systématiquement vers l'AST (anti-boucle via `lastOrigin`).
+- TypeScript d'abord ; la couche langage est conçue pour devenir multi-langage.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Contrats dans [`frontend/src/shared`](frontend/src/shared) · moteur dans
+[`frontend/src/sync`](frontend/src/sync).
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Structure du dépôt (monorepo)
+
 ```
+.
+├── frontend/            # application web (Vite + React + TS)
+│   └── src/
+│       ├── shell/         # layout / composition          → tout le monde (sem. 1)
+│       ├── shared/        # types, interfaces, contrats    → tout le monde
+│       ├── sync/          # moteur de sync (source vérité) → équipe A (Adel, Junior)
+│       ├── blocks/        # blocs visuels (React Flow)     → équipe A
+│       ├── editor/        # éditeur de code                → équipe B (Justin, Erwan)
+│       ├── console/       # console + sandbox              → équipe B
+│       ├── natural-lang/  # panneau langage naturel        → Émie (transversal)
+│       └── api/           # couche API Claude              → Émie (transversal)
+└── backend/             # proxy API Claude (node.js), voir backend/README.md
+```
+
+> 📘 **Nouveau sur le projet (ou sur React) ?** Lisez d'abord le guide complet :
+> [`docs/README.md`](docs/README.md). Il explique tout depuis zéro (React, hooks,
+> store, structure de l'AST) pour qu'un dev qui ne connaît pas React s'y retrouve.
+
+## Démarrer
+
+```bash
+cd frontend
+npm install
+npm run dev      # serveur de dev Vite
+npm run build    # tsc -b + build de production
+npm run lint     # ESLint
+```
+
+## État actuel (branche `feat-ast`)
+
+Scaffold + **contrats** posés. Les quatre transformations
+(`parse` / `generate` / `astToGraph` / `graphToAst`) dans
+[`frontend/src/sync/transforms.ts`](frontend/src/sync/transforms.ts) sont des
+**stubs typés** : le câblage du store est complet, l'implémentation reste à faire
+par l'équipe A. Chaque dossier d'équipe contient un `README.md` expliquant comment
+s'intégrer au store partagé.

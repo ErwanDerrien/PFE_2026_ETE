@@ -131,6 +131,14 @@ const traversePath = (ast: Node): Record<number, FunctionDetails> => {
     },
   });
 
+  // TODO: if statement (Junior)
+  // TODO: switch case (Junior)
+  // TODO: while loops (Adel)
+  // TODO: for loops (ideally each case) (Adel)
+  // TODO: try catch (Adel)
+  // TODO: throw (Adel)
+  // TODO: const {a, b} = ...    a.param.  b.param (Junior)
+  // TODO: Array (Junior)
   return functionMapping;
 };
 

@@ -43,7 +43,7 @@ export const generate: Generate = (ast) =>
  * ou `'expression'`, et appliquer le regroupement par lignes vides (Niveau 1).
  */
 
-export const astToGraph = (ast: any, options: any) => {
+export const astToGraph = (ast: Node) => {
   const result = traversePath(ast);
   console.log(result);
 };

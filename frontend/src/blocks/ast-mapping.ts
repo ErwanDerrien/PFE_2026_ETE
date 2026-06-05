@@ -38,7 +38,7 @@ function createEntry(path: FunctionLikePath): FunctionDetails {
   };
 }
 
-const traversePath = (ast: any): Record<number, FunctionDetails> => {
+const traversePath = (ast: Node): Record<number, FunctionDetails> => {
   const functionMapping: Record<number, FunctionDetails> = {};
   const scopeStack: FunctionDetails[] = [];
   const current = () => scopeStack.at(-1);
@@ -48,7 +48,6 @@ const traversePath = (ast: any): Record<number, FunctionDetails> => {
   // On exit:  pop so the parent becomes current again.
   const onFunctionEnter = (path: FunctionLikePath) => {
     const entry = createEntry(path);
-    const length = current()?.subFunctions.length;
     current()?.subFunctions.push(entry);
 
     functionMapping[entry.scopreUid] = entry;

@@ -13,6 +13,7 @@
  *   4. `graphToAst`— le plus dur : reconstruire un AST valide depuis le graphe.
  */
 
+import type { File } from "@babel/types";
 import type { Generate, GraphToAst, Parse } from "../shared";
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
 import { parse as babelParser } from "@babel/parser";
@@ -43,7 +44,7 @@ export const generate: Generate = (ast) =>
  * ou `'expression'`, et appliquer le regroupement par lignes vides (Niveau 1).
  */
 
-export const astToGraph = (ast: Node) => {
+export const astToGraph = (ast: File) => {
   const result = traversePath(ast);
   console.log(result);
 };

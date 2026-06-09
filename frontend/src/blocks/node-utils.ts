@@ -2,7 +2,7 @@ import * as t from "@babel/types";
 import _generate from "@babel/generator";
 import type { GeneratorResult, GeneratorOptions } from "@babel/generator";
 import type { Node } from "@babel/types";
-import type { BinaryExpression, Param, VarDeclaration } from "./types";
+import type { BinaryExpression, BinaryOperand, FunctionCallDetails, Param, VarDeclaration } from "./types";
 
 const generate: (ast: Node, opts?: GeneratorOptions, code?: string) => GeneratorResult =
   typeof _generate === "function" ? _generate : (_generate as any).default;
@@ -53,11 +53,35 @@ export function getNodeNameOfTypeIdentifier(node: t.Node): string | null {
   return null;
 }
 
+// Extracts a FunctionCallDetails from a CallExpression node (no scope needed).
+function callExpressionToDetails(node: t.CallExpression): FunctionCallDetails {
+  const args = node.arguments.map((arg) => ({
+    name: t.isIdentifier(arg) ? arg.name : undefined,
+    isAFunction: false,
+    value: getLiteralValue(arg as t.Node) ?? undefined,
+  }));
+  return {
+    order: node.start as number,
+    calleeFunctionName: getNodeNameOfTypeIdentifier(node.callee) ?? "",
+    arguments: args,
+  };
+}
+
+// Converts one side of a binary expression to a structured BinaryOperand.
+function binaryOperandFromNode(node: t.Node): BinaryOperand | null {
+  if (t.isIdentifier(node)) return node.name;
+  const lit = getLiteralValue(node);
+  if (lit !== null) return lit;
+  if (t.isCallExpression(node)) return callExpressionToDetails(node);
+  if (t.isBinaryExpression(node)) return getInfoFromBinaryExpression(node);
+  return null;
+}
+
 export function getInfoFromBinaryExpression(node: t.Node): BinaryExpression | null {
-  if (node.type !== "BinaryExpression") return null;
-  const left = getNodeNameOfTypeIdentifier(node.left);
-  const right = getNodeNameOfTypeIdentifier(node.right);
-  if (!left || !right) return null;
+  if (!t.isBinaryExpression(node)) return null;
+  const left = binaryOperandFromNode(node.left);
+  const right = binaryOperandFromNode(node.right);
+  if (left === null || right === null) return null;
   return { operator: node.operator, leftSideOfOperator: left, rightSideOfOperator: right };
 }
 

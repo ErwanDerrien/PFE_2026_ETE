@@ -1,12 +1,14 @@
 import { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import type {
+  BinaryExpression as BinaryExpressionType,
   Expression,
   FunctionCallDetails,
   FunctionDetails,
   Param,
   ReturnStatement,
   VarDeclaration,
+  VariableAssignement,
 } from "./types";
 import {
   getAssignmentPatternTypeInfo,
@@ -154,4 +156,83 @@ export function extractReturnStatement(
   }
 
   scope.return = returnStatement;
+}
+
+// Maps a right-hand side expression type to a function that extracts its value.
+type RhsExtractor = (
+  exprPath: NodePath<t.Expression>,
+) => string | FunctionCallDetails | BinaryExpressionType | null;
+
+const rhsExtractorMap: Partial<Record<string, RhsExtractor>> = {
+  NumericLiteral: (p) => String((p.node as t.NumericLiteral).value),
+  StringLiteral: (p) => (p.node as t.StringLiteral).value,
+  BooleanLiteral: (p) => String((p.node as t.BooleanLiteral).value),
+  Identifier: (p) => (p.node as t.Identifier).name,
+  CallExpression: (p) => getFunctionCallInfo(p as NodePath<t.CallExpression>),
+  BinaryExpression: (p) => getInfoFromBinaryExpression(p.node),
+  MemberExpression: (_p) => null, // TODO: e.g. obj.prop
+};
+
+export function extractRhsValue(
+  exprPath: NodePath<t.Expression>,
+): string | FunctionCallDetails | BinaryExpressionType | null {
+  const extractor = rhsExtractorMap[exprPath.node.type];
+  if (!extractor) return null;
+  return extractor(exprPath);
+}
+
+type AssignmentHandler = (
+  path: NodePath<t.AssignmentExpression>,
+) => VariableAssignement | null;
+
+function handleSimpleAssignment(
+  path: NodePath<t.AssignmentExpression>,
+): VariableAssignement | null {
+  const node = path.node;
+  const left = node.left as t.Identifier;
+  const value = extractRhsValue(path.get("right") as NodePath<t.Expression>);
+  return {
+    blockParentId: path.scope.uid,
+    order: node.start as number,
+    name: left.name,
+    value: value ?? "",
+    type: getTypeScriptType(left),
+    operator: node.operator,
+  };
+}
+
+function handleMemberExpressionAssignment(
+  _path: NodePath<t.AssignmentExpression>,
+): VariableAssignement | null {
+  // TODO: implement - e.g. obj.prop = value, obj.nested.value = 10
+  return null;
+}
+
+function handleArrayPatternAssignment(
+  _path: NodePath<t.AssignmentExpression>,
+): VariableAssignement | null {
+  // TODO: implement - e.g. [a, b] = [1, 2]
+  return null;
+}
+
+function handleObjectPatternAssignment(
+  _path: NodePath<t.AssignmentExpression>,
+): VariableAssignement | null {
+  // TODO: implement - e.g. ({ p, q } = { p: 3, q: 4 })
+  return null;
+}
+
+const assignmentHandlerMap: Partial<Record<string, AssignmentHandler>> = {
+  Identifier: handleSimpleAssignment,
+  MemberExpression: handleMemberExpressionAssignment,
+  ArrayPattern: handleArrayPatternAssignment,
+  ObjectPattern: handleObjectPatternAssignment,
+};
+
+export function getAssignmentExpression(
+  path: NodePath<t.AssignmentExpression>,
+): VariableAssignement | null {
+  const handler = assignmentHandlerMap[path.node.left.type];
+  if (!handler) return null;
+  return handler(path);
 }

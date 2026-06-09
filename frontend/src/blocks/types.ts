@@ -15,8 +15,17 @@ export interface Expression {
 
 export interface VarDeclaration {
   name: string;
-  value: string | FunctionCallDetails;
+  value: string | FunctionCallDetails | BinaryExpression;
   type: string;
+}
+
+export interface VariableAssignement {
+  blockParentId: number;
+  order: number;
+  name: string;
+  value: string | FunctionCallDetails | BinaryExpression;
+  type: string;
+  operator?: string;
 }
 
 export interface Argument {
@@ -32,16 +41,20 @@ export interface FunctionCallDetails {
   calleeScopeUid?: number; // scope uid of the callee's FunctionDetails in functionMapping
 }
 
+export type BinaryOperand = string | FunctionCallDetails | BinaryExpression;
+
 export interface BinaryExpression {
-  operator: string; // e.g., '+', '-', '*', '/',
-  leftSideOfOperator: string;
-  rightSideOfOperator: string;
+  operator: string;
+  leftSideOfOperator: BinaryOperand;
+  rightSideOfOperator: BinaryOperand;
 }
+
 export interface FunctionDetails {
   scopreUid: number;
   name: string;
   params: Param[];
   expressions: Expression[];
+  assignments: VariableAssignement[];
   calls: FunctionCallDetails[];
   return?: ReturnStatement;
   subFunctions: FunctionDetails[];

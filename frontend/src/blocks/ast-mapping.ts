@@ -1,6 +1,6 @@
 import _traverse, { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import type { FunctionDetails } from "./types";
+import type { FunctionDetails, VariableAssignement } from "./types";
 import {
   type FunctionLikePath,
   getFunctionCallInfo,
@@ -9,6 +9,7 @@ import {
   markFunctionArguments,
   extractReturnStatement,
   processArrowFunctionReturn,
+  getAssignmentExpression,
 } from "./path-extractors";
 
 const traverse =
@@ -35,10 +36,11 @@ function createEntry(path: FunctionLikePath): FunctionDetails {
     expressions: [],
     calls: [],
     subFunctions: [],
+    assignments: [],
   };
 }
 
-const traversePath = (ast: Node): Record<number, FunctionDetails> => {
+const traversePath = (ast: t.File): Record<number, FunctionDetails> => {
   const functionMapping: Record<number, FunctionDetails> = {};
   const scopeStack: FunctionDetails[] = [];
   const current = () => scopeStack.at(-1);
@@ -69,6 +71,7 @@ const traversePath = (ast: Node): Record<number, FunctionDetails> => {
           calls: [],
           params: [],
           subFunctions: [],
+          assignments: [],
         };
         functionMapping[globalEntry.scopreUid] = globalEntry;
         scopeStack.push(globalEntry);
@@ -128,6 +131,20 @@ const traversePath = (ast: Node): Record<number, FunctionDetails> => {
       const scope = current();
       if (!scope) return;
       scope.expressions.push(getVariablesDeclaration(path));
+    },
+    // TODO: if statement
+    IfStatement(path: NodePath<t.IfStatement>) {
+      const order = path.node.start as number;
+      const scope = current();
+      if (!scope) return;
+    },
+    AssignmentExpression(path: NodePath<t.AssignmentExpression>) {
+      const scope = current();
+      if (!scope) return;
+      const assignment: VariableAssignement | null =
+        getAssignmentExpression(path);
+
+      if (assignment) scope.assignments.push(assignment);
     },
   });
 

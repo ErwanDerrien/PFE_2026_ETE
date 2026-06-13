@@ -1,8 +1,8 @@
 // --- Argument (more specific than Value) ---
 
 import type { Value } from "./globalType";
+import type { FunctionValue } from "./function";
 import type {
-  FunctionValue,
   IndexAccess,
   PropertyAccess,
   TemplateString,
@@ -10,9 +10,9 @@ import type {
   VariableRef,
 } from "./variable";
 
-type Argument = Value | SpreadArg;
+export type Argument = Value | SpreadArg;
 
-interface SpreadArg {
+export interface SpreadArg {
   kind: "spread-arg";
   value: Value; // foo(...args)
 }

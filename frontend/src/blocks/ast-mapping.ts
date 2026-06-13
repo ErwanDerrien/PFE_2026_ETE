@@ -180,7 +180,7 @@ const traversePath = (
 
       const returnStatement: ReturnStatement = {
         kind: "return",
-        blockUid: scope.uid ?? 0,
+        blockUid: blockUid,
         value: val ?? undefined,
       };
       body.push(returnStatement);

@@ -1,5 +1,5 @@
 import type { FunctionDeclaration, FunctionValue } from "./function";
-import type { NewCall, TaggedTemplate } from "./functionCall";
+import type { Call, NewCall, TaggedTemplate } from "./functionCall";
 import type { ReturnStatement } from "./returnStatement";
 import type {
   BreakStatement,
@@ -11,7 +11,6 @@ import type {
   AssignmentExpression,
   Await,
   BinaryOp,
-  Call,
   IndexAccess,
   Literal,
   ObjectValue,

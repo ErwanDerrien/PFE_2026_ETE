@@ -163,7 +163,8 @@ export interface ObjectDestructure {
 }
 
 export interface DestructuredProp {
-  key: string; // source key
+  kind: "prop";
+  key: string;
   alias?: string; // { x: y }  →  key="x", alias="y"
   default?: Value; // { x = 5 }
   nested?: AssignmentTarget; // { x: { a, b } }
@@ -182,7 +183,7 @@ export interface Rest {
 
 export interface Literal {
   kind: "literal";
-  value: string;
+  value: string | number | boolean | null | undefined;
 }
 
 export interface VariableRef {
@@ -204,12 +205,6 @@ export interface IndexAccess {
   optional: boolean; // arr?.[i]
 }
 
-export interface Call {
-  kind: "call";
-  callee: Value;
-  args: Value[];
-  optional: boolean; // fn?.()
-}
 
 export interface BinaryOp {
   kind: "binary";
@@ -231,11 +226,6 @@ export interface Ternary {
   else: Value;
 }
 
-export interface FunctionValue {
-  kind: "function";
-  params: string[];
-  arrow: boolean;
-}
 
 export interface ArrayValue {
   kind: "array";
@@ -249,7 +239,8 @@ export interface ObjectValue {
 
 export interface TemplateString {
   kind: "template";
-  parts: (string | Value)[]; // alternating static strings and expressions
+  quasis: string[]; // static parts, length === expressions.length + 1
+  expressions: Value[];
 }
 
 export interface Await {

@@ -23,6 +23,7 @@ import type {
   PrimitiveType,
 } from "./types/variable";
 import type { Value } from "./types/globalType";
+import type { Argument, Callee } from "./types/functionCall";
 import type { TypeParam, Parameter } from "./types/parameter";
 
 const generate: (
@@ -179,11 +180,9 @@ export function extractMemberPath(node: t.MemberExpression): {
 
 function valueFromLiteralNode(node: t.Expression): Value | null {
   if (t.isStringLiteral(node)) return { kind: "literal", value: node.value };
-  if (t.isNumericLiteral(node))
-    return { kind: "literal", value: String(node.value) };
-  if (t.isBooleanLiteral(node))
-    return { kind: "literal", value: String(node.value) };
-  if (t.isNullLiteral(node)) return { kind: "literal", value: "null" };
+  if (t.isNumericLiteral(node)) return { kind: "literal", value: node.value };
+  if (t.isBooleanLiteral(node)) return { kind: "literal", value: node.value };
+  if (t.isNullLiteral(node)) return { kind: "literal", value: null };
   if (t.isBigIntLiteral(node))
     return { kind: "literal", value: `${node.value}n` };
   if (t.isRegExpLiteral(node))
@@ -215,11 +214,11 @@ function valueFromCallNode(
 ): Value | null {
   const callee = valueFromNode(node.callee as t.Expression);
   if (!callee) return null;
-  const args: Value[] = [];
+  const args: Argument[] = [];
   for (const arg of node.arguments) {
     if (t.isSpreadElement(arg)) {
       const v = valueFromNode(arg.argument);
-      if (v) args.push({ kind: "unary", op: "...", value: v });
+      if (v) args.push({ kind: "spread-arg", value: v });
     } else {
       const v = valueFromNode(arg as t.Expression);
       if (v) args.push(v);
@@ -228,7 +227,7 @@ function valueFromCallNode(
   const optional = t.isOptionalCallExpression(node)
     ? node.optional
     : ((node as any).optional ?? false);
-  return { kind: "call", callee, args, optional };
+  return { kind: "call", callee: callee as Callee, typeArgs: [], args, optional };
 }
 
 function valueFromFunctionNode(
@@ -289,16 +288,13 @@ function valueFromObjectNode(node: t.ObjectExpression): Value {
 }
 
 function valueFromTemplateNode(node: t.TemplateLiteral): Value {
-  const parts: (string | Value)[] = [];
-  for (let i = 0; i < node.quasis.length; i++) {
-    const q = node.quasis[i];
-    parts.push(q.value.cooked ?? q.value.raw);
-    if (i < node.expressions.length) {
-      const v = valueFromNode(node.expressions[i] as t.Expression);
-      if (v) parts.push(v);
-    }
+  const quasis = node.quasis.map((q) => q.value.cooked ?? q.value.raw);
+  const expressions: Value[] = [];
+  for (const expr of node.expressions) {
+    const v = valueFromNode(expr as t.Expression);
+    if (v) expressions.push(v);
   }
-  return { kind: "template", parts };
+  return { kind: "template", quasis, expressions };
 }
 
 // Converts any expression AST node to the Value union from variable.ts.
@@ -429,17 +425,17 @@ function objectPatternToTarget(node: t.ObjectPattern): ObjectDestructure {
       const leftName = t.isIdentifier(val.left) ? val.left.name : null;
       const def = valueFromNode(val.right);
       if (leftName && leftName !== key) {
-        properties.push({ key, alias: leftName, default: def ?? undefined });
+        properties.push({ kind: "prop", key, alias: leftName, default: def ?? undefined });
       } else {
-        properties.push({ key, default: def ?? undefined });
+        properties.push({ kind: "prop", key, default: def ?? undefined });
       }
     } else if (t.isIdentifier(val)) {
-      properties.push(prop.shorthand ? { key } : { key, alias: val.name });
+      properties.push(prop.shorthand ? { kind: "prop", key } : { kind: "prop", key, alias: val.name });
     } else if (t.isArrayPattern(val) || t.isObjectPattern(val)) {
       const nested = assignmentTargetFromNode(val);
-      properties.push({ key, nested: nested ?? undefined });
+      properties.push({ kind: "prop", key, nested: nested ?? undefined });
     } else {
-      properties.push({ key });
+      properties.push({ kind: "prop", key });
     }
   }
   return { kind: "object-destructure", properties } as ObjectDestructure;

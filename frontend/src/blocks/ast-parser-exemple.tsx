@@ -20,7 +20,7 @@ const AstParserExample = () => {
   const nestedCodeParsed = parse(nestedCode, lang);
 
   // const parsedSimple = parse(assignmentSimple, lang);
-  const parsedCompoundArithmetic = parse(assignmentCompoundArithmetic, lang);
+  // const parsedCompoundArithmetic = parse(assignmentCompoundArithmetic, lang);
   // const parsedCompoundBitwise = parse(assignmentCompoundBitwise, lang);
   // const parsedCompoundLogical = parse(assignmentCompoundLogical, lang);
   // const parsedMemberExpression = parse(assignmentMemberExpression, lang);
@@ -28,8 +28,10 @@ const AstParserExample = () => {
   // const parsedArrayPattern = parse(assignmentArrayPattern, lang);
   // const parsedObjectPattern = parse(assignmentObjectPattern, lang);
 
+  // astToGraph(parsedCode);
+  astToGraph(nestedCodeParsed);
   // astToGraph(parsedSimple);
-  astToGraph(parsedCompoundArithmetic);
+  // astToGraph(parsedCompoundArithmetic);
   // astToGraph(parsedCompoundBitwise);
   // astToGraph(parsedCompoundLogical);
   // astToGraph(parsedMemberExpression);

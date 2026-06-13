@@ -2,75 +2,85 @@ import { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import type {
   BinaryExpression as BinaryExpressionType,
-  Expression,
   FunctionCallDetails,
   FunctionDetails,
   Param,
-  ReturnStatement,
-  VarDeclaration,
-  VariableAssignement,
 } from "./types";
+import type {
+  AssignmentExpression,
+  AssignmentOperator,
+  VariableDeclaration,
+  DeclarationKind,
+} from "./types/variable";
 import {
+  callExpressionToDetails,
+  extractNodeValue,
   getAssignmentPatternTypeInfo,
-  getInfoFromBinaryExpression,
-  getInfoFromVariableDeclaratorType,
-  getLiteralValue,
   getNodeNameOfTypeIdentifier,
   getTypeScriptType,
   isParamFunctionType,
+  valueFromNode,
+  assignmentTargetFromNode,
+  bindingTargetFromPattern,
+  typeAnnotationFromNode,
+  typeParamsFromNode,
+  returnTypeFromNode,
+  paramsToParameters,
 } from "./node-utils";
+import type { ReturnStatement } from "./types/returnStatement";
+import type {
+  FunctionDeclaration as NewFnDecl,
+  FunctionValue as NewFnValue,
+} from "./types/function";
 
 export function getFunctionCallInfo(
   path: NodePath<t.CallExpression | t.ReturnStatement>,
 ): FunctionCallDetails | null {
-  let node = path.node;
-  if (path.isReturnStatement() && path.node.argument != undefined) {
-    node = path.node.argument as t.CallExpression;
+  let node: t.Node = path.node;
+  if (path.isReturnStatement()) {
+    if (!path.node.argument) return null;
+    node = path.node.argument;
   }
-  const order = path.node.start as number;
-  if (node == undefined || node.type !== "CallExpression") return null;
-
-  const args = node.arguments.map((arg) => {
-    const value = getLiteralValue(arg as t.Node);
-    return {
-      name: t.isIdentifier(arg) ? arg.name : undefined,
-      isAFunction: false,
-      value: value ?? undefined,
-    };
-  });
-
-  const calleeName = getNodeNameOfTypeIdentifier(node.callee);
-  if (!calleeName) return null;
-
-  return { arguments: args, calleeFunctionName: calleeName, order };
+  if (node.type !== "CallExpression") return null;
+  const details = callExpressionToDetails(node as t.CallExpression);
+  return details.calleeFunctionName ? details : null;
 }
 
+// Returns a VariableDeclaration covering all patterns:
+//   const x = 1
+//   const [a, b] = arr
+//   const { p, q: r } = obj
+//   let a = 1, b: number = 2
 export function getVariablesDeclaration(
   path: NodePath<t.VariableDeclaration>,
-): Expression {
-  const varList: VarDeclaration[] = [];
-  const currentScope = path.scope;
-
-  path.get("declarations").forEach((decl) => {
-    const variable = getInfoFromVariableDeclaratorType(
-      decl.node as t.VariableDeclarator,
-    );
-    if (!variable) return;
-
-    const callFunctionDetails = getFunctionCallInfo(
-      decl.get("init") as NodePath<t.CallExpression>,
-    );
-    if (callFunctionDetails) variable.value = callFunctionDetails;
-
-    varList.push(variable);
+): VariableDeclaration & {
+  order: number;
+  blockParentId: number;
+  isGlobal: boolean;
+} {
+  const declarations = path.get("declarations").flatMap((decl) => {
+    const node = decl.node as t.VariableDeclarator;
+    const nodeId = node.id;
+    if (
+      !t.isIdentifier(nodeId) &&
+      !t.isArrayPattern(nodeId) &&
+      !t.isObjectPattern(nodeId)
+    )
+      return [];
+    const target = bindingTargetFromPattern(nodeId);
+    if (!target) return [];
+    const init = node.init ? valueFromNode(node.init) : undefined;
+    const type = typeAnnotationFromNode(node);
+    return [{ target, init: init ?? undefined, type }];
   });
 
   return {
+    kind: "variable-declaration",
+    declarationKind: path.node.kind as DeclarationKind,
+    declarations,
     order: path.node.start as number,
-    scope: path.node.kind,
-    variables: varList,
-    blockParentId: currentScope.uid,
-    isGlobal: currentScope.block.type === "Program",
+    blockParentId: path.scope.uid,
+    isGlobal: path.scope.block.type === "Program",
   };
 }
 
@@ -118,18 +128,12 @@ export function processArrowFunctionReturn(
   if (!scope) return;
   const body = path.get("body");
   if (body.isBlockStatement()) return;
-  const returnStatement: ReturnStatement = { blockUid: scope.scopreUid };
-  const impliciteReturnExpression = body.node;
-  const binary = getInfoFromBinaryExpression(
-    impliciteReturnExpression as t.Expression,
-  );
-
-  returnStatement.expression = binary ?? undefined;
-
-  if (body.isCallExpression()) {
-    const callDetails = getFunctionCallInfo(body);
-    returnStatement.functionCallDetails = callDetails ?? undefined;
-  }
+  const returnStatement: ReturnStatement = {
+    kind: "return",
+    blockUid: scope.scopreUid,
+  };
+  const val = valueFromNode(path.node);
+  if (val) returnStatement.value = val;
   scope.return = returnStatement;
 }
 
@@ -139,100 +143,96 @@ export function extractReturnStatement(
 ) {
   if (!scope) return;
 
-  const returnStatement: ReturnStatement = { blockUid: scope.scopreUid };
-  const binary = getInfoFromBinaryExpression(
-    path.node.argument as t.Expression,
-  );
-  const callDetails = getFunctionCallInfo(path);
+  const returnStatement: ReturnStatement = {
+    kind: "return",
+    blockUid: scope.scopreUid,
+  };
 
-  if (binary) {
-    returnStatement.expression = binary;
-  } else if (callDetails) {
-    markFunctionArguments(
-      path.get("argument") as NodePath<t.CallExpression>,
-      callDetails,
-    );
-    returnStatement.functionCallDetails = callDetails;
-  }
+  const val = valueFromNode(path.node.argument);
+  if (val) returnStatement.value = val;
 
   scope.return = returnStatement;
 }
 
-// Maps a right-hand side expression type to a function that extracts its value.
-type RhsExtractor = (
-  exprPath: NodePath<t.Expression>,
-) => string | FunctionCallDetails | BinaryExpressionType | null;
-
-const rhsExtractorMap: Partial<Record<string, RhsExtractor>> = {
-  NumericLiteral: (p) => String((p.node as t.NumericLiteral).value),
-  StringLiteral: (p) => (p.node as t.StringLiteral).value,
-  BooleanLiteral: (p) => String((p.node as t.BooleanLiteral).value),
-  Identifier: (p) => (p.node as t.Identifier).name,
-  CallExpression: (p) => getFunctionCallInfo(p as NodePath<t.CallExpression>),
-  BinaryExpression: (p) => getInfoFromBinaryExpression(p.node),
-  MemberExpression: (_p) => null, // TODO: e.g. obj.prop
-};
-
 export function extractRhsValue(
   exprPath: NodePath<t.Expression>,
 ): string | FunctionCallDetails | BinaryExpressionType | null {
-  const extractor = rhsExtractorMap[exprPath.node.type];
-  if (!extractor) return null;
-  return extractor(exprPath);
+  if (exprPath.isCallExpression()) return getFunctionCallInfo(exprPath);
+  return extractNodeValue(exprPath.node);
 }
 
-type AssignmentHandler = (
-  path: NodePath<t.AssignmentExpression>,
-) => VariableAssignement | null;
-
-function handleSimpleAssignment(
-  path: NodePath<t.AssignmentExpression>,
-): VariableAssignement | null {
+function getFunctionName(path: FunctionLikePath): string {
   const node = path.node;
-  const left = node.left as t.Identifier;
-  const value = extractRhsValue(path.get("right") as NodePath<t.Expression>);
+  if ("id" in node && node.id) return (node.id as t.Identifier).name;
+  if (path.parentPath?.isVariableDeclarator()) {
+    const id = (path.parentPath.node as t.VariableDeclarator).id;
+    if (t.isIdentifier(id)) return id.name;
+  }
+  return "<anonymous>";
+}
+
+export function buildFunctionDeclaration(
+  path: NodePath<t.FunctionDeclaration>,
+): NewFnDecl {
   return {
-    blockParentId: path.scope.uid,
-    order: node.start as number,
-    name: left.name,
-    value: value ?? "",
-    type: getTypeScriptType(left),
-    operator: node.operator,
+    kind: "function-declaration",
+    name: getFunctionName(path as FunctionLikePath),
+    typeParams: typeParamsFromNode(path.node),
+    params: paramsToParameters(path.node.params),
+    returnType: returnTypeFromNode(path.node),
+    async: path.node.async,
+    generator: path.node.generator ?? false,
+    body: { kind: "block", content: [] },
   };
 }
 
-function handleMemberExpressionAssignment(
-  _path: NodePath<t.AssignmentExpression>,
-): VariableAssignement | null {
-  // TODO: implement - e.g. obj.prop = value, obj.nested.value = 10
-  return null;
+export function buildFunctionValue(
+  path: FunctionLikePath,
+  isArrow: boolean,
+): NewFnValue {
+  const node = path.node;
+  const isExpressionBody =
+    isArrow &&
+    t.isArrowFunctionExpression(node) &&
+    !t.isBlockStatement(node.body);
+  const body = isExpressionBody
+    ? (valueFromNode(
+        (node as t.ArrowFunctionExpression).body as t.Expression,
+      ) ?? { kind: "block" as const, content: [] })
+    : { kind: "block" as const, content: [] };
+  return {
+    kind: "function",
+    name: getFunctionName(path),
+    typeParams: typeParamsFromNode(node),
+    params: paramsToParameters(node.params),
+    returnType: returnTypeFromNode(node),
+    async: node.async,
+    generator: "generator" in node ? (node.generator ?? false) : false,
+    arrow: isArrow,
+    body,
+  };
 }
 
-function handleArrayPatternAssignment(
-  _path: NodePath<t.AssignmentExpression>,
-): VariableAssignement | null {
-  // TODO: implement - e.g. [a, b] = [1, 2]
-  return null;
-}
-
-function handleObjectPatternAssignment(
-  _path: NodePath<t.AssignmentExpression>,
-): VariableAssignement | null {
-  // TODO: implement - e.g. ({ p, q } = { p: 3, q: 4 })
-  return null;
-}
-
-const assignmentHandlerMap: Partial<Record<string, AssignmentHandler>> = {
-  Identifier: handleSimpleAssignment,
-  MemberExpression: handleMemberExpressionAssignment,
-  ArrayPattern: handleArrayPatternAssignment,
-  ObjectPattern: handleObjectPatternAssignment,
-};
-
+// Returns an AssignmentExpression covering all left-hand-side patterns:
+//   x = 5
+//   x += 10
+//   obj.prop = val
+//   arr[0] = val
+//   [a, b] = arr
+//   ({ p, q } = obj)
 export function getAssignmentExpression(
   path: NodePath<t.AssignmentExpression>,
-): VariableAssignement | null {
-  const handler = assignmentHandlerMap[path.node.left.type];
-  if (!handler) return null;
-  return handler(path);
+): (AssignmentExpression & { order: number; blockParentId: number }) | null {
+  const node = path.node;
+  const left = assignmentTargetFromNode(node.left);
+  const right = valueFromNode(node.right);
+  if (!left || !right) return null;
+  return {
+    kind: "assignment",
+    operator: node.operator as AssignmentOperator,
+    assignmentTargetName: left,
+    assignmentTargetValue: right,
+    order: node.start as number,
+    blockParentId: path.scope.uid,
+  };
 }

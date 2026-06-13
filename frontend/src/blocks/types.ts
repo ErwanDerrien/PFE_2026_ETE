@@ -1,3 +1,9 @@
+import type { ReturnStatement } from "./types/returnStatement";
+import type {
+  VariableDeclaration,
+  AssignmentExpression as VarAssignmentExpression,
+} from "./types/variable";
+
 export interface Param {
   name: string;
   type: string;
@@ -28,6 +34,15 @@ export interface VariableAssignement {
   operator?: string;
 }
 
+export interface MemberExpressionAssignment {
+  blockParentId: number;
+  order: number;
+  object: string; // root object: "obj"
+  property: string[]; // path: ["prop"] or ["nested", "value"]
+  value: string | FunctionCallDetails | BinaryExpression;
+  operator?: string;
+}
+
 export interface Argument {
   isAFunction: boolean;
   name?: string;
@@ -49,12 +64,25 @@ export interface BinaryExpression {
   rightSideOfOperator: BinaryOperand;
 }
 
+// VariableDeclaration enriched with position/scope metadata
+export type LocatedVariableDeclaration = VariableDeclaration & {
+  order: number;
+  blockParentId: number;
+  isGlobal: boolean;
+};
+
+// AssignmentExpression enriched with position/scope metadata
+export type LocatedAssignmentExpression = VarAssignmentExpression & {
+  order: number;
+  blockParentId: number;
+};
+
 export interface FunctionDetails {
   scopreUid: number;
   name: string;
   params: Param[];
-  expressions: Expression[];
-  assignments: VariableAssignement[];
+  declarations: LocatedVariableDeclaration[];
+  assignments: LocatedAssignmentExpression[];
   calls: FunctionCallDetails[];
   return?: ReturnStatement;
   subFunctions: FunctionDetails[];
@@ -62,10 +90,4 @@ export interface FunctionDetails {
 
 export interface FunctionDeclarationName {
   functionDeclarations: string;
-}
-
-export interface ReturnStatement {
-  blockUid: number;
-  expression?: BinaryExpression;
-  functionCallDetails?: FunctionCallDetails;
 }

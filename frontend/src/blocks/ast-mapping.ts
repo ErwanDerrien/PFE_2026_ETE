@@ -1,60 +1,57 @@
 import _traverse, { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
-import type { FunctionDetails, VariableAssignement } from "./types";
+import type { LocatedAssignmentExpression } from "./types";
+import type {
+  FunctionDeclaration as NewFnDecl,
+  FunctionValue as NewFnValue,
+} from "./types/function";
+import type { Statement } from "./types/globalType";
 import {
   type FunctionLikePath,
-  getFunctionCallInfo,
   getVariablesDeclaration,
-  getParamsFromFunctionLike,
-  markFunctionArguments,
-  extractReturnStatement,
-  processArrowFunctionReturn,
   getAssignmentExpression,
+  buildFunctionDeclaration,
+  buildFunctionValue,
 } from "./path-extractors";
+import { valueFromNode } from "./node-utils";
 
 const traverse =
   typeof _traverse === "function" ? _traverse : (_traverse as any).default;
 
-// Infer a display name for any function-like node.
-// For arrow functions / anonymous expressions, walk up to check if they are
-// assigned to a variable (e.g. `const foo = () => {}`).
-function getFunctionName(path: FunctionLikePath): string {
-  const node = path.node;
-  if ("id" in node && node.id) return node.id.name;
-  if (path.parentPath?.isVariableDeclarator()) {
-    const id = (path.parentPath.node as t.VariableDeclarator).id;
-    if (t.isIdentifier(id)) return id.name;
+type ScopeEntry = { uid: number; fn: NewFnDecl | NewFnValue };
+
+function getBlockBody(fn: NewFnDecl | NewFnValue): Statement[] | null {
+  const body = fn.body;
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "kind" in body &&
+    body.kind === "block"
+  ) {
+    return (body as { kind: "block"; content: Statement[] }).content;
   }
-  return "<anonymous>";
+  return null;
 }
 
-function createEntry(path: FunctionLikePath): FunctionDetails {
-  return {
-    scopreUid: path.scope.uid,
-    name: getFunctionName(path),
-    params: getParamsFromFunctionLike(path),
-    expressions: [],
-    calls: [],
-    subFunctions: [],
-    assignments: [],
-  };
-}
-
-const traversePath = (ast: t.File): Record<number, FunctionDetails> => {
-  const functionMapping: Record<number, FunctionDetails> = {};
-  const scopeStack: FunctionDetails[] = [];
+const traversePath = (ast: t.File): Record<number, NewFnDecl | NewFnValue> => {
+  const functionMapping: Record<number, NewFnDecl | NewFnValue> = {};
+  const scopeStack: ScopeEntry[] = [];
   const current = () => scopeStack.at(-1);
 
-  // Shared enter/exit handlers for every function-like node.
-  // On enter: create an entry, link it to the parent as a subFunction, push to stack.
-  // On exit:  pop so the parent becomes current again.
-  const onFunctionEnter = (path: FunctionLikePath) => {
-    const entry = createEntry(path);
-    current()?.subFunctions.push(entry);
+  const onFunctionEnter = (path: FunctionLikePath, isArrow: boolean) => {
+    const uid = path.scope.uid;
+    const fn = t.isFunctionDeclaration(path.node)
+      ? buildFunctionDeclaration(path as NodePath<t.FunctionDeclaration>)
+      : buildFunctionValue(path, isArrow);
 
-    functionMapping[entry.scopreUid] = entry;
+    // Inline FunctionDeclarations into the parent block as statements
+    const parentEntry = current();
+    if (parentEntry && fn.kind === "function-declaration") {
+      getBlockBody(parentEntry.fn)?.push(fn);
+    }
 
-    scopeStack.push(entry);
+    functionMapping[uid] = fn;
+    scopeStack.push({ uid, fn });
   };
 
   const onFunctionExit = () => {
@@ -64,91 +61,89 @@ const traversePath = (ast: t.File): Record<number, FunctionDetails> => {
   traverse(ast, {
     Program: {
       enter(path: NodePath<t.Program>) {
-        const globalEntry: FunctionDetails = {
-          scopreUid: path.scope.uid,
+        const globalFn: NewFnDecl = {
+          kind: "function-declaration",
           name: "<global>",
-          expressions: [],
-          calls: [],
+          typeParams: [],
           params: [],
-          subFunctions: [],
-          assignments: [],
+          async: false,
+          generator: false,
+          body: { kind: "block", content: [] },
         };
-        functionMapping[globalEntry.scopreUid] = globalEntry;
-        scopeStack.push(globalEntry);
+        functionMapping[path.scope.uid] = globalFn;
+        scopeStack.push({ uid: path.scope.uid, fn: globalFn });
       },
-      exit() {
-        scopeStack.pop();
-      },
+      exit: onFunctionExit,
     },
 
     FunctionDeclaration: {
       enter(path: NodePath<t.FunctionDeclaration>) {
-        onFunctionEnter(path);
+        onFunctionEnter(path, false);
       },
       exit: onFunctionExit,
     },
     FunctionExpression: {
       enter(path: NodePath<t.FunctionExpression>) {
-        onFunctionEnter(path);
+        onFunctionEnter(path, false);
       },
       exit: onFunctionExit,
     },
     ArrowFunctionExpression: {
       enter(path: NodePath<t.ArrowFunctionExpression>) {
-        onFunctionEnter(path);
-        const scope = current();
-        processArrowFunctionReturn(path, scope);
+        onFunctionEnter(path, true);
       },
       exit: onFunctionExit,
     },
 
     CallExpression(path: NodePath<t.CallExpression>) {
+      // Only capture standalone call expression statements, not calls inside other expressions
+      if (!path.parentPath.isExpressionStatement()) return;
       const scope = current();
       if (!scope) return;
-
-      const callee = getFunctionCallInfo(path);
-      if (!callee) return;
-
-      if (t.isIdentifier(path.node.callee)) {
-        const binding = path.scope.getBinding(path.node.callee.name);
-        if (binding?.path.isFunctionDeclaration()) {
-          callee.calleeScopeUid = binding.path.scope.uid;
-        }
-      }
-
-      markFunctionArguments(path, callee);
-      scope.calls.push(callee);
+      const body = getBlockBody(scope.fn);
+      if (!body) return;
+      const callValue = valueFromNode(path.node);
+      if (!callValue) return;
+      body.push({ kind: "expression-statement", value: callValue });
     },
 
     ReturnStatement(path: NodePath<t.ReturnStatement>) {
       if (!path.node.argument) return;
       const scope = current();
-      extractReturnStatement(path, scope);
+      if (!scope) return;
+      const body = getBlockBody(scope.fn);
+      if (!body) return;
+      const val = valueFromNode(path.node.argument);
+      body.push({
+        kind: "return",
+        blockUid: scope.uid,
+        value: val ?? undefined,
+      });
     },
+
     VariableDeclaration(path: NodePath<t.VariableDeclaration>) {
       if (!path.parentPath.isBlockStatement() && !path.parentPath.isProgram())
         return;
       const scope = current();
       if (!scope) return;
-      scope.expressions.push(getVariablesDeclaration(path));
+      const body = getBlockBody(scope.fn);
+      if (!body) return;
+      body.push(getVariablesDeclaration(path));
     },
-    // TODO: if statement
-    IfStatement(path: NodePath<t.IfStatement>) {
-      const order = path.node.start as number;
-      const scope = current();
-      if (!scope) return;
-    },
+
+    // TODO: if statement (Junior)
+    IfStatement(_path: NodePath<t.IfStatement>) {},
+
     AssignmentExpression(path: NodePath<t.AssignmentExpression>) {
       const scope = current();
       if (!scope) return;
-      const assignment: VariableAssignement | null =
-        getAssignmentExpression(path);
-
-      if (assignment) scope.assignments.push(assignment);
+      const body = getBlockBody(scope.fn);
+      if (!body) return;
+      const assignment = getAssignmentExpression(path);
+      if (assignment) body.push(assignment as LocatedAssignmentExpression);
     },
   });
 
-  // TODO: if statement (Junior)
   // TODO: switch case (Junior)
   // TODO: while loops (Adel)
   // TODO: for loops (ideally each case) (Adel)

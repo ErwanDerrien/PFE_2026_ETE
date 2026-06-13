@@ -52,7 +52,7 @@ main();
 
 const nestedCode = `
 function outerFunction(a: number) {
-  function innerFunction(b: number) {
+  function innerFunction(b: number): number {
     return a + b;
   }
 
@@ -123,6 +123,9 @@ function memberExpressionAssignment() {
 const assignmentComputedMember = `
 function computedMemberAssignment() {
   const map: Record<string, number> = {};
+  const obj = { prop: 0, nested: { value: 0 } };
+  obj["prop"] = 5;
+  obj["nested"]["value"] = 10;
   map["key"] = 1;
   return map;
 }
@@ -144,6 +147,83 @@ function objectPatternAssignment() {
 }
 `;
 
+const codeComplex = `
+var globalMultiplier: number = 2;
+
+function fibonacci(n: number): number {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+function makeCounter(start: number) {
+  let count = start;
+  function increment(step: number): number {
+    count += step;
+    return count;
+  }
+  function reset(): number {
+    count = start;
+    return count;
+  }
+  return { increment, reset };
+}
+
+function memoize(fn: (n: number) => number): (n: number) => number {
+  const cache: Record<number, number> = {};
+  function memoized(n: number): number {
+    if (cache[n] !== undefined) return cache[n];
+    cache[n] = fn(n);
+    return cache[n];
+  }
+  return memoized;
+}
+
+function makeRectangle(width: number, height: number) {
+  const area = width * height;
+  const perimeter = 2 * (width + height);
+  function scale(factor: number) {
+    return makeRectangle(width * factor, height * factor);
+  }
+  return { area, perimeter, scale };
+}
+
+function sumFibSequence(memoFib: (n: number) => number): number {
+  const f1 = memoFib(1);
+  const f2 = memoFib(2);
+  const f3 = memoFib(3);
+  const f4 = memoFib(4);
+  const f5 = memoFib(5);
+  return f1 + f2 + f3 + f4 + f5;
+}
+
+function main(): number {
+  const memoFib = memoize(fibonacci);
+
+  const fib5 = memoFib(5);
+  const fib10 = memoFib(10);
+
+  const counter = makeCounter(0);
+  const a = counter.increment(1);
+  const b = counter.increment(2);
+  const c = counter.reset();
+
+  const rect = makeRectangle(10, 5);
+  const scaled = rect.scale(globalMultiplier);
+  const { area, perimeter } = scaled;
+
+  const fibSum = sumFibSequence(memoFib);
+
+  let result = fib5 + fib10;
+  result += fibSum;
+  result += area + perimeter;
+  result += a + b + c;
+
+  return result;
+}
+
+main();
+`;
+
 export {
   code,
   nestedCode,
@@ -155,4 +235,5 @@ export {
   assignmentComputedMember,
   assignmentArrayPattern,
   assignmentObjectPattern,
+  codeComplex,
 };

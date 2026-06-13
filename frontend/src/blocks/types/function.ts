@@ -3,6 +3,7 @@ import type { Parameter, TypeParam } from "./parameter";
 import type { TypeAnnotation } from "./variable";
 
 export interface FunctionDeclaration {
+  uid?: number;
   kind: "function-declaration";
   name: string; // required — declarations always have a name
   typeParams: TypeParam[]; // function foo<T, U>()
@@ -17,6 +18,7 @@ export interface FunctionDeclaration {
 // Replaces the bare version from before
 
 export interface FunctionValue {
+  uid?: number;
   kind: "function";
   name?: string; // named fn expression: const x = function foo() {}
   typeParams: TypeParam[];

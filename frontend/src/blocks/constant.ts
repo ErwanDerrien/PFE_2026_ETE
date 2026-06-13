@@ -224,6 +224,59 @@ function main(): number {
 main();
 `;
 
+const switchCaseCode = `
+function classify(value: number): string {
+  let category: string;
+  let bonus: number = 0;
+
+  switch (true) {
+    case value < 0:
+      category = "negative";
+      bonus = value * 2;
+      break;
+    case value === 0:
+      category = "zero";
+      break;
+    case value > 0 && value <= 10:
+      category = "small";
+      bonus = value + 1;
+      break;
+    case value > 10 && value <= 100:
+      category = "medium";
+      bonus = value * 3;
+      break;
+    default:
+      category = "large";
+      bonus = value - 50;
+      break;
+  }
+
+  return category + ":" + bonus;
+}
+
+function describeStatus(code: number): string {
+  switch (code) {
+    case 200:
+    case 201:
+      return "success";
+    case 400:
+      return "bad request";
+    case 401:
+    case 403:
+      return "unauthorized";
+    case 404:
+      return "not found";
+    case 500:
+      return "server error";
+    default:
+      return "unknown";
+  }
+}
+
+classify(42);
+describeStatus(404);
+`;
+
 export {
   code,
   nestedCode,
@@ -236,4 +289,5 @@ export {
   assignmentArrayPattern,
   assignmentObjectPattern,
   codeComplex,
+  switchCaseCode,
 };

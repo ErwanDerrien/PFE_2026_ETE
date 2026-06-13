@@ -9,6 +9,8 @@ import {
   assignmentComputedMember,
   assignmentArrayPattern,
   assignmentObjectPattern,
+  codeComplex,
+  switchCaseCode,
 } from "./constant";
 import { astToGraph, parse } from "../sync/transforms";
 import type { SupportedLanguage } from "../shared/ast";
@@ -17,8 +19,8 @@ const lang = "typescript" as SupportedLanguage;
 
 const AstParserExample = () => {
   const parsedCode = parse(code, lang);
-  const nestedCodeParsed = parse(nestedCode, lang);
-
+  // const nestedCodeParsed = parse(nestedCode, lang);
+  const complexCodeParsed = parse(codeComplex, lang);
   // const parsedSimple = parse(assignmentSimple, lang);
   // const parsedCompoundArithmetic = parse(assignmentCompoundArithmetic, lang);
   // const parsedCompoundBitwise = parse(assignmentCompoundBitwise, lang);
@@ -27,9 +29,11 @@ const AstParserExample = () => {
   // const parsedComputedMember = parse(assignmentComputedMember, lang);
   // const parsedArrayPattern = parse(assignmentArrayPattern, lang);
   // const parsedObjectPattern = parse(assignmentObjectPattern, lang);
+  const parsedSwitch = parse(switchCaseCode, lang);
 
+  // astToGraph(complexCodeParsed);
   // astToGraph(parsedCode);
-  astToGraph(nestedCodeParsed);
+  // astToGraph(nestedCodeParsed);
   // astToGraph(parsedSimple);
   // astToGraph(parsedCompoundArithmetic);
   // astToGraph(parsedCompoundBitwise);
@@ -38,6 +42,7 @@ const AstParserExample = () => {
   // astToGraph(parsedComputedMember);
   // astToGraph(parsedArrayPattern);
   // astToGraph(parsedObjectPattern);
+  astToGraph(parsedSwitch);
 
   return (
     <div>

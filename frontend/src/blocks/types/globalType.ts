@@ -2,6 +2,11 @@ import type { FunctionDeclaration, FunctionValue } from "./function";
 import type { NewCall, TaggedTemplate } from "./functionCall";
 import type { ReturnStatement } from "./returnStatement";
 import type {
+  BreakStatement,
+  ContinueStatement,
+  SwitchStatement,
+} from "./switch-case";
+import type {
   ArrayValue,
   AssignmentExpression,
   Await,
@@ -24,7 +29,10 @@ export type Statement =
   | AssignmentExpression
   | ReturnStatement
   | FunctionDeclaration
-  | ExpressionStatement;
+  | ExpressionStatement
+  | SwitchStatement
+  | BreakStatement
+  | ContinueStatement;
 
 interface ExpressionStatement {
   kind: "expression-statement";

@@ -32,6 +32,8 @@ import type {
   FunctionDeclaration as NewFnDecl,
   FunctionValue as NewFnValue,
 } from "./types/function";
+import type { SwitchCase, SwitchStatement } from "./types/switch-case";
+import type { Statement } from "./types/globalType";
 
 export function getFunctionCallInfo(
   path: NodePath<t.CallExpression | t.ReturnStatement>,
@@ -99,6 +101,35 @@ export function getParamsFromFunctionLike(path: FunctionLikePath): Param[] {
       isAFunction,
     };
   });
+}
+
+export function getSwitchStatement(
+  path: NodePath<t.SwitchStatement>,
+): SwitchStatement | null {
+  console.log("path.node", path.node);
+  const discriminant = valueFromNode(path.node.discriminant);
+  if (!discriminant) return null;
+
+  return {
+    uid: path.scope.uid,
+    kind: "switch",
+    discriminant,
+    cases: [],
+  };
+}
+
+export function getSwitchCase(path: NodePath<t.SwitchCase>): SwitchCase | null {
+  if (!path.node.test) {
+    return { uid: path.scope.uid, kind: "default", body: [] };
+  }
+  const test = valueFromNode(path.node.test);
+  if (!test) return null;
+  return {
+    uid: path.scope.uid,
+    kind: "case",
+    test,
+    body: [],
+  };
 }
 
 // For each argument of a call expression, check via scope bindings whether it
@@ -175,6 +206,7 @@ export function buildFunctionDeclaration(
   path: NodePath<t.FunctionDeclaration>,
 ): NewFnDecl {
   return {
+    uid: path.scope.uid,
     kind: "function-declaration",
     name: getFunctionName(path as FunctionLikePath),
     typeParams: typeParamsFromNode(path.node),
@@ -201,6 +233,7 @@ export function buildFunctionValue(
       ) ?? { kind: "block" as const, content: [] })
     : { kind: "block" as const, content: [] };
   return {
+    uid: path.scope.uid,
     kind: "function",
     name: getFunctionName(path),
     typeParams: typeParamsFromNode(node),

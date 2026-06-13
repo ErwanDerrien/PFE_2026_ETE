@@ -621,7 +621,6 @@ export function typeParamsFromNode(node: FunctionLikeNode): TypeParam[] {
 export function returnTypeFromNode(
   node: FunctionLikeNode,
 ): TypeAnnotation | undefined {
-  console.log("node.returnType", node);
   if (!node.returnType || !t.isTSTypeAnnotation(node.returnType))
     return { kind: "primitive", name: "any" };
   return tsTypeToAnnotation(node.returnType.typeAnnotation);

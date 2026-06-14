@@ -11,6 +11,7 @@ import type {
   AssignmentOperator,
   VariableDeclaration,
   DeclarationKind,
+  TypeAnnotation,
 } from "./types/variable";
 import {
   callExpressionToDetails,
@@ -26,6 +27,7 @@ import {
   typeParamsFromNode,
   returnTypeFromNode,
   paramsToParameters,
+  interfaceMembersFromNode,
 } from "./node-utils";
 import type { ReturnStatement } from "./types/returnStatement";
 import type {
@@ -33,7 +35,9 @@ import type {
   FunctionValue as NewFnValue,
 } from "./types/function";
 import type { SwitchCase, SwitchStatement } from "./types/switch-case";
-import type { Statement } from "./types/globalType";
+import type { Block, Statement } from "./types/globalType";
+import type { InterfaceDeclaration } from "./types/interface";
+import type { IfStatement } from "./types/ifStatement";
 
 export function getFunctionCallInfo(
   path: NodePath<t.CallExpression | t.ReturnStatement>,
@@ -132,6 +136,39 @@ export function getSwitchCase(path: NodePath<t.SwitchCase>): SwitchCase | null {
   };
 }
 
+export function getInterfaceDeclaration(
+  path: NodePath<t.TSInterfaceDeclaration>,
+): InterfaceDeclaration | null {
+  const typesAnnotation: TypeAnnotation[] = [];
+
+  path.node.extends?.forEach((e) => {
+    const typeAnnotation = typeAnnotationFromNode(e);
+    if (typeAnnotation) {
+      typesAnnotation.push(typeAnnotation);
+    }
+  });
+
+  return {
+    kind: "interface-declaration",
+    name: path.node.id.name,
+    typeParams: typeParamsFromNode(path.node) ?? [],
+    extends: typesAnnotation,
+    members: interfaceMembersFromNode(path.node.body),
+  };
+}
+
+export function getIfStatement(
+  path: NodePath<t.IfStatement>,
+): IfStatement | null {
+  const condition = valueFromNode(path.node.test);
+  if (!condition) return null;
+  return {
+    uid: path.scope.uid,
+    kind: "if",
+    condition,
+    then: { kind: "block", content: [] },
+  };
+}
 // For each argument of a call expression, check via scope bindings whether it
 // resolves to a function declaration/expression/arrow, and flag it accordingly.
 export function markFunctionArguments(

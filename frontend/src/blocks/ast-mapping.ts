@@ -2,7 +2,8 @@ import _traverse, { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import type { LocatedAssignmentExpression } from "./types";
 import type { FunctionDeclaration, FunctionValue } from "./types/function";
-import type { Statement } from "./types/globalType";
+import type { Block, Statement } from "./types/globalType";
+import type { IfStatement } from "./types/ifStatement";
 import {
   type FunctionLikePath,
   getVariablesDeclaration,
@@ -11,6 +12,8 @@ import {
   buildFunctionValue,
   getSwitchCase,
   getSwitchStatement,
+  getInterfaceDeclaration,
+  getIfStatement,
 } from "./path-extractors";
 import { valueFromNode } from "./node-utils";
 import type { SwitchCase, SwitchStatement } from "./types/switch-case";
@@ -19,15 +22,27 @@ import type { ReturnStatement } from "./types/returnStatement";
 const traverse =
   typeof _traverse === "function" ? _traverse : (_traverse as any).default;
 
+interface IfScope {
+  kind: "if-scope";
+  statement: IfStatement;
+  activeBranch: "then" | "else";
+}
+
 type Blocks =
   | FunctionDeclaration
   | FunctionValue
   | SwitchStatement
-  | SwitchCase;
+  | SwitchCase
+  | IfScope;
 
 function getBlockBody(fn: Blocks): Statement[] | null {
-  if (fn.kind == "switch") {
-    return null;
+  if (fn.kind === "switch") return null;
+
+  if (fn.kind === "if-scope") {
+    const branch =
+      fn.activeBranch === "then" ? fn.statement.then : fn.statement.else;
+    if (!branch || branch.kind === "if") return null;
+    return branch.content;
   }
 
   const body = fn.body;
@@ -195,8 +210,62 @@ const traversePath = (
       if (!body) return;
       body.push(getVariablesDeclaration(path));
     },
-    // TODO: if statement (Junior)
-    IfStatement(_path: NodePath<t.IfStatement>) {},
+    InterfaceDeclaration(path: NodePath<t.TSInterfaceDeclaration>) {
+      const scope = current();
+      if (!scope) return;
+      const body = getBlockBody(scope);
+      if (!body) return;
+      const interfaceDeclaration = getInterfaceDeclaration(path);
+
+      if (!interfaceDeclaration) return;
+      body.push(interfaceDeclaration);
+    },
+    BlockStatement: {
+      enter(path: NodePath<t.BlockStatement>) {
+        const scope = current();
+        if (!scope || scope.kind !== "if-scope") return;
+        const parentPath = path.parentPath;
+        if (!parentPath?.isIfStatement()) return;
+        // Switching into the else { } branch
+        if (parentPath.node.alternate === path.node) {
+          const elseBlock: Block = { kind: "block", content: [] };
+          scope.statement.else = elseBlock;
+          scope.activeBranch = "else";
+        }
+      },
+    },
+    IfStatement: {
+      enter(path: NodePath<t.IfStatement>) {
+        const parentPath = path.parentPath;
+        const isElseIf =
+          parentPath?.isIfStatement() &&
+          parentPath.node.alternate === path.node;
+
+        const scope = current();
+        if (!scope) return;
+
+        const ifStatement = getIfStatement(path);
+        if (!ifStatement) return;
+
+        if (isElseIf) {
+          if (scope.kind === "if-scope") {
+            scope.statement.else = ifStatement;
+          }
+        } else {
+          const body = getBlockBody(scope);
+          if (body) body.push(ifStatement);
+        }
+
+        scopeStack.push({
+          kind: "if-scope",
+          statement: ifStatement,
+          activeBranch: "then",
+        });
+      },
+      exit() {
+        onBlockExit();
+      },
+    },
 
     AssignmentExpression(path: NodePath<t.AssignmentExpression>) {
       const scope = current();

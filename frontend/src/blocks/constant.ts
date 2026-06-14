@@ -277,6 +277,55 @@ classify(42);
 describeStatus(404);
 `;
 
+const ifStatementCode = `
+function getDiscount(price: number, isMember: boolean, quantity: number): number {
+  let discount = 0;
+
+  if (price <= 0) {
+    return 0;
+  }
+
+  if (isMember) {
+    discount += 10;
+  } else {
+    discount += 0;
+  }
+
+  if (quantity >= 100) {
+    discount += 20;
+  } else if (quantity >= 50) {
+    discount += 10;
+  } else if (quantity >= 10) {
+    discount += 5;
+  } else {
+    discount += 0;
+  }
+
+  if (isMember && quantity >= 50) {
+    discount += 5;
+  }
+
+  return discount;
+}
+
+function classify(score: number): string {
+  if (score >= 90) {
+    return "A";
+  } else if (score >= 80) {
+    return "B";
+  } else if (score >= 70) {
+    return "C";
+  } else if (score >= 60) {
+    return "D";
+  } else {
+    return "F";
+  }
+}
+
+getDiscount(200, true, 60);
+classify(85);
+`;
+
 export {
   code,
   nestedCode,
@@ -290,4 +339,5 @@ export {
   assignmentObjectPattern,
   codeComplex,
   switchCaseCode,
+  ifStatementCode,
 };

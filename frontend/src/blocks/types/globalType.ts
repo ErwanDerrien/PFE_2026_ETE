@@ -1,5 +1,7 @@
 import type { FunctionDeclaration, FunctionValue } from "./function";
 import type { Call, NewCall, TaggedTemplate } from "./functionCall";
+import type { IfStatement } from "./ifStatement";
+import type { InterfaceDeclaration } from "./interface";
 import type { ReturnStatement } from "./returnStatement";
 import type {
   BreakStatement,
@@ -31,7 +33,9 @@ export type Statement =
   | ExpressionStatement
   | SwitchStatement
   | BreakStatement
-  | ContinueStatement;
+  | ContinueStatement
+  | InterfaceDeclaration
+  | IfStatement;
 
 interface ExpressionStatement {
   kind: "expression-statement";
@@ -56,3 +60,8 @@ export type Value =
   | TemplateString
   | Await
   | Yield;
+
+export interface Block {
+  kind: "block";
+  content: Statement[];
+}

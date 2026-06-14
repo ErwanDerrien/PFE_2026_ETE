@@ -1,4 +1,4 @@
-import type { Statement, Value } from "./globalType";
+import type { Block, Value } from "./globalType";
 import type { Parameter, TypeParam } from "./parameter";
 import type { TypeAnnotation } from "./variable";
 
@@ -28,12 +28,4 @@ export interface FunctionValue {
   generator: boolean;
   arrow: boolean; // distinguishes => from function keyword
   body: Block | Value; // Value only for arrow shorthand: x => x + 1
-}
-
-// --- Updated Block ---
-// Can contain any statement, including nested function declarations
-
-interface Block {
-  kind: "block";
-  content: Statement[];
 }

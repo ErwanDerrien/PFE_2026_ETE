@@ -11,6 +11,7 @@ import {
   assignmentObjectPattern,
   codeComplex,
   switchCaseCode,
+  ifStatementCode,
 } from "./constant";
 import { astToGraph, parse } from "../sync/transforms";
 import type { SupportedLanguage } from "../shared/ast";
@@ -29,7 +30,8 @@ const AstParserExample = () => {
   // const parsedComputedMember = parse(assignmentComputedMember, lang);
   // const parsedArrayPattern = parse(assignmentArrayPattern, lang);
   // const parsedObjectPattern = parse(assignmentObjectPattern, lang);
-  const parsedSwitch = parse(switchCaseCode, lang);
+  // const parsedSwitch = parse(switchCaseCode, lang);
+  const ifStatementCodeParsed = parse(ifStatementCode, lang);
 
   // astToGraph(complexCodeParsed);
   // astToGraph(parsedCode);
@@ -42,7 +44,8 @@ const AstParserExample = () => {
   // astToGraph(parsedComputedMember);
   // astToGraph(parsedArrayPattern);
   // astToGraph(parsedObjectPattern);
-  astToGraph(parsedSwitch);
+  // astToGraph(parsedSwitch);
+  astToGraph(ifStatementCodeParsed);
 
   return (
     <div>

@@ -25,6 +25,7 @@ import type {
 import type { Value } from "./types/globalType";
 import type { Argument, Callee } from "./types/functionCall";
 import type { TypeParam, Parameter } from "./types/parameter";
+import type { InterfaceMember } from "./types/interface";
 
 const generate: (
   ast: Node,
@@ -227,7 +228,13 @@ function valueFromCallNode(
   const optional = t.isOptionalCallExpression(node)
     ? node.optional
     : ((node as any).optional ?? false);
-  return { kind: "call", callee: callee as Callee, typeArgs: [], args, optional };
+  return {
+    kind: "call",
+    callee: callee as Callee,
+    typeArgs: [],
+    args,
+    optional,
+  };
 }
 
 function valueFromFunctionNode(
@@ -425,12 +432,21 @@ function objectPatternToTarget(node: t.ObjectPattern): ObjectDestructure {
       const leftName = t.isIdentifier(val.left) ? val.left.name : null;
       const def = valueFromNode(val.right);
       if (leftName && leftName !== key) {
-        properties.push({ kind: "prop", key, alias: leftName, default: def ?? undefined });
+        properties.push({
+          kind: "prop",
+          key,
+          alias: leftName,
+          default: def ?? undefined,
+        });
       } else {
         properties.push({ kind: "prop", key, default: def ?? undefined });
       }
     } else if (t.isIdentifier(val)) {
-      properties.push(prop.shorthand ? { kind: "prop", key } : { kind: "prop", key, alias: val.name });
+      properties.push(
+        prop.shorthand
+          ? { kind: "prop", key }
+          : { kind: "prop", key, alias: val.name },
+      );
     } else if (t.isArrayPattern(val) || t.isObjectPattern(val)) {
       const nested = assignmentTargetFromNode(val);
       properties.push({ kind: "prop", key, nested: nested ?? undefined });
@@ -601,7 +617,14 @@ type FunctionLikeNode =
   | t.FunctionExpression
   | t.ArrowFunctionExpression;
 
-export function typeParamsFromNode(node: FunctionLikeNode): TypeParam[] {
+type TypeParamNode =
+  | FunctionLikeNode
+  | t.TSInterfaceDeclaration
+  | t.TSMethodSignature
+  | t.TSCallSignatureDeclaration
+  | t.TSConstructSignatureDeclaration;
+
+export function typeParamsFromNode(node: TypeParamNode): TypeParam[] {
   if (
     !node.typeParameters ||
     !t.isTSTypeParameterDeclaration(node.typeParameters)
@@ -620,6 +643,106 @@ export function returnTypeFromNode(
   if (!node.returnType || !t.isTSTypeAnnotation(node.returnType))
     return { kind: "primitive", name: "any" };
   return tsTypeToAnnotation(node.returnType.typeAnnotation);
+}
+
+function memberKeyName(key: t.Expression): string {
+  if (t.isIdentifier(key)) return key.name;
+  if (t.isStringLiteral(key)) return key.value;
+  if (t.isNumericLiteral(key)) return String(key.value);
+  return generate(key).code;
+}
+
+function memberReturnType(
+  ann: t.TSTypeAnnotation | null | undefined,
+): TypeAnnotation {
+  if (ann) return tsTypeToAnnotation(ann.typeAnnotation);
+  return { kind: "primitive", name: "void" };
+}
+
+export function interfaceMembersFromNode(
+  body: t.TSInterfaceBody,
+): InterfaceMember[] {
+  return body.body.flatMap((member): InterfaceMember[] => {
+    if (t.isTSPropertySignature(member)) {
+      const type = member.typeAnnotation
+        ? tsTypeToAnnotation(member.typeAnnotation.typeAnnotation)
+        : ({ kind: "primitive", name: "any" } as PrimitiveType);
+      return [
+        {
+          kind: "property-signature",
+          name: memberKeyName(member.key as t.Expression),
+          optional: member.optional ?? false,
+          readonly: member.readonly ?? false,
+          type,
+        },
+      ];
+    }
+
+    if (t.isTSMethodSignature(member)) {
+      return [
+        {
+          kind: "method-signature",
+          name: memberKeyName(member.key as t.Expression),
+          optional: member.optional ?? false,
+          typeParams: typeParamsFromNode(member),
+          params: paramsToParameters(
+            member.parameters as t.FunctionParameter[],
+          ),
+          returnType: memberReturnType(member.typeAnnotation),
+        },
+      ];
+    }
+
+    if (t.isTSIndexSignature(member)) {
+      const param = member.parameters[0];
+      const keyName = t.isIdentifier(param) ? param.name : generate(param).code;
+      const keyType = (param as any)?.typeAnnotation
+        ? (tsTypeToAnnotation(
+            (param as any).typeAnnotation.typeAnnotation,
+          ) as PrimitiveType)
+        : ({ kind: "primitive", name: "string" } as PrimitiveType);
+      const valueType = member.typeAnnotation
+        ? tsTypeToAnnotation(member.typeAnnotation.typeAnnotation)
+        : ({ kind: "primitive", name: "any" } as PrimitiveType);
+      return [
+        {
+          kind: "index-signature",
+          keyName,
+          keyType,
+          valueType,
+          readonly: member.readonly ?? false,
+        },
+      ];
+    }
+
+    if (t.isTSCallSignatureDeclaration(member)) {
+      return [
+        {
+          kind: "call-signature",
+          typeParams: typeParamsFromNode(member),
+          params: paramsToParameters(
+            member.parameters as t.FunctionParameter[],
+          ),
+          returnType: memberReturnType(member.typeAnnotation),
+        },
+      ];
+    }
+
+    if (t.isTSConstructSignatureDeclaration(member)) {
+      return [
+        {
+          kind: "construct-signature",
+          typeParams: typeParamsFromNode(member),
+          params: paramsToParameters(
+            member.parameters as t.FunctionParameter[],
+          ),
+          returnType: memberReturnType(member.typeAnnotation),
+        },
+      ];
+    }
+
+    return [];
+  });
 }
 
 export function paramsToParameters(params: t.FunctionParameter[]): Parameter[] {

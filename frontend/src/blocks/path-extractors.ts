@@ -38,6 +38,14 @@ import type { SwitchCase, SwitchStatement } from "./types/switch-case";
 import type { Block, Statement } from "./types/globalType";
 import type { InterfaceDeclaration } from "./types/interface";
 import type { IfStatement } from "./types/ifStatement";
+import type {
+  DoWhileStatement,
+  ForInStatement,
+  ForOfStatement,
+  ForStatement,
+  WhileStatement,
+} from "./types/loops";
+import type { CatchClause, TryStatement } from "./types/tryCatch";
 
 export function getFunctionCallInfo(
   path: NodePath<t.CallExpression | t.ReturnStatement>,
@@ -167,6 +175,128 @@ export function getIfStatement(
     kind: "if",
     condition,
     then: { kind: "block", content: [] },
+  };
+}
+
+export function getWhileStatement(
+  path: NodePath<t.WhileStatement>,
+): WhileStatement | null {
+  const condition = valueFromNode(path.node.test);
+  if (!condition) return null;
+  return {
+    uid: path.scope.uid,
+    kind: "while",
+    condition,
+    body: { kind: "block", content: [] },
+  };
+}
+
+export function getDoWhileStatement(
+  path: NodePath<t.DoWhileStatement>,
+): DoWhileStatement | null {
+  const condition = valueFromNode(path.node.test);
+  if (!condition) return null;
+  return {
+    uid: path.scope.uid,
+    kind: "do-while",
+    condition,
+    body: { kind: "block", content: [] },
+  };
+}
+
+export function getForStatement(
+  path: NodePath<t.ForStatement>,
+): ForStatement {
+  const node = path.node;
+
+  let init: ForStatement["init"];
+  const initPath = path.get("init");
+  if (initPath.isVariableDeclaration()) {
+    init = getVariablesDeclaration(initPath);
+  } else if (node.init) {
+    init = valueFromNode(node.init as t.Expression) ?? undefined;
+  }
+
+  const test = node.test ? (valueFromNode(node.test) ?? undefined) : undefined;
+  const update = node.update
+    ? (valueFromNode(node.update) ?? undefined)
+    : undefined;
+
+  return {
+    uid: path.scope.uid,
+    kind: "for",
+    init,
+    test,
+    update,
+    body: { kind: "block", content: [] },
+  };
+}
+
+export function getForInStatement(
+  path: NodePath<t.ForInStatement>,
+): ForInStatement | null {
+  const right = valueFromNode(path.node.right);
+  if (!right) return null;
+
+  const leftPath = path.get("left");
+  const left = leftPath.isVariableDeclaration()
+    ? getVariablesDeclaration(leftPath)
+    : assignmentTargetFromNode(path.node.left as t.LVal);
+  if (!left) return null;
+
+  return {
+    uid: path.scope.uid,
+    kind: "for-in",
+    left,
+    right,
+    body: { kind: "block", content: [] },
+  };
+}
+
+export function getForOfStatement(
+  path: NodePath<t.ForOfStatement>,
+): ForOfStatement | null {
+  const right = valueFromNode(path.node.right);
+  if (!right) return null;
+
+  const leftPath = path.get("left");
+  const left = leftPath.isVariableDeclaration()
+    ? getVariablesDeclaration(leftPath)
+    : assignmentTargetFromNode(path.node.left as t.LVal);
+  if (!left) return null;
+
+  return {
+    uid: path.scope.uid,
+    kind: "for-of",
+    await: path.node.await,
+    left,
+    right,
+    body: { kind: "block", content: [] },
+  };
+}
+
+export function getTryStatement(path: NodePath<t.TryStatement>): TryStatement {
+  return {
+    uid: path.scope.uid,
+    kind: "try",
+    block: { kind: "block", content: [] },
+  };
+}
+
+export function getCatchClause(path: NodePath<t.CatchClause>): CatchClause {
+  const paramNode = path.node.param;
+  const param =
+    paramNode &&
+    (t.isIdentifier(paramNode) ||
+      t.isArrayPattern(paramNode) ||
+      t.isObjectPattern(paramNode))
+      ? (bindingTargetFromPattern(paramNode) ?? undefined)
+      : undefined;
+
+  return {
+    kind: "catch",
+    param,
+    body: { kind: "block", content: [] },
   };
 }
 // For each argument of a call expression, check via scope bindings whether it

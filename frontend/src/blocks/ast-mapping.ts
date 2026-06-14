@@ -14,10 +14,25 @@ import {
   getSwitchStatement,
   getInterfaceDeclaration,
   getIfStatement,
+  getWhileStatement,
+  getDoWhileStatement,
+  getForStatement,
+  getForInStatement,
+  getForOfStatement,
+  getTryStatement,
+  getCatchClause,
 } from "./path-extractors";
 import { valueFromNode } from "./node-utils";
 import type { SwitchCase, SwitchStatement } from "./types/switch-case";
 import type { ReturnStatement } from "./types/returnStatement";
+import type {
+  DoWhileStatement,
+  ForInStatement,
+  ForOfStatement,
+  ForStatement,
+  WhileStatement,
+} from "./types/loops";
+import type { TryStatement } from "./types/tryCatch";
 
 const traverse =
   typeof _traverse === "function" ? _traverse : (_traverse as any).default;
@@ -28,12 +43,33 @@ interface IfScope {
   activeBranch: "then" | "else";
 }
 
+interface LoopScope {
+  kind: "loop-scope";
+  // null when the builder failed: the scope is kept so the matching exit()
+  // stays balanced, but its body collects nothing.
+  statement:
+    | WhileStatement
+    | DoWhileStatement
+    | ForStatement
+    | ForInStatement
+    | ForOfStatement
+    | null;
+}
+
+interface TryScope {
+  kind: "try-scope";
+  statement: TryStatement;
+  active: "block" | "handler" | "finalizer";
+}
+
 type Blocks =
   | FunctionDeclaration
   | FunctionValue
   | SwitchStatement
   | SwitchCase
-  | IfScope;
+  | IfScope
+  | LoopScope
+  | TryScope;
 
 function getBlockBody(fn: Blocks): Statement[] | null {
   if (fn.kind === "switch") return null;
@@ -43,6 +79,17 @@ function getBlockBody(fn: Blocks): Statement[] | null {
       fn.activeBranch === "then" ? fn.statement.then : fn.statement.else;
     if (!branch || branch.kind === "if") return null;
     return branch.content;
+  }
+
+  if (fn.kind === "loop-scope") {
+    return fn.statement ? fn.statement.body.content : null;
+  }
+
+  if (fn.kind === "try-scope") {
+    if (fn.active === "block") return fn.statement.block.content;
+    if (fn.active === "handler")
+      return fn.statement.handler?.body.content ?? null;
+    return fn.statement.finalizer?.content ?? null;
   }
 
   const body = fn.body;
@@ -87,6 +134,18 @@ const traversePath = (
 
   const onBlockExit = () => {
     scopeStack.pop();
+  };
+
+  // Push a loop statement into the current block, then enter its body scope.
+  // A null statement (builder failed) still pushes a scope so the matching
+  // exit() stays balanced — the loop is simply skipped.
+  const enterLoop = (statement: LoopScope["statement"]) => {
+    if (statement) {
+      const scope = current();
+      const body = scope ? getBlockBody(scope) : null;
+      if (body) body.push(statement);
+    }
+    scopeStack.push({ kind: "loop-scope", statement });
   };
 
   traverse(ast, {
@@ -168,7 +227,81 @@ const traversePath = (
         if (!scope) return;
         const body = getBlockBody(scope);
         if (!body) return;
-        body.push({ kind: "break" });
+        body.push({ kind: "break", label: _path.node.label?.name });
+      },
+    },
+    ContinueStatement: {
+      enter(_path: NodePath<t.ContinueStatement>) {
+        const scope = current();
+        if (!scope) return;
+        const body = getBlockBody(scope);
+        if (!body) return;
+        body.push({ kind: "continue", label: _path.node.label?.name });
+      },
+    },
+    WhileStatement: {
+      enter(path: NodePath<t.WhileStatement>) {
+        enterLoop(getWhileStatement(path));
+      },
+      exit: onBlockExit,
+    },
+    DoWhileStatement: {
+      enter(path: NodePath<t.DoWhileStatement>) {
+        enterLoop(getDoWhileStatement(path));
+      },
+      exit: onBlockExit,
+    },
+    ForStatement: {
+      enter(path: NodePath<t.ForStatement>) {
+        enterLoop(getForStatement(path));
+      },
+      exit: onBlockExit,
+    },
+    ForInStatement: {
+      enter(path: NodePath<t.ForInStatement>) {
+        enterLoop(getForInStatement(path));
+      },
+      exit: onBlockExit,
+    },
+    ForOfStatement: {
+      enter(path: NodePath<t.ForOfStatement>) {
+        enterLoop(getForOfStatement(path));
+      },
+      exit: onBlockExit,
+    },
+    TryStatement: {
+      enter(path: NodePath<t.TryStatement>) {
+        const scope = current();
+        if (!scope) return;
+        const body = getBlockBody(scope);
+        if (!body) return;
+        const tryStatement = getTryStatement(path);
+        body.push(tryStatement);
+        scopeStack.push({
+          kind: "try-scope",
+          statement: tryStatement,
+          active: "block",
+        });
+      },
+      exit: onBlockExit,
+    },
+    CatchClause: {
+      enter(path: NodePath<t.CatchClause>) {
+        const scope = current();
+        if (scope?.kind !== "try-scope") return;
+        scope.statement.handler = getCatchClause(path);
+        scope.active = "handler";
+      },
+    },
+    ThrowStatement: {
+      enter(path: NodePath<t.ThrowStatement>) {
+        const scope = current();
+        if (!scope) return;
+        const body = getBlockBody(scope);
+        if (!body) return;
+        const value = valueFromNode(path.node.argument);
+        if (!value) return;
+        body.push({ kind: "throw", value });
       },
     },
     CallExpression(path: NodePath<t.CallExpression>) {
@@ -223,14 +356,32 @@ const traversePath = (
     BlockStatement: {
       enter(path: NodePath<t.BlockStatement>) {
         const scope = current();
-        if (!scope || scope.kind !== "if-scope") return;
+        if (!scope) return;
         const parentPath = path.parentPath;
-        if (!parentPath?.isIfStatement()) return;
-        // Switching into the else { } branch
-        if (parentPath.node.alternate === path.node) {
-          const elseBlock: Block = { kind: "block", content: [] };
-          scope.statement.else = elseBlock;
-          scope.activeBranch = "else";
+
+        if (scope.kind === "if-scope") {
+          if (!parentPath?.isIfStatement()) return;
+          // Switching into the else { } branch
+          if (parentPath.node.alternate === path.node) {
+            const elseBlock: Block = { kind: "block", content: [] };
+            scope.statement.else = elseBlock;
+            scope.activeBranch = "else";
+          }
+          return;
+        }
+
+        if (scope.kind === "try-scope") {
+          // The catch body is switched on in the CatchClause visitor. Here we
+          // only handle the try block and the finally block, both direct
+          // children of the TryStatement.
+          if (!parentPath?.isTryStatement()) return;
+          if (parentPath.node.finalizer === path.node) {
+            const finalizer: Block = { kind: "block", content: [] };
+            scope.statement.finalizer = finalizer;
+            scope.active = "finalizer";
+          } else if (parentPath.node.block === path.node) {
+            scope.active = "block";
+          }
         }
       },
     },
@@ -268,6 +419,10 @@ const traversePath = (
     },
 
     AssignmentExpression(path: NodePath<t.AssignmentExpression>) {
+      // Skip a for-loop header assignment (init `i = 0` / update `i += 1`):
+      // it is already captured by getForStatement, pushing it here too would
+      // duplicate it inside the loop body.
+      if (path.parentPath?.isForStatement()) return;
       const scope = current();
       if (!scope) return;
       const body = getBlockBody(scope);
@@ -278,10 +433,6 @@ const traversePath = (
   });
 
   // TODO: switch case (Junior)
-  // TODO: while loops (Adel)
-  // TODO: for loops (ideally each case) (Adel)
-  // TODO: try catch (Adel)
-  // TODO: throw (Adel)
   // TODO: const {a, b} = ...    a.param.  b.param (Junior)
   // TODO: Array (Junior)
   return functionMapping;

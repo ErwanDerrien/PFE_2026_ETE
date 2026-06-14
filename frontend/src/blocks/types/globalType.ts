@@ -2,12 +2,20 @@ import type { FunctionDeclaration, FunctionValue } from "./function";
 import type { Call, NewCall, TaggedTemplate } from "./functionCall";
 import type { IfStatement } from "./ifStatement";
 import type { InterfaceDeclaration } from "./interface";
+import type {
+  DoWhileStatement,
+  ForInStatement,
+  ForOfStatement,
+  ForStatement,
+  WhileStatement,
+} from "./loops";
 import type { ReturnStatement } from "./returnStatement";
 import type {
   BreakStatement,
   ContinueStatement,
   SwitchStatement,
 } from "./switch-case";
+import type { ThrowStatement, TryStatement } from "./tryCatch";
 import type {
   ArrayValue,
   AssignmentExpression,
@@ -35,7 +43,14 @@ export type Statement =
   | BreakStatement
   | ContinueStatement
   | InterfaceDeclaration
-  | IfStatement;
+  | IfStatement
+  | WhileStatement
+  | DoWhileStatement
+  | ForStatement
+  | ForInStatement
+  | ForOfStatement
+  | TryStatement
+  | ThrowStatement;
 
 interface ExpressionStatement {
   kind: "expression-statement";

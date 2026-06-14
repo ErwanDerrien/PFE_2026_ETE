@@ -326,6 +326,68 @@ getDiscount(200, true, 60);
 classify(85);
 `;
 
+const loopCode = `
+function loops(items: number[], n: number): number {
+  let total = 0;
+
+  while (total < n) {
+    total += 1;
+    if (total === 3) continue;
+    if (total > 100) break;
+  }
+
+  do {
+    total -= 1;
+  } while (total > 0);
+
+  for (let i = 0; i < n; i++) {
+    total += i;
+  }
+
+  for (let j = n; j > 0; j -= 1) {
+    total += j;
+  }
+
+  for (const item of items) {
+    total += item;
+  }
+
+  for (const key in items) {
+    total += Number(key);
+  }
+
+  return total;
+}
+
+loops([1, 2, 3], 10);
+`;
+
+const tryCatchThrowCode = `
+function risky(value: number): number {
+  if (value < 0) {
+    throw new Error("negative");
+  }
+  return value * 2;
+}
+
+function safe(value: number): number {
+  let result = 0;
+
+  try {
+    result = risky(value);
+  } catch (e) {
+    result = -1;
+    throw e;
+  } finally {
+    result += 1;
+  }
+
+  return result;
+}
+
+safe(5);
+`;
+
 export {
   code,
   nestedCode,
@@ -340,4 +402,6 @@ export {
   codeComplex,
   switchCaseCode,
   ifStatementCode,
+  loopCode,
+  tryCatchThrowCode,
 };

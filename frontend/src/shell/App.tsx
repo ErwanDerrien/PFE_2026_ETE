@@ -1,4 +1,4 @@
-import CodeEditor from "../editor/editor"
+import CodeEditor from "../editor/CodeEditor"
 
 function App() {
 

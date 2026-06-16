@@ -50,7 +50,7 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
     addMessage('info', 'Exécution en cours...');
 
     try {
-      // Sandbox sécurisée - utiliser une fonction constructeur pour isoler le code
+      // Sandbox sécurisée
       const executeInSandbox = () => {
         const output = [];
         const originalLog = console.log;
@@ -92,7 +92,7 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
         try {
           // Évaluer le code dans un contexte isolé
           const result = eval(code);
-          // Si le code retourne quelque chose (comme une fonction qui retourne une valeur)
+          // Si le code retourne quelque chose
           if (result !== undefined && result !== null) {
             output.push({ type: 'output', message: `Résultat: ${String(result)}` });
           }

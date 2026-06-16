@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
+import { useAstStore } from '../sync';
 
 interface CodeEditorProps {
   onChange?: (value: string) => void;
@@ -8,6 +9,10 @@ interface CodeEditorProps {
 
 function CodeEditor({ onChange }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+    
+    const source = useAstStore((s) => s.source);
+    const lastOrigin = useAstStore((s) => s.lastOrigin);
+    const setSource = useAstStore((s) => s.setSource);
 
     // Reference a l'editeur
     function handleEditorDidMount(editor: editor.IStandaloneCodeEditor) {
@@ -16,8 +21,13 @@ function CodeEditor({ onChange }: CodeEditorProps) {
 
     // Pour obtenir la valeur lors d'un changement dans le code
     function handleEditorChange(value: string | undefined) {
-        if (onChange && value !== undefined) {
-            onChange(value);
+        if (value !== undefined) {
+            // Mettre à jour le store AST
+            setSource(value, "editor");
+            // Notifier le parent (App.tsx) pour la console
+            if (onChange) {
+                onChange(value);
+            }
         }
     }
 
@@ -74,6 +84,7 @@ if (age >= 18) {
 
 console.log("=== Fin de la démonstration ===");
 console.log("Modifiez ce code et cliquez sur 'Exécuter le code' pour tester!");`}
+            value={lastOrigin === "editor" ? undefined : source}
             onMount={handleEditorDidMount}
             onChange={handleEditorChange}
             onValidate={handleEditorValidation}

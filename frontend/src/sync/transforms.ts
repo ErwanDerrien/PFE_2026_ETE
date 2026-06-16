@@ -13,40 +13,41 @@
  *   4. `graphToAst`— le plus dur : reconstruire un AST valide depuis le graphe.
  */
 
-import type {
-  AstToGraph,
-  Generate,
-  GraphToAst,
-  Parse,
-} from '../shared';
-import { DEFAULT_LANGUAGE } from '../shared';
+import type { File } from "@babel/types";
+import type { Generate, GraphToAst, Parse } from "../shared";
+import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
+import { parse as babelParser } from "@babel/parser";
+import traversePath from "../blocks/ast-mapping";
 
 /** Lève une erreur explicite tant qu'une transformation n'est pas implémentée. */
 function notImplemented(fn: string, context: string): never {
-  throw new Error(`[sync] ${fn}() non implémenté — TODO équipe A. Contexte : ${context}`);
+  throw new Error(
+    `[sync] ${fn}() non implémenté — TODO équipe A. Contexte : ${context}`,
+  );
 }
 
 /**
  * code -> AST. À implémenter avec :
  *   `parse(source, LANGUAGE_CONFIG[language].parserOptions)` depuis `@babel/parser`.
  */
-export const parse: Parse = (source, language = DEFAULT_LANGUAGE) =>
-  notImplemented('parse', `${source.length} caractères, langage=${language}`);
+export const parse: Parse = (source, language = DEFAULT_LANGUAGE) => {
+  return babelParser(source, LANGUAGE_CONFIG[language].parserOptions);
+};
 
 /** AST -> code. À implémenter avec `generate(ast).code` depuis `@babel/generator`. */
 export const generate: Generate = (ast) =>
-  notImplemented('generate', `racine AST=${ast.type}`);
+  notImplemented("generate", `racine AST=${ast.type}`);
 
 /**
  * AST -> graphe de blocs. Cœur en lecture.
  * Marcher l'AST avec `@babel/traverse`, marquer chaque nœud `track: 'spine'`
  * ou `'expression'`, et appliquer le regroupement par lignes vides (Niveau 1).
  */
-export const astToGraph: AstToGraph = (ast, options) =>
-  notImplemented(
-    'astToGraph',
-    `racine AST=${ast.type}, options=${JSON.stringify(options ?? {})}`,
-  );
+
+export const astToGraph = (ast: File) => {
+  const result = traversePath(ast);
+  console.log(result);
+};
 
 /**
  * graphe de blocs -> AST. Cœur en édition (le plus difficile).
@@ -55,6 +56,6 @@ export const astToGraph: AstToGraph = (ast, options) =>
  */
 export const graphToAst: GraphToAst = (graph, base) =>
   notImplemented(
-    'graphToAst',
+    "graphToAst",
     `${graph.nodes.length} nœud(s), ${graph.edges.length} arête(s), base=${base.type}`,
   );

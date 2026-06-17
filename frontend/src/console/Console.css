@@ -145,6 +145,63 @@
   color: #6a9955;
 }
 
+/* Bienvenue dans la console */
+.console-welcome {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #8b949e;
+}
+
+.welcome-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.welcome-text h4 {
+  margin: 0 0 10px 0;
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.welcome-text p {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.welcome-features {
+  text-align: left;
+  margin: 15px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-features li {
+  margin: 8px 0;
+  padding-left: 24px;
+  position: relative;
+}
+
+.welcome-features li:before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #6a9955;
+}
+
+.welcome-instruction {
+  margin-top: 20px !important;
+  padding: 10px;
+  background-color: rgba(107, 153, 85, 0.1);
+  border-left: 3px solid #6a9955;
+  border-radius: 4px;
+  color: #b5cea8;
+}
+
 /* Scrollbar styling */
 .console-output::-webkit-scrollbar {
   width: 8px;

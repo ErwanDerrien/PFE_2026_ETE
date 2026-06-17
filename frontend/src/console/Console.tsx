@@ -157,35 +157,57 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
             onClick={executeCode} 
             disabled={isExecuting}
             className="run-button"
+            title="Exécuter le code dans l'éditeur"
           >
-            {isExecuting ? 'Exécution...' : 'Exécuter le code'}
+            {isExecuting ? '⏳ Exécution...' : '▶️ Exécuter le code'}
           </button>
           <button 
             onClick={clearConsole}
             className="clear-button"
+            title="Vider tous les messages de la console"
           >
-            Vider la console
+            🗑️ Vider la console
           </button>
         </div>
       </div>
       
       <div className="console-output" ref={consoleRef}>
-        {messages.map((msg) => (
-          <div key={msg.id} className={`console-message ${getMessageClass(msg.type)}`}>
-            <span className="timestamp">
-              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-            {msg.lineNumber && (
-              <span className="line-number">Ligne {msg.lineNumber}: </span>
-            )}
-            <span className="message-content">{msg.message}</span>
+        {messages.length === 1 && messages[0].type === 'info' && messages[0].message.includes('Console prête') ? (
+          <div className="console-welcome">
+            <div className="welcome-icon">📟</div>
+            <div className="welcome-text">
+              <h4>Console d'exécution sandbox</h4>
+              <p>Exécutez du code JavaScript en toute sécurité.</p>
+              <ul className="welcome-features">
+                <li>✅ Capture console.log, console.error, etc.</li>
+                <li>✅ Exécution isolée dans un environnement sécurisé</li>
+                <li>✅ Affiche les résultats et erreurs en temps réel</li>
+                <li>✅ Compatible avec l'éditeur de code à gauche</li>
+              </ul>
+              <p className="welcome-instruction">
+                Modifiez le code dans l'éditeur et cliquez sur "▶️ Exécuter le code"
+              </p>
+            </div>
           </div>
-        ))}
+        ) : (
+          messages.map((msg) => (
+            <div key={msg.id} className={`console-message ${getMessageClass(msg.type)}`}>
+              <span className="timestamp">
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              {msg.lineNumber && (
+                <span className="line-number">Ligne {msg.lineNumber}: </span>
+              )}
+              <span className="message-content">{msg.message}</span>
+            </div>
+          ))
+        )}
       </div>
       
       <div className="console-stats">
         <span>{messages.length} message(s)</span>
-        <span>• Dernier message: {messages.length > 0 ? new Date(messages[messages.length - 1].timestamp).toLocaleTimeString() : 'aucun'}</span>
+        <span>• Statut: {isExecuting ? '⏳ Exécution en cours' : '✅ Prêt'}</span>
+        <span>• Dernier message: {messages.length > 0 ? new Date(messages[messages.length - 1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'aucun'}</span>
       </div>
     </div>
   );

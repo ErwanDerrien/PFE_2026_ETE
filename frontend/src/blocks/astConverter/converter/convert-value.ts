@@ -1,5 +1,5 @@
 import type { Call } from "../../types/functionCall";
-import type { Block, Value } from "../../types/globalType";
+import type { Block, Statement, Value } from "../../types/globalType";
 import {
   type ArrayDestructure,
   type ArrayValue,
@@ -58,30 +58,37 @@ function isUnaryOperator(op: string): op is UnaryOperator {
 
 export const convertBlockBody = (block: Block): t.BlockStatement => {
   const body = block.content.flatMap((statement) => {
-    if (statement.kind === "variable-declaration") {
-      return convertVariable(statement);
-    }
+    const stat = getStatement(statement);
+    if (stat === null) return [];
 
-    if (statement.kind === "function-declaration") {
-      const res = convertFunctionDeclaration(statement);
-      if (res) return res;
-    }
-
-    if (statement.kind === "assignment") {
-      return convertExpressionStatement(statement);
-    }
-
-    if (statement.kind === "if") {
-      return convertIfStatement(statement);
-    }
-
-    if (statement.kind === "return") {
-      return convertReturnStatement(statement);
-    }
-
-    return [];
+    return stat;
   });
   return t.blockStatement(body);
+};
+
+export const getStatement = (statement: Statement): t.Statement | null => {
+  if (statement.kind === "variable-declaration") {
+    return convertVariable(statement);
+  }
+
+  if (statement.kind === "function-declaration") {
+    const res = convertFunctionDeclaration(statement);
+    if (res) return res;
+  }
+
+  if (statement.kind === "assignment") {
+    return convertExpressionStatement(statement);
+  }
+
+  if (statement.kind === "if") {
+    return convertIfStatement(statement);
+  }
+
+  if (statement.kind === "return") {
+    return convertReturnStatement(statement);
+  }
+
+  return null;
 };
 
 export const convertNodeFromValue = (val: Value): t.Expression | null => {
@@ -349,7 +356,7 @@ const convertArrayValue = (val: ArrayValue): t.ArrayExpression | null => {
   return t.arrayExpression(elements as t.Expression[]);
 };
 
-function objectKeyNode(
+export function objectKeyNode(
   key: string,
 ): t.Identifier | t.StringLiteral | t.NumericLiteral {
   if (/^\d+(\.\d+)?$/.test(key)) return t.numericLiteral(Number(key));

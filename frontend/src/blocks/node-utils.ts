@@ -27,7 +27,7 @@ import type { Argument, Callee } from "./types/functionCall";
 import type { TypeParam, Parameter } from "./types/parameter";
 import type { InterfaceMember } from "./types/interface";
 
-const generate: (
+export const generate: (
   ast: Node,
   opts?: GeneratorOptions,
   code?: string,
@@ -180,14 +180,22 @@ export function extractMemberPath(node: t.MemberExpression): {
 // ─── Rich AST → variable.ts type helpers ────────────────────────────────────
 
 function valueFromLiteralNode(node: t.Expression): Value | null {
-  if (t.isStringLiteral(node)) return { kind: "literal", value: node.value };
-  if (t.isNumericLiteral(node)) return { kind: "literal", value: node.value };
-  if (t.isBooleanLiteral(node)) return { kind: "literal", value: node.value };
-  if (t.isNullLiteral(node)) return { kind: "literal", value: null };
+  if (t.isStringLiteral(node))
+    return { kind: "literal", value: node.value, type: "string" };
+  if (t.isNumericLiteral(node))
+    return { kind: "literal", value: node.value, type: "number" };
+  if (t.isBooleanLiteral(node))
+    return { kind: "literal", value: node.value, type: "boolean" };
+  if (t.isNullLiteral(node))
+    return { kind: "literal", value: null, type: "null" };
   if (t.isBigIntLiteral(node))
-    return { kind: "literal", value: `${node.value}n` };
+    return { kind: "literal", value: `${node.value}n`, type: "bigint" };
   if (t.isRegExpLiteral(node))
-    return { kind: "literal", value: `/${node.pattern}/${node.flags}` };
+    return {
+      kind: "literal",
+      value: `/${node.pattern}/${node.flags}`,
+      type: "regexp",
+    };
   return null;
 }
 
@@ -388,7 +396,7 @@ export function valueFromNode(
     return { kind: "yield", value: val, delegate: node.delegate };
   }
 
-  return { kind: "literal", value: generate(node).code };
+  return { kind: "literal", value: generate(node).code, type: "any" };
 }
 
 // Converts [a, b, ...rest] = ... to ArrayDestructure.
@@ -763,7 +771,11 @@ export function paramsToParameters(params: t.FunctionParameter[]): Parameter[] {
       return {
         kind: "default-param",
         name,
-        default: defaultVal ?? { kind: "literal", value: "undefined" },
+        default: defaultVal ?? {
+          kind: "literal",
+          value: "undefined",
+          type: "any",
+        },
         type: typeAnnotationFromNode(param.left as t.Identifier),
       };
     }

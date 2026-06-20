@@ -18,6 +18,11 @@ import type { Generate, GraphToAst, Parse } from "../shared";
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
 import { parse as babelParser } from "@babel/parser";
 import traversePath from "../blocks/ast-mapping";
+import type {
+  FunctionDeclaration,
+  FunctionValue,
+} from "../blocks/types/function";
+import { convertObjectToAst } from "../blocks/astConverter/ast-converter";
 
 /** Lève une erreur explicite tant qu'une transformation n'est pas implémentée. */
 function notImplemented(fn: string, context: string): never {
@@ -44,9 +49,8 @@ export const generate: Generate = (ast) =>
  * ou `'expression'`, et appliquer le regroupement par lignes vides (Niveau 1).
  */
 
-export const astToGraph = (ast: File) => {
-  const result = traversePath(ast);
-  console.log(result);
+export const astToGraph = (ast: File): FunctionDeclaration | FunctionValue => {
+  return traversePath(ast);
 };
 
 /**
@@ -54,8 +58,8 @@ export const astToGraph = (ast: File) => {
  * Parcourir l'ordre de la spine des nœuds connectés et reconstruire l'AST en
  * mettant `base` à jour (poignées typées pour garantir des connexions valides).
  */
-export const graphToAst: GraphToAst = (graph, base) =>
-  notImplemented(
-    "graphToAst",
-    `${graph.nodes.length} nœud(s), ${graph.edges.length} arête(s), base=${base.type}`,
-  );
+export const graphToAst = (
+  codeObj: FunctionDeclaration | FunctionValue,
+): File => {
+  return convertObjectToAst(codeObj);
+};

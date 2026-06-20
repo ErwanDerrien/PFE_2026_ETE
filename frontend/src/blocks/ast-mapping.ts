@@ -109,11 +109,8 @@ function getBlockBody(fn: Blocks): Statement[] | null {
   return null;
 }
 
-const traversePath = (
-  ast: t.File,
-): Record<number, FunctionDeclaration | FunctionValue> => {
-  const functionMapping: Record<number, FunctionDeclaration | FunctionValue> =
-    {};
+const traversePath = (ast: t.File): FunctionDeclaration | FunctionValue => {
+  let globalFunction: FunctionDeclaration | FunctionValue | null = null;
   const scopeStack: Blocks[] = [];
   const current = () => scopeStack.at(-1);
 
@@ -160,7 +157,7 @@ const traversePath = (
           generator: false,
           body: { kind: "block", content: [] },
         };
-        functionMapping[path.scope.uid] = globalFn;
+        globalFunction = globalFn;
         scopeStack.push(globalFn);
       },
       exit: onBlockExit,
@@ -432,10 +429,8 @@ const traversePath = (
     },
   });
 
-  // TODO: switch case (Junior)
-  // TODO: const {a, b} = ...    a.param.  b.param (Junior)
-  // TODO: Array (Junior)
-  return functionMapping;
+  if (!globalFunction) throw new Error("Program node was never visited");
+  return globalFunction;
 };
 
 export default traversePath;

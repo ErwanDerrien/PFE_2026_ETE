@@ -9,7 +9,13 @@ import {
 import type { IfStatement } from "../../types/ifStatement";
 import type { ReturnStatement } from "../../types/returnStatement";
 import type { SwitchStatement } from "../../types/switch-case";
-import type { DoWhileStatement, WhileStatement } from "../../types/loops";
+import type {
+  DoWhileStatement,
+  ForInStatement,
+  ForOfStatement,
+  ForStatement,
+  WhileStatement,
+} from "../../types/loops";
 import type { InterfaceDeclaration } from "../../types/interface";
 import {
   convertCallSignature,
@@ -20,6 +26,7 @@ import {
   convertPropertySignature,
   convertTypeParams,
 } from "./convert-type";
+import { convertVariable } from "./convert-variables";
 
 export const convertExpressionStatement = (
   expression: AssignmentExpression,
@@ -169,4 +176,60 @@ export const convertInterfaceDeclaration = (
     extendsClause,
     t.tsInterfaceBody(members),
   );
+};
+
+export const convertForStatement = (
+  forStatement: ForStatement,
+): t.ForStatement => {
+  let init = null;
+  if (forStatement.init?.kind === "variable-declaration") {
+    init = convertVariable(forStatement.init);
+  } else if (forStatement.init) {
+    init = convertNodeFromValue(forStatement.init);
+  }
+
+  const test = forStatement.test
+    ? convertNodeFromValue(forStatement.test)
+    : null;
+  const update = forStatement.update
+    ? convertNodeFromValue(forStatement.update)
+    : null;
+  const body = convertBlockBody(forStatement.body);
+
+  return t.forStatement(init, test, update, body);
+};
+
+export const convertForInStatement = (
+  forInStatement: ForInStatement,
+): t.ForInStatement => {
+  let left;
+  if (forInStatement.left.kind === "variable-declaration") {
+    left = convertVariable(forInStatement.left);
+  } else {
+    left = convertAssignmentTarget(forInStatement.left);
+  }
+  if (left == null) throw new Error("left is null");
+
+  const right = convertNodeFromValue(forInStatement.right);
+
+  if (right == null) throw new Error("right is null");
+
+  const body = convertBlockBody(forInStatement.body);
+  return t.forInStatement(left, right, body);
+};
+
+export const convertForOfStatement = (
+  forOfStatement: ForOfStatement,
+): t.ForOfStatement => {
+  let left;
+  if (forOfStatement.left.kind === "variable-declaration") {
+    left = convertVariable(forOfStatement.left);
+  } else {
+    left = convertAssignmentTarget(forOfStatement.left);
+  }
+  if (left == null) throw new Error("left is null");
+  const right = convertNodeFromValue(forOfStatement.right);
+  if (right == null) throw new Error("right is null");
+  const body = convertBlockBody(forOfStatement.body);
+  return t.forOfStatement(left, right, body);
 };

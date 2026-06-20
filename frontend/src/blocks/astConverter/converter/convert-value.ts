@@ -18,6 +18,8 @@ import {
 } from "../../types/variable";
 import * as t from "@babel/types";
 import { convertVariable } from "./convert-variables";
+import { convertFunctionDeclaration } from "./convert-function";
+import { assignmentExpression } from "./convert-statement";
 
 const UNARY_OPERATORS = [
   "!",
@@ -54,6 +56,15 @@ export const convertBlockBody = (block: Block): t.BlockStatement => {
   const body = block.content.flatMap((statement) => {
     if (statement.kind === "variable-declaration") {
       return convertVariable(statement);
+    }
+
+    if (statement.kind === "function-declaration") {
+      const res = convertFunctionDeclaration(statement);
+      if (res) return res;
+    }
+
+    if (statement.kind === "assignment") {
+      return t.expressionStatement(assignmentExpression(statement));
     }
 
     return [];

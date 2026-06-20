@@ -122,6 +122,10 @@ export const convertPrimitiveType = (type: PrimitiveType): t.TSType => {
       return t.tsUndefinedKeyword();
     case "void":
       return t.tsVoidKeyword();
+    case "any":
+      return t.tsAnyKeyword();
+    case "unknown":
+      return t.tsUnknownKeyword();
     default:
       throw new Error(`Unsupported primitive type: ${type.name}`);
   }

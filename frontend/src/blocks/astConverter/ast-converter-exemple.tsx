@@ -1,12 +1,13 @@
 import type { SupportedLanguage } from "../../shared/ast";
 import { astToGraph, graphToAst, parse } from "../../sync/transforms";
-import { variablesCode } from "../constant";
+import { assignmentExpressionCode, code, variablesCode } from "../constant";
 import { generate } from "../node-utils";
 
 const lang = "typescript" as SupportedLanguage;
 export default function AstConverterExemple() {
-  const variableCodeParsed = parse(variablesCode, lang);
+  const variableCodeParsed = parse(assignmentExpressionCode, lang);
   const ast = astToGraph(variableCodeParsed);
+  console.log(ast);
   const res = graphToAst(ast);
   return (
     <div style={{ width: "100%" }}>
@@ -22,7 +23,14 @@ export default function AstConverterExemple() {
             width: "100%",
           }}
         >
-          <code style={{ display: "block", textAlign: "left" }}>{generate(res).code}</code>
+          <code style={{ display: "block", textAlign: "left" }}>
+            {
+              generate(res, {
+                retainLines: false,
+                concise: false,
+              }).code
+            }
+          </code>
         </pre>
       </div>
     </div>

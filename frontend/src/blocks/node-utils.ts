@@ -639,6 +639,7 @@ export function typeParamsFromNode(node: TypeParamNode): TypeParam[] {
   )
     return [];
   return node.typeParameters.params.map((p) => ({
+    kind: "type-param",
     name: p.name,
     constraint: p.constraint ? tsTypeToAnnotation(p.constraint) : undefined,
     default: p.default ? tsTypeToAnnotation(p.default) : undefined,

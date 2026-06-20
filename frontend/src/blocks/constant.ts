@@ -388,6 +388,56 @@ function safe(value: number): number {
 safe(5);
 `;
 
+export const assignmentExpressionCode = `
+function allAssignments() {
+  let x = 0;
+
+  x = 42;
+  x += 10;
+  x -= 5;
+  x *= 2;
+  x /= 4;
+  x %= 7;
+  x **= 2;
+
+  x &= 0xFF;
+  x |= 0x01;
+  x ^= 0x10;
+  x <<= 1;
+  x >>= 1;
+  x >>>= 1;
+
+  let a: number | null = null;
+  a ??= 99;
+  let flag = false;
+  flag ||= true;
+  flag &&= false;
+
+  const obj = { prop: 0, nested: { value: 0 } };
+  obj.prop = 5;
+  obj.nested.value = 10;
+  obj.prop += 3;
+  obj.nested.value -= 2;
+
+  const map: Record<string, number> = {};
+  const arr: number[] = [0, 0, 0];
+  map["key"] = 1;
+  map["key"] += 10;
+  arr[0] = 7;
+  arr[1] += 3;
+  obj["prop"] = 5;
+  obj["nested"]["value"] = 10;
+
+  let b = 0, c = 0;
+  [b, c] = [1, 2];
+
+  let p = 0, q = 0;
+  ({ p, q } = { p: 3, q: 4 });
+
+  return { x, a, flag, obj, map, arr, b, c, p, q };
+}
+`;
+
 export const variablesCode = `
 const hello = 5;
 let counter = 0;

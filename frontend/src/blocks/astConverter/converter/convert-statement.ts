@@ -4,11 +4,16 @@ import {
   convertAssignmentTarget,
   convertBlockBody,
   convertNodeFromValue,
+  convertToIdentifier,
   getStatement,
 } from "./convert-value";
 import type { IfStatement } from "../../types/ifStatement";
 import type { ReturnStatement } from "../../types/returnStatement";
-import type { SwitchStatement } from "../../types/switch-case";
+import type {
+  BreakStatement,
+  ContinueStatement,
+  SwitchStatement,
+} from "../../types/switch-case";
 import type {
   DoWhileStatement,
   ForInStatement,
@@ -27,6 +32,11 @@ import {
   convertTypeParams,
 } from "./convert-type";
 import { convertVariable } from "./convert-variables";
+import type {
+  CatchClause,
+  ThrowStatement,
+  TryStatement,
+} from "../../types/tryCatch";
 
 export const convertExpressionStatement = (
   expression: AssignmentExpression,
@@ -67,7 +77,9 @@ export const convertIfStatement = (statement: IfStatement): t.IfStatement => {
 export const convertReturnStatement = (
   statement: ReturnStatement,
 ): t.ReturnStatement => {
-  const argument = convertNodeFromValue(statement.value);
+  const argument = statement.value
+    ? convertNodeFromValue(statement.value)
+    : null;
   return t.returnStatement(argument);
 };
 
@@ -81,6 +93,7 @@ export const convertSwitchStatement = (
   const cases = statement.cases.map((c) => {
     if (c.kind === "case") {
       const test = convertNodeFromValue(c.test);
+      if (test === null) throw new Error("Invalid switch case test");
       const consequent = c.body.flatMap((s) => {
         const res = getStatement(s);
 
@@ -105,15 +118,19 @@ export const convertSwitchStatement = (
 };
 
 export const convertBreakStatement = (
-  statement: t.BreakStatement,
+  statement: BreakStatement,
 ): t.BreakStatement => {
-  return t.breakStatement(statement.label);
+  return t.breakStatement(
+    statement.label ? convertToIdentifier(statement.label) : null,
+  );
 };
 
 export const convertContinueStatement = (
-  statement: t.ContinueStatement,
+  statement: ContinueStatement,
 ): t.ContinueStatement => {
-  return t.continueStatement(statement.label);
+  return t.continueStatement(
+    statement.label ? convertToIdentifier(statement.label) : null,
+  );
 };
 
 export const convertWhileStatement = (
@@ -231,5 +248,42 @@ export const convertForOfStatement = (
   const right = convertNodeFromValue(forOfStatement.right);
   if (right == null) throw new Error("right is null");
   const body = convertBlockBody(forOfStatement.body);
-  return t.forOfStatement(left, right, body);
+  return t.forOfStatement(left, right, body, forOfStatement.await);
+};
+
+export const convertTryStatement = (
+  tryStatement: TryStatement,
+): t.TryStatement => {
+  if (!tryStatement.handler && !tryStatement.finalizer) {
+    throw new Error("TryStatement must have a catch or finally block");
+  }
+  const block = convertBlockBody(tryStatement.block);
+  const handler = convertCatchClause(tryStatement.handler);
+
+  const finalizer = tryStatement.finalizer
+    ? convertBlockBody(tryStatement.finalizer)
+    : null;
+  return t.tryStatement(block, handler, finalizer);
+};
+
+const convertCatchClause = (
+  catchClause: CatchClause | undefined,
+): t.CatchClause | null => {
+  if (catchClause == undefined) return null;
+
+  if (catchClause.param == null)
+    return t.catchClause(null, convertBlockBody(catchClause.body));
+
+  const param = convertAssignmentTarget(catchClause.param);
+  const body = convertBlockBody(catchClause.body);
+  if (t.isMemberExpression(param)) throw new Error("param is MemberExpression");
+  return t.catchClause(param, body);
+};
+
+export const convertThrowStatement = (
+  throwStatement: ThrowStatement,
+): t.ThrowStatement => {
+  const value = convertNodeFromValue(throwStatement.value);
+  if (value == null) throw new Error("value is null");
+  return t.throwStatement(value);
 };

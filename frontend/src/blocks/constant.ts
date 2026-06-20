@@ -131,7 +131,7 @@ function computedMemberAssignment() {
 }
 `;
 
-const assignmentArrayPattern = `
+export const assignmentArrayPattern = `
 function arrayPatternAssignment() {
   let b = 0, c = 0;
   [b, c] = [1, 2];
@@ -494,4 +494,3 @@ const RATIO = 1 / 3;
 const SUM = a + b;
 const PRODUCT = x * y * z;
 `;
-

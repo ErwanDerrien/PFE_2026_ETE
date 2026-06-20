@@ -1,4 +1,4 @@
-import type { Call } from "../../types/functionCall";
+import type { Call, NewCall } from "../../types/functionCall";
 import type { Block, Statement, Value } from "../../types/globalType";
 import {
   type ArrayDestructure,
@@ -20,9 +20,20 @@ import * as t from "@babel/types";
 import { convertVariable } from "./convert-variables";
 import { convertFunctionDeclaration } from "./convert-function";
 import {
+  convertBreakStatement,
+  convertContinueStatement,
+  convertDoWhileStatement,
   convertExpressionStatement,
+  convertForInStatement,
+  convertForOfStatement,
+  convertForStatement,
   convertIfStatement,
+  convertInterfaceDeclaration,
   convertReturnStatement,
+  convertSwitchStatement,
+  convertThrowStatement,
+  convertTryStatement,
+  convertWhileStatement,
 } from "./convert-statement";
 
 const UNARY_OPERATORS = [
@@ -88,6 +99,55 @@ export const getStatement = (statement: Statement): t.Statement | null => {
     return convertReturnStatement(statement);
   }
 
+  if (statement.kind === "while") {
+    return convertWhileStatement(statement);
+  }
+
+  if (statement.kind === "for") {
+    return convertForStatement(statement);
+  }
+
+  if (statement.kind === "for-in") {
+    return convertForInStatement(statement);
+  }
+
+  if (statement.kind === "try") {
+    return convertTryStatement(statement);
+  }
+
+  if (statement.kind === "throw") {
+    return convertThrowStatement(statement);
+  }
+
+  if (statement.kind === "break") {
+    return convertBreakStatement(statement);
+  }
+
+  if (statement.kind === "continue") {
+    return convertContinueStatement(statement);
+  }
+
+  if (statement.kind === "for-of") {
+    return convertForOfStatement(statement);
+  }
+
+  if (statement.kind === "switch") {
+    return convertSwitchStatement(statement);
+  }
+
+  if (statement.kind === "do-while") {
+    return convertDoWhileStatement(statement);
+  }
+
+  if (statement.kind === "interface-declaration") {
+    return convertInterfaceDeclaration(statement);
+  }
+
+  if (statement.kind === "expression-statement") {
+    const val = convertNodeFromValue(statement.value);
+    if (val) return t.expressionStatement(val);
+  }
+
   return null;
 };
 
@@ -142,6 +202,10 @@ export const convertNodeFromValue = (val: Value): t.Expression | null => {
     return convertAssignmentExpression(val);
   }
 
+  if (val.kind === "new") {
+    return convertNewExpression(val);
+  }
+
   return null;
 };
 
@@ -184,6 +248,22 @@ const convertCallExpression = (val: Call): t.CallExpression | null => {
   });
 
   return t.callExpression(callee, args);
+};
+
+const convertNewExpression = (val: NewCall): t.NewExpression | null => {
+  const callee = convertNodeFromValue(val.callee);
+  if (!callee) return null;
+  const args: (t.Expression | t.SpreadElement)[] = [];
+  for (const arg of val.args) {
+    if (arg.kind === "spread-arg") {
+      const res = convertNodeFromValue(arg.value);
+      if (res !== null) args.push(t.spreadElement(res));
+      continue;
+    }
+    const res = convertNodeFromValue(arg);
+    if (res !== null) args.push(res);
+  }
+  return t.newExpression(callee, args);
 };
 
 const convertBinaryOp = (

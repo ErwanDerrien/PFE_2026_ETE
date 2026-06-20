@@ -5,10 +5,12 @@ import {
   convertNodeFromValue,
   convertObjectPattern,
 } from "./convert-value";
+import { convertType } from "./convert-type";
 
 export const convertParameter = (
   param: Parameter,
 ): t.FunctionParameter | null => {
+  console.log("convertParameter", param);
   switch (param.kind) {
     case "param":
       return convertSimpleParameter(param);
@@ -25,7 +27,12 @@ export const convertSimpleParameter = (param: Parameter): t.Identifier => {
   if (param.kind !== "param") {
     throw new Error("Expected a simple parameter");
   }
-  return t.identifier(param.name);
+  const id = t.identifier(param.name);
+  if (param.type) {
+    id.typeAnnotation = t.tsTypeAnnotation(convertType(param.type));
+  }
+
+  return id;
 };
 
 export const convertDefaultParameter = (
@@ -37,7 +44,7 @@ export const convertDefaultParameter = (
   const defaultValue = convertNodeFromValue(param.default);
 
   if (!defaultValue) return null;
-  return t.assignmentPattern(t.identifier(param.name), defaultValue);
+  return t.assignmentPattern(convertSimpleParameter(param), defaultValue);
 };
 
 export const convertDestructuredParameter = (
@@ -64,5 +71,5 @@ export const convertRestParameter = (
   if (param.kind !== "rest-param") {
     throw new Error("Expected a rest parameter");
   }
-  return t.restElement(t.identifier(param.name));
+  return t.restElement(convertSimpleParameter(param));
 };

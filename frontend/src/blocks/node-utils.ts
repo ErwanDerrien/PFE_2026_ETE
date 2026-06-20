@@ -396,6 +396,22 @@ export function valueFromNode(
     return { kind: "yield", value: val, delegate: node.delegate };
   }
 
+  if (t.isNewExpression(node)) {
+    const callee = valueFromNode(node.callee as t.Expression);
+    if (!callee) return null;
+    const args: Argument[] = [];
+    for (const arg of node.arguments) {
+      if (t.isSpreadElement(arg)) {
+        const v = valueFromNode(arg.argument);
+        if (v) args.push({ kind: "spread-arg", value: v });
+      } else {
+        const v = valueFromNode(arg as t.Expression);
+        if (v) args.push(v);
+      }
+    }
+    return { kind: "new", callee, typeArgs: [], args };
+  }
+
   return { kind: "literal", value: generate(node).code, type: "any" };
 }
 

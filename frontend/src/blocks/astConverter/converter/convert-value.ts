@@ -19,7 +19,11 @@ import {
 import * as t from "@babel/types";
 import { convertVariable } from "./convert-variables";
 import { convertFunctionDeclaration } from "./convert-function";
-import { assignmentExpression } from "./convert-statement";
+import {
+  convertExpressionStatement,
+  convertIfStatement,
+  convertReturnStatement,
+} from "./convert-statement";
 
 const UNARY_OPERATORS = [
   "!",
@@ -64,7 +68,15 @@ export const convertBlockBody = (block: Block): t.BlockStatement => {
     }
 
     if (statement.kind === "assignment") {
-      return t.expressionStatement(assignmentExpression(statement));
+      return convertExpressionStatement(statement);
+    }
+
+    if (statement.kind === "if") {
+      return convertIfStatement(statement);
+    }
+
+    if (statement.kind === "return") {
+      return convertReturnStatement(statement);
     }
 
     return [];

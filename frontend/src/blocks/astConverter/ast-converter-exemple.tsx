@@ -1,11 +1,16 @@
 import type { SupportedLanguage } from "../../shared/ast";
 import { astToGraph, graphToAst, parse } from "../../sync/transforms";
-import { assignmentExpressionCode, code, variablesCode } from "../constant";
+import {
+  assignmentExpressionCode,
+  code,
+  ifStatementCode,
+  variablesCode,
+} from "../constant";
 import { generate } from "../node-utils";
 
 const lang = "typescript" as SupportedLanguage;
 export default function AstConverterExemple() {
-  const variableCodeParsed = parse(assignmentExpressionCode, lang);
+  const variableCodeParsed = parse(ifStatementCode, lang);
   const ast = astToGraph(variableCodeParsed);
   console.log(ast);
   const res = graphToAst(ast);

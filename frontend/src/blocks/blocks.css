@@ -1,0 +1,225 @@
+/* Blocs visuels — thème sombre, cartes typées, pills, arêtes, tokens, légende. */
+
+/* --- Espace de travail (code | blocs) --- */
+.workspace {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: #0d1117;
+}
+
+.code-pane {
+  width: 40%;
+  min-width: 300px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  border: none;
+  border-right: 1px solid #21262d;
+  resize: none;
+  outline: none;
+  background: #0d1117;
+  color: #c9d1d9;
+  font: 13px/1.6 var(--mono, ui-monospace, Consolas, monospace);
+  tab-size: 2;
+}
+
+.canvas-pane {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+}
+
+.canvas-error {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 10;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(248, 81, 73, 0.15);
+  color: #ffa198;
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  font: 13px/1.4 var(--sans, system-ui, sans-serif);
+}
+
+/* --- Canvas React Flow --- */
+.react-flow {
+  background: #0d1117;
+}
+
+/* --- Carte de bloc (spine) --- */
+.bn {
+  width: 240px;
+  border-radius: 10px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  font-family: var(--mono, ui-monospace, Consolas, monospace);
+}
+.bn.is-selected {
+  border-color: #2dd4bf;
+  box-shadow:
+    0 0 0 1px #2dd4bf,
+    0 0 18px rgba(45, 212, 191, 0.35);
+}
+
+.bn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--accent, #8b949e) 16%, #161b22);
+  border-bottom: 1px solid #30363d;
+  border-left: 3px solid var(--accent, #8b949e);
+}
+.bn-type {
+  font: 700 11px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+  color: var(--accent, #c9d1d9);
+}
+.bn-icon {
+  color: var(--accent, #c9d1d9);
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.bn-body {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #c9d1d9;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bn-foot {
+  display: flex;
+  border-top: 1px solid #30363d;
+}
+.bn-foot-cell {
+  flex: 1;
+  text-align: center;
+  padding: 6px 0;
+  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.1em;
+  position: relative;
+}
+.bn-foot-true {
+  color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.08);
+}
+.bn-foot-false {
+  color: #8b949e;
+  border-left: 1px solid #30363d;
+}
+
+/* --- Pill d'expression --- */
+.xn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #1c2128;
+  border: 1px solid #30363d;
+  font: 12px/1 var(--mono, ui-monospace, Consolas, monospace);
+  color: #c9d1d9;
+  white-space: nowrap;
+}
+.xn-expr {
+  border-color: #fb7185;
+  background: rgba(251, 113, 133, 0.08);
+}
+.xn-leaf {
+  color: #8b949e;
+}
+
+/* --- Handles --- */
+.react-flow__handle {
+  width: 7px;
+  height: 7px;
+  background: #6e7681;
+  border: 1px solid #0d1117;
+}
+.bn-handle-exec {
+  background: #e6edf3;
+}
+.bn-handle-data,
+.xn-handle {
+  background: #6e7681;
+}
+.bn-handle-true {
+  background: #2dd4bf;
+  left: 25% !important;
+}
+.bn-handle-false {
+  background: #8b949e;
+  left: 75% !important;
+}
+
+/* --- Étiquettes d'arête lisibles sur fond sombre --- */
+.react-flow__edge-text {
+  fill: #c9d1d9;
+  font-size: 10px;
+}
+.react-flow__edge-textbg {
+  fill: #161b22;
+}
+
+/* --- Coloration syntaxique --- */
+.tok-keyword {
+  color: #ff7b72;
+}
+.tok-string {
+  color: #a5d6ff;
+}
+.tok-number {
+  color: #79c0ff;
+}
+.tok-fn {
+  color: #d2a8ff;
+}
+.tok-ident {
+  color: #c9d1d9;
+}
+.tok-punct {
+  color: #8b949e;
+}
+
+/* --- Légende --- */
+.legend {
+  background: rgba(22, 27, 34, 0.85);
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 12px/1.7 var(--sans, system-ui, sans-serif);
+  color: #c9d1d9;
+  backdrop-filter: blur(4px);
+}
+.legend-title {
+  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.14em;
+  color: #8b949e;
+  margin-bottom: 6px;
+}
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-swatch {
+  width: 20px;
+  border-top: 3px solid transparent;
+  display: inline-block;
+}
+.sw-exec {
+  border-top-color: #e6edf3;
+}
+.sw-data {
+  border-top-color: #6e7681;
+  border-top-style: dashed;
+}
+.sw-true {
+  border-top-color: #2dd4bf;
+}

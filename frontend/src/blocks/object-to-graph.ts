@@ -31,6 +31,7 @@ import type { Block, Statement, Value } from "./types/globalType";
 import type { IfStatement } from "./types/ifStatement";
 import type { SwitchCase } from "./types/switch-case";
 import type { Argument } from "./types/functionCall";
+import type { Parameter } from "./types/parameter";
 import type {
   AssignmentTarget,
   BindingTarget,
@@ -183,6 +184,22 @@ function describeBinding(t: BindingTarget): string {
   }
 }
 
+function describeParam(p: Parameter): string {
+  switch (p.kind) {
+    case "param":
+      return p.name;
+    case "default-param":
+      return `${p.name} = ${describe(p.default)}`;
+    case "rest-param":
+      return `...${p.name}`;
+    case "destructured-param":
+      return p.target.kind === "array-destructure" ? "[…]" : "{…}";
+  }
+}
+
+const describeParams = (params: Parameter[]): string =>
+  params.map(describeParam).join(", ");
+
 // Sous-valeurs d'une expression (pour la récursion niveau 3).
 function childValues(v: Value, path: string): [string, Value][] {
   switch (v.kind) {
@@ -301,6 +318,41 @@ function sourceForStatement(stmt: Statement): string | undefined {
       return truncate(`throw ${describe(stmt.value)}`, 80);
     case "expression-statement":
       return truncate(describe(stmt.value), 80);
+    case "if":
+      return truncate(`if (${describe(stmt.condition)}) {`, 80);
+    case "while":
+      return truncate(`while (${describe(stmt.condition)}) {`, 80);
+    case "do-while":
+      return truncate(`do { … } while (${describe(stmt.condition)})`, 80);
+    case "switch":
+      return truncate(`switch (${describe(stmt.discriminant)}) {`, 80);
+    case "for": {
+      const init = stmt.init
+        ? stmt.init.kind === "variable-declaration"
+          ? `${stmt.init.declarationKind} ${stmt.init.declarations
+              .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
+              .join(", ")}`
+          : describe(stmt.init)
+        : "";
+      const test = stmt.test ? describe(stmt.test) : "";
+      const update = stmt.update ? describe(stmt.update) : "";
+      return truncate(`for (${init}; ${test}; ${update}) {`, 80);
+    }
+    case "for-in":
+    case "for-of": {
+      const op = stmt.kind === "for-of" ? "of" : "in";
+      const left =
+        stmt.left.kind === "variable-declaration"
+          ? `${stmt.left.declarationKind} ${stmt.left.declarations
+              .map((d) => describeBinding(d.target))
+              .join(", ")}`
+          : describeTarget(stmt.left);
+      return truncate(`for (${left} ${op} ${describe(stmt.right)}) {`, 80);
+    }
+    case "try":
+      return "try {";
+    case "function-declaration":
+      return truncate(`function ${stmt.name}(${describeParams(stmt.params)}) {`, 80);
     default:
       return undefined;
   }

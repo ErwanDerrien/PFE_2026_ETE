@@ -15,7 +15,7 @@ import { generate } from "../node-utils";
 
 const lang = "typescript" as SupportedLanguage;
 export default function AstConverterExemple() {
-  const variableCodeParsed = parse(assignmentArrayPattern, lang);
+  const variableCodeParsed = parse(code, lang);
   const ast = astToGraph(variableCodeParsed);
   console.log(ast);
   const res = graphToAst(ast);
@@ -34,12 +34,7 @@ export default function AstConverterExemple() {
           }}
         >
           <code style={{ display: "block", textAlign: "left" }}>
-            {
-              generate(res, {
-                retainLines: false,
-                concise: false,
-              }).code
-            }
+            {generate(variableCodeParsed).code}
           </code>
         </pre>
       </div>

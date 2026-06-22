@@ -24,7 +24,11 @@ export const convertParameter = (
 };
 
 export const convertSimpleParameter = (param: Parameter): t.Identifier => {
-  if (param.kind !== "param") {
+  if (
+    param.kind !== "param" &&
+    param.kind !== "rest-param" &&
+    param.kind !== "default-param"
+  ) {
     throw new Error("Expected a simple parameter");
   }
   const id = t.identifier(param.name);

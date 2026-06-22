@@ -13,11 +13,11 @@
  *   4. `graphToAst`— le plus dur : reconstruire un AST valide depuis le graphe.
  */
 
-import type { File } from "@babel/types";
-import type { Generate, GraphToAst, Parse } from "../shared";
+import type { AstToGraph, Generate, GraphToAst, Parse } from "../shared";
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
 import { parse as babelParser } from "@babel/parser";
 import traversePath from "../blocks/ast-mapping";
+import { objectToGraph } from "../blocks/object-to-graph";
 
 /** Lève une erreur explicite tant qu'une transformation n'est pas implémentée. */
 function notImplemented(fn: string, context: string): never {
@@ -40,14 +40,11 @@ export const generate: Generate = (ast) =>
 
 /**
  * AST -> graphe de blocs. Cœur en lecture.
- * Marcher l'AST avec `@babel/traverse`, marquer chaque nœud `track: 'spine'`
- * ou `'expression'`, et appliquer le regroupement par lignes vides (Niveau 1).
+ * On passe par l'objet structuré (`traversePath`) puis on le projette en
+ * `GraphModel` via `objectToGraph` (voir ../blocks/object-to-graph.ts).
  */
-
-export const astToGraph = (ast: File) => {
-  const result = traversePath(ast);
-  console.log(result);
-};
+export const astToGraph: AstToGraph = (ast, options) =>
+  objectToGraph(traversePath(ast), options);
 
 /**
  * graphe de blocs -> AST. Cœur en édition (le plus difficile).

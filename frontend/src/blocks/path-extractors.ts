@@ -118,7 +118,6 @@ export function getParamsFromFunctionLike(path: FunctionLikePath): Param[] {
 export function getSwitchStatement(
   path: NodePath<t.SwitchStatement>,
 ): SwitchStatement | null {
-  console.log("path.node", path.node);
   const discriminant = valueFromNode(path.node.discriminant);
   if (!discriminant) return null;
 

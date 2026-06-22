@@ -1,0 +1,583 @@
+/**
+ * objectToGraph — convertit l'objet structuré produit par `traversePath`
+ * (voir ./ast-mapping.ts) en `GraphModel` ({ nodes, edges }) — la projection
+ * que React Flow rendra. Transformation PURE, sans dépendance UI.
+ *
+ * Premier jet : « spine + expressions, sans repli ».
+ *  - Niveau 2 : un nœud par statement sur la colonne d'exécution (track `spine`),
+ *    chaînés par des arêtes `exec` ; branches `branch-true`/`branch-false` pour
+ *    if/switch ; sous-blocs `exec` pour boucles/try ; corps de fonction via `calls`.
+ *  - Niveau 3 : sous-arbres d'expression (appels, binaires, …) en nœuds latéraux
+ *    (track `expression`) reliés par des arêtes `expression`. Les feuilles
+ *    (littéraux, variables) ne créent pas de nœud : elles sont résumées dans le
+ *    `label`/`source` de leur parent.
+ *
+ * Raccourcis assumés : pas de refusion des branches (le statement suivant un `if`
+ * repart du nœud `if`), pas de niveau 1 (regroupement par lignes vides), `loc` omis.
+ */
+
+import type {
+  GraphEdge,
+  GraphModel,
+  GraphNode,
+  GraphOptions,
+  HandleKind,
+  NodeLevel,
+  NodeRole,
+} from "../shared";
+import { EMPTY_GRAPH } from "../shared";
+import type { FunctionDeclaration, FunctionValue } from "./types/function";
+import type { Block, Statement, Value } from "./types/globalType";
+import type { IfStatement } from "./types/ifStatement";
+import type { SwitchCase } from "./types/switch-case";
+import type { Argument } from "./types/functionCall";
+import type {
+  AssignmentTarget,
+  BindingTarget,
+  Spread,
+} from "./types/variable";
+
+type Endpoints = { headId: string; tailId: string };
+
+const BOUNDARY_KINDS = new Set(["function-declaration", "function"]);
+const CONTROL_KINDS = new Set([
+  "if",
+  "switch",
+  "while",
+  "do-while",
+  "for",
+  "for-in",
+  "for-of",
+  "try",
+]);
+
+const STATEMENT_AST_TYPE: Record<string, string> = {
+  "function-declaration": "FunctionDeclaration",
+  function: "FunctionExpression",
+  if: "IfStatement",
+  switch: "SwitchStatement",
+  while: "WhileStatement",
+  "do-while": "DoWhileStatement",
+  for: "ForStatement",
+  "for-in": "ForInStatement",
+  "for-of": "ForOfStatement",
+  try: "TryStatement",
+  "variable-declaration": "VariableDeclaration",
+  assignment: "AssignmentExpression",
+  return: "ReturnStatement",
+  "expression-statement": "ExpressionStatement",
+  break: "BreakStatement",
+  continue: "ContinueStatement",
+  "interface-declaration": "TSInterfaceDeclaration",
+  throw: "ThrowStatement",
+};
+
+const VALUE_AST_TYPE: Record<string, string> = {
+  literal: "Literal",
+  variable: "Identifier",
+  property: "MemberExpression",
+  index: "MemberExpression",
+  call: "CallExpression",
+  new: "NewExpression",
+  "tagged-template": "TaggedTemplateExpression",
+  assignment: "AssignmentExpression",
+  binary: "BinaryExpression",
+  unary: "UnaryExpression",
+  ternary: "ConditionalExpression",
+  function: "ArrowFunctionExpression",
+  array: "ArrayExpression",
+  object: "ObjectExpression",
+  template: "TemplateLiteral",
+  await: "AwaitExpression",
+  yield: "YieldExpression",
+};
+
+const isLeaf = (v: Value): boolean =>
+  v.kind === "literal" || v.kind === "variable";
+
+const roleForStatement = (kind: string): NodeRole => {
+  if (BOUNDARY_KINDS.has(kind)) return "boundary";
+  if (CONTROL_KINDS.has(kind)) return "control";
+  return "statement";
+};
+
+const truncate = (text: string, max = 48): string =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+const literalText = (value: string | number | boolean | null | undefined): string =>
+  typeof value === "string" ? JSON.stringify(value) : String(value);
+
+const argValue = (arg: Argument): Value =>
+  arg.kind === "spread-arg" ? arg.value : arg;
+
+const elementValue = (el: Value | Spread): Value =>
+  el.kind === "spread" ? el.value : el;
+
+// Texte court reconstruit depuis l'objet structuré (sert aux labels et `source`).
+function describe(v: Value): string {
+  switch (v.kind) {
+    case "literal":
+      return literalText(v.value);
+    case "variable":
+      return v.name;
+    case "property":
+      return `${describe(v.object)}${v.optional ? "?." : "."}${v.property}`;
+    case "index":
+      return `${describe(v.object)}[${describe(v.index)}]`;
+    case "call":
+      return `${describe(v.callee)}(${v.args.map((a) => describe(argValue(a))).join(", ")})`;
+    case "new":
+      return `new ${describe(v.callee)}(${v.args.map((a) => describe(argValue(a))).join(", ")})`;
+    case "binary":
+      return `${describe(v.left)} ${v.op} ${describe(v.right)}`;
+    case "unary":
+      return `${v.op}${describe(v.value)}`;
+    case "ternary":
+      return `${describe(v.condition)} ? ${describe(v.then)} : ${describe(v.else)}`;
+    case "array":
+      return `[${v.elements.map((e) => (e ? describe(elementValue(e)) : "")).join(", ")}]`;
+    case "object":
+      return `{ ${v.properties.map((p) => `${p.key}: ${describe(p.value)}`).join(", ")} }`;
+    case "template":
+      return `\`${v.quasis
+        .map((q, i) => q + (i < v.expressions.length ? `\${${describe(v.expressions[i])}}` : ""))
+        .join("")}\``;
+    case "await":
+      return `await ${describe(v.value)}`;
+    case "yield":
+      return `yield${v.delegate ? "*" : ""}${v.value ? ` ${describe(v.value)}` : ""}`;
+    case "assignment":
+      return `${describeTarget(v.assignmentTargetName)} ${v.operator} ${describe(v.assignmentTargetValue)}`;
+    case "function":
+      return v.arrow ? "() => …" : `function ${v.name ?? ""}()`;
+    case "tagged-template":
+      return `${describe(v.tag)}\`…\``;
+    default:
+      return (v as { kind: string }).kind;
+  }
+}
+
+function describeTarget(t: AssignmentTarget): string {
+  switch (t.kind) {
+    case "variable":
+      return t.name;
+    case "property":
+      return `${describe(t.object)}.${t.property}`;
+    case "index":
+      return `${describe(t.object)}[${describe(t.index)}]`;
+    case "array-destructure":
+      return "[…]";
+    case "object-destructure":
+      return "{…}";
+  }
+}
+
+function describeBinding(t: BindingTarget): string {
+  switch (t.kind) {
+    case "variable":
+      return t.name;
+    case "array-destructure":
+      return "[…]";
+    case "object-destructure":
+      return "{…}";
+  }
+}
+
+// Sous-valeurs d'une expression (pour la récursion niveau 3).
+function childValues(v: Value, path: string): [string, Value][] {
+  switch (v.kind) {
+    case "binary":
+      return [
+        [`${path}/l`, v.left],
+        [`${path}/r`, v.right],
+      ];
+    case "unary":
+      return [[`${path}/v`, v.value]];
+    case "ternary":
+      return [
+        [`${path}/c`, v.condition],
+        [`${path}/t`, v.then],
+        [`${path}/e`, v.else],
+      ];
+    case "property":
+      return [[`${path}/o`, v.object]];
+    case "index":
+      return [
+        [`${path}/o`, v.object],
+        [`${path}/i`, v.index],
+      ];
+    case "call":
+      return [
+        [`${path}/fn`, v.callee],
+        ...v.args.map((a, i): [string, Value] => [`${path}/a${i}`, argValue(a)]),
+      ];
+    case "new":
+      return [
+        [`${path}/fn`, v.callee],
+        ...v.args.map((a, i): [string, Value] => [`${path}/a${i}`, argValue(a)]),
+      ];
+    case "tagged-template":
+      return [
+        [`${path}/tag`, v.tag],
+        ...v.template.expressions.map((e, i): [string, Value] => [`${path}/x${i}`, e]),
+      ];
+    case "array":
+      return v.elements.flatMap((el, i): [string, Value][] =>
+        el ? [[`${path}/${i}`, elementValue(el)]] : [],
+      );
+    case "object":
+      return v.properties.map((p, i): [string, Value] => [`${path}/p${i}`, p.value]);
+    case "template":
+      return v.expressions.map((e, i): [string, Value] => [`${path}/x${i}`, e]);
+    case "await":
+      return [[`${path}/v`, v.value]];
+    case "yield":
+      return v.value ? [[`${path}/v`, v.value]] : [];
+    case "assignment":
+      return [[`${path}/v`, v.assignmentTargetValue]];
+    default:
+      return []; // literal, variable, function
+  }
+}
+
+function labelForStatement(stmt: Statement): string {
+  switch (stmt.kind) {
+    case "variable-declaration":
+      return `${stmt.declarationKind} ${stmt.declarations.map((d) => describeBinding(d.target)).join(", ")}`;
+    case "assignment":
+      return `${describeTarget(stmt.assignmentTargetName)} ${stmt.operator}`;
+    case "return":
+      return "return";
+    case "expression-statement":
+      return truncate(describe(stmt.value));
+    case "if":
+      return "if";
+    case "switch":
+      return "switch";
+    case "while":
+      return "while";
+    case "do-while":
+      return "do…while";
+    case "for":
+      return "for";
+    case "for-in":
+      return "for…in";
+    case "for-of":
+      return "for…of";
+    case "try":
+      return "try";
+    case "throw":
+      return "throw";
+    case "break":
+      return stmt.label ? `break ${stmt.label}` : "break";
+    case "continue":
+      return stmt.label ? `continue ${stmt.label}` : "continue";
+    case "function-declaration":
+      return `function ${stmt.name}`;
+    case "interface-declaration":
+      return `interface ${stmt.name}`;
+    default:
+      return (stmt as { kind: string }).kind;
+  }
+}
+
+function sourceForStatement(stmt: Statement): string | undefined {
+  switch (stmt.kind) {
+    case "variable-declaration":
+      return truncate(
+        `${stmt.declarationKind} ${stmt.declarations
+          .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
+          .join(", ")}`,
+        80,
+      );
+    case "assignment":
+      return truncate(
+        `${describeTarget(stmt.assignmentTargetName)} ${stmt.operator} ${describe(stmt.assignmentTargetValue)}`,
+        80,
+      );
+    case "return":
+      return stmt.value ? truncate(`return ${describe(stmt.value)}`, 80) : "return";
+    case "throw":
+      return truncate(`throw ${describe(stmt.value)}`, 80);
+    case "expression-statement":
+      return truncate(describe(stmt.value), 80);
+    default:
+      return undefined;
+  }
+}
+
+export function objectToGraph(
+  mapping: Record<number, FunctionDeclaration | FunctionValue>,
+  options: GraphOptions = {},
+): GraphModel {
+  const entries = Object.values(mapping);
+  const root = entries.find((f) => f.name === "<global>") ?? entries[0];
+  if (!root || !root.body || !("kind" in root.body) || root.body.kind !== "block") {
+    return { ...EMPTY_GRAPH };
+  }
+
+  const collapseExpr = options.collapseExpressions === true;
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const seenIds = new Set<string>();
+  let edgeSeq = 0;
+
+  const uniqueId = (path: string): string => {
+    let id = path;
+    let i = 2;
+    while (seenIds.has(id)) id = `${path}#${i++}`;
+    seenIds.add(id);
+    return id;
+  };
+
+  const emitNode = (
+    path: string,
+    fields: {
+      role: NodeRole;
+      track: GraphNode["track"];
+      level: NodeLevel;
+      label: string;
+      astType: string;
+      source?: string;
+    },
+  ): string => {
+    const id = uniqueId(path);
+    const node: GraphNode = {
+      id,
+      astPath: id,
+      role: fields.role,
+      track: fields.track,
+      level: fields.level,
+      label: fields.label,
+      astType: fields.astType,
+    };
+    if (fields.source !== undefined) node.source = fields.source;
+    nodes.push(node);
+    return id;
+  };
+
+  const addEdge = (
+    source: string,
+    target: string,
+    kind: GraphEdge["kind"],
+    handles?: {
+      sourceHandle?: HandleKind;
+      targetHandle?: HandleKind;
+      label?: string;
+    },
+  ): void => {
+    const edge: GraphEdge = { id: `e${edgeSeq++}`, source, target, kind };
+    if (handles?.sourceHandle) edge.sourceHandle = handles.sourceHandle;
+    if (handles?.targetHandle) edge.targetHandle = handles.targetHandle;
+    if (handles?.label) edge.label = handles.label;
+    edges.push(edge);
+  };
+
+  // Émet un nœud d'expression et récurse dans ses sous-valeurs (compound only).
+  const walkValue = (
+    value: Value,
+    parentId: string,
+    path: string,
+    sourceHandle: HandleKind = "args",
+  ): string => {
+    const label = truncate(describe(value));
+    const id = emitNode(path, {
+      role: isLeaf(value) ? "literal" : "expression",
+      track: "expression",
+      level: 3,
+      label,
+      astType: VALUE_AST_TYPE[value.kind] ?? value.kind,
+      source: label,
+    });
+    addEdge(parentId, id, "expression", { sourceHandle, targetHandle: "value-out" });
+    for (const [childPath, child] of childValues(value, path)) {
+      if (isLeaf(child)) continue; // feuille résumée dans le label parent
+      walkValue(child, id, childPath);
+    }
+    return id;
+  };
+
+  const maybeWalkValue = (value: Value, parentId: string, path: string): void => {
+    if (collapseExpr || isLeaf(value)) return;
+    walkValue(value, parentId, path);
+  };
+
+  // Relie un sous-bloc au nœud de contrôle parent (corps de boucle/try/fonction).
+  const connectBlock = (
+    block: Block,
+    fromId: string,
+    path: string,
+    kind: GraphEdge["kind"],
+    label?: string,
+  ): void => {
+    const ends = walkBlock(block.content, path);
+    if (!ends) return;
+    addEdge(fromId, ends.headId, kind, {
+      sourceHandle: kind === "calls" ? "args" : "exec-out",
+      targetHandle: "exec-in",
+      label,
+    });
+  };
+
+  const buildIf = (stmt: IfStatement, id: string, path: string): void => {
+    maybeWalkValue(stmt.condition, id, `${path}/cond`);
+    const thenEnds = walkBlock(stmt.then.content, `${path}/then`);
+    if (thenEnds)
+      addEdge(id, thenEnds.headId, "branch-true", {
+        sourceHandle: "branch-true",
+        targetHandle: "exec-in",
+        label: "true",
+      });
+    if (stmt.else) {
+      if (stmt.else.kind === "if") {
+        const elseIf = walkStatement(stmt.else, `${path}/else`);
+        addEdge(id, elseIf.headId, "branch-false", {
+          sourceHandle: "branch-false",
+          targetHandle: "exec-in",
+          label: "else if",
+        });
+      } else {
+        const elseEnds = walkBlock(stmt.else.content, `${path}/else`);
+        if (elseEnds)
+          addEdge(id, elseEnds.headId, "branch-false", {
+            sourceHandle: "branch-false",
+            targetHandle: "exec-in",
+            label: "false",
+          });
+      }
+    }
+  };
+
+  const buildCase = (c: SwitchCase, id: string, path: string): void => {
+    const ends = walkBlock(c.body, path);
+    if (!ends) return; // case vide (fallthrough)
+    addEdge(id, ends.headId, "branch-true", {
+      sourceHandle: "branch-true",
+      targetHandle: "exec-in",
+      label: c.kind === "case" ? truncate(describe(c.test)) : "default",
+    });
+  };
+
+  const walkStatement = (stmt: Statement, path: string): Endpoints => {
+    const role = roleForStatement(stmt.kind);
+    const level: NodeLevel = role === "boundary" ? 1 : 2;
+    const id = emitNode(path, {
+      role,
+      track: "spine",
+      level,
+      label: labelForStatement(stmt),
+      astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
+      source: sourceForStatement(stmt),
+    });
+
+    switch (stmt.kind) {
+      case "if":
+        buildIf(stmt, id, path);
+        break;
+      case "while":
+      case "do-while":
+        maybeWalkValue(stmt.condition, id, `${path}/cond`);
+        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        break;
+      case "for":
+        if (!collapseExpr) {
+          if (stmt.init) {
+            if (stmt.init.kind === "variable-declaration") {
+              stmt.init.declarations.forEach((d, i) => {
+                if (d.init) maybeWalkValue(d.init, id, `${path}/init${i}`);
+              });
+            } else {
+              maybeWalkValue(stmt.init, id, `${path}/init`);
+            }
+          }
+          if (stmt.test) maybeWalkValue(stmt.test, id, `${path}/test`);
+          if (stmt.update) maybeWalkValue(stmt.update, id, `${path}/update`);
+        }
+        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        break;
+      case "for-in":
+      case "for-of":
+        maybeWalkValue(stmt.right, id, `${path}/right`);
+        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        break;
+      case "switch":
+        maybeWalkValue(stmt.discriminant, id, `${path}/disc`);
+        stmt.cases.forEach((c, i) => buildCase(c, id, `${path}/case${i}`));
+        break;
+      case "try": {
+        const tryEnds = walkBlock(stmt.block.content, `${path}/try`);
+        if (tryEnds)
+          addEdge(id, tryEnds.headId, "exec", {
+            sourceHandle: "exec-out",
+            targetHandle: "exec-in",
+            label: "try",
+          });
+        if (stmt.handler) {
+          const handlerEnds = walkBlock(stmt.handler.body.content, `${path}/catch`);
+          if (handlerEnds)
+            addEdge(id, handlerEnds.headId, "branch-false", {
+              sourceHandle: "branch-false",
+              targetHandle: "exec-in",
+              label: stmt.handler.param
+                ? `catch (${describeBinding(stmt.handler.param)})`
+                : "catch",
+            });
+        }
+        if (stmt.finalizer) {
+          const finallyEnds = walkBlock(stmt.finalizer.content, `${path}/finally`);
+          if (finallyEnds)
+            addEdge(id, finallyEnds.headId, "exec", {
+              sourceHandle: "exec-out",
+              targetHandle: "exec-in",
+              label: "finally",
+            });
+        }
+        break;
+      }
+      case "function-declaration":
+        connectBlock(stmt.body, id, `${path}/body`, "calls");
+        break;
+      case "variable-declaration":
+        stmt.declarations.forEach((d, i) => {
+          if (d.init) maybeWalkValue(d.init, id, `${path}/d${i}`);
+        });
+        break;
+      case "assignment":
+        maybeWalkValue(stmt.assignmentTargetValue, id, `${path}/val`);
+        break;
+      case "return":
+        if (stmt.value) maybeWalkValue(stmt.value, id, `${path}/val`);
+        break;
+      case "expression-statement":
+      case "throw":
+        maybeWalkValue(stmt.value, id, `${path}/val`);
+        break;
+      // break, continue, interface-declaration : aucun enfant à émettre
+    }
+
+    return { headId: id, tailId: id };
+  };
+
+  const walkBlock = (statements: Statement[], path: string): Endpoints | null => {
+    let firstHead: string | null = null;
+    let prevTail: string | null = null;
+    statements.forEach((stmt, i) => {
+      const { headId, tailId } = walkStatement(stmt, `${path}/${i}`);
+      if (prevTail) {
+        addEdge(prevTail, headId, "exec", {
+          sourceHandle: "exec-out",
+          targetHandle: "exec-in",
+        });
+      } else {
+        firstHead = headId;
+      }
+      prevTail = tailId;
+    });
+    if (firstHead === null || prevTail === null) return null;
+    return { headId: firstHead, tailId: prevTail };
+  };
+
+  walkBlock(root.body.content, "s");
+
+  return { nodes, edges };
+}

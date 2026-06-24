@@ -5,7 +5,7 @@
  * Interactif : drag, sélection, pan, zoom. (Connexion/édition = plus tard.)
  */
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -22,17 +22,31 @@ import "@xyflow/react/dist/style.css";
 import { useAstStore } from "../sync";
 import { graphToFlow } from "./graph-to-flow";
 import { nodeTypes } from "./nodes";
+import type { BlockFlowNode } from "./nodes/BlockNode";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);
+  const toggleFunctionNode = useAstStore((s) => s.toggleFunctionNode);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   useEffect(() => {
+    if (graph.nodes.length === 0) return;
     const flow = graphToFlow(graph);
     setNodes(flow.nodes);
     setEdges(flow.edges);
   }, [graph, setNodes, setEdges]);
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const blockNode = node as BlockFlowNode;
+      const gNode = blockNode.data?.node;
+      if (gNode?.astType === "FunctionDeclaration") {
+        toggleFunctionNode(gNode.id);
+      }
+    },
+    [toggleFunctionNode],
+  );
 
   return (
     <ReactFlow
@@ -40,6 +54,7 @@ export default function BlocksCanvas() {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
+      onNodeClick={onNodeClick}
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: 0.2 }}

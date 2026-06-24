@@ -23,18 +23,19 @@ export interface FlowModel {
 }
 
 const EDGE_STYLE: Record<EdgeKind, { stroke: string; width: number; dash?: string }> = {
-  exec: { stroke: "#e6edf3", width: 2.5 },
-  calls: { stroke: "#c084fc", width: 2, dash: "2 4" },
-  "branch-true": { stroke: "#2dd4bf", width: 2 },
-  "branch-false": { stroke: "#8b949e", width: 2, dash: "5 4" },
-  expression: { stroke: "#6e7681", width: 1.2, dash: "4 3" },
+  exec: { stroke: "#c8c8c8", width: 3 },
+  calls: { stroke: "#c084fc", width: 2, dash: "3 4" },
+  "branch-true": { stroke: "#2dd4bf", width: 2.5 },
+  "branch-false": { stroke: "#9ca3af", width: 2, dash: "5 4" },
+  expression: { stroke: "#5a5a5a", width: 1.5, dash: "4 3" },
+  "loop-back": { stroke: "#f59e0b", width: 2, dash: "6 4" },
 };
 
 function sourceHandleFor(kind: EdgeKind): string | undefined {
   if (kind === "branch-true") return "true";
   if (kind === "branch-false") return "false";
-  if (kind === "expression") return "data";
-  return undefined; // exec / calls → handle bas par défaut
+  if (kind === "expression" || kind === "calls") return "data";
+  return undefined; // exec → default source handle
 }
 
 // Les arêtes d'exécution structurent la colonne ; les data dependencies suivent.
@@ -45,7 +46,7 @@ export function graphToFlow(graph: GraphModel): FlowModel {
 
   // Auto-layout dagre sur le graphe ENTIER (blocs + expressions).
   const layout = new dagre.graphlib.Graph();
-  layout.setGraph({ rankdir: "TB", nodesep: 50, ranksep: 72, marginx: 24, marginy: 24 });
+  layout.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 160, marginx: 48, marginy: 48 });
   layout.setDefaultEdgeLabel(() => ({}));
 
   for (const node of graph.nodes) {
@@ -53,7 +54,8 @@ export function graphToFlow(graph: GraphModel): FlowModel {
     layout.setNode(node.id, { width: s.width, height: s.height });
   }
   for (const edge of graph.edges) {
-    layout.setEdge(edge.source, edge.target, { weight: edgeWeight(edge.kind), minlen: 1 });
+    const minlen = edge.kind === "loop-back" ? 0 : 1;
+    layout.setEdge(edge.source, edge.target, { weight: edgeWeight(edge.kind), minlen });
   }
 
   dagre.layout(layout);
@@ -69,6 +71,10 @@ export function graphToFlow(graph: GraphModel): FlowModel {
     };
   });
 
+  // Exec/branch/calls edges use smoothstep (clean right-angle routing like Bolt).
+  // Expression and loop-back stay as bezier — they're secondary or cycle edges.
+  const SMOOTHSTEP_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "calls", "loop-back"]);
+
   const edges: Edge[] = graph.edges.map((edge) => {
     const style = EDGE_STYLE[edge.kind];
     const sourceHandle = sourceHandleFor(edge.kind);
@@ -76,6 +82,7 @@ export function graphToFlow(graph: GraphModel): FlowModel {
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      ...(SMOOTHSTEP_KINDS.has(edge.kind) ? { type: "smoothstep", pathOptions: { borderRadius: 12 } } : {}),
       ...(sourceHandle ? { sourceHandle } : {}),
       label: edge.label,
       style: {

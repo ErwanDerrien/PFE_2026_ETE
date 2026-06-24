@@ -1,11 +1,11 @@
-/* Blocs visuels — thème sombre, cartes typées, pills, arêtes, tokens, légende. */
+/* Blocs visuels — thème Unity Bolt (Visual Scripting). */
 
-/* --- Espace de travail (code | blocs) --- */
+/* --- Espace de travail --- */
 .workspace {
   position: fixed;
   inset: 0;
   display: flex;
-  background: #0d1117;
+  background: #1e1e1e;
 }
 
 .code-pane {
@@ -15,11 +15,11 @@
   box-sizing: border-box;
   padding: 16px;
   border: none;
-  border-right: 1px solid #21262d;
+  border-right: 1px solid #3a3a3a;
   resize: none;
   outline: none;
-  background: #0d1117;
-  color: #c9d1d9;
+  background: #1e1e1e;
+  color: #d4d4d4;
   font: 13px/1.6 var(--mono, ui-monospace, Consolas, monospace);
   tab-size: 2;
 }
@@ -38,102 +38,176 @@
   right: 10px;
   z-index: 10;
   padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(248, 81, 73, 0.15);
-  color: #ffa198;
-  border: 1px solid rgba(248, 81, 73, 0.4);
+  border-radius: 6px;
+  background: rgba(220, 70, 70, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(220, 70, 70, 0.4);
   font: 13px/1.4 var(--sans, system-ui, sans-serif);
 }
 
 /* --- Canvas React Flow --- */
 .react-flow {
-  background: #0d1117;
+  background: #1e1e1e;
 }
 
-/* --- Carte de bloc (spine) --- */
+/* --- Node card (Bolt style) --- */
 .bn {
   box-sizing: border-box;
-  /* largeur ajustée exactement au contenu (padding symétrique, jamais de coupe) ;
-     dagre réserve un peu plus (cf. node-size.ts) → pas de chevauchement. */
   width: max-content;
   min-width: 180px;
-  max-width: 760px;
-  border-radius: 10px;
-  background: #161b22;
-  border: 1px solid #30363d;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
+  max-width: 520px;
+  border-radius: 7px;
+  background: #2b2b2b;
+  border: 1px solid #3f3f3f;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
+  overflow: visible; /* must NOT clip: handles stick out from both edges */
+  position: relative; /* containing block for absolutely-positioned handles */
   font-family: var(--mono, ui-monospace, Consolas, monospace);
 }
+
 .bn.is-selected {
   border-color: #2dd4bf;
   box-shadow:
-    0 0 0 1px #2dd4bf,
-    0 0 18px rgba(45, 212, 191, 0.35);
+    0 0 0 2px rgba(45, 212, 191, 0.45),
+    0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
+/* Header — solid accent fill (Bolt style), space for handles on both sides */
 .bn-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: color-mix(in srgb, var(--accent, #8b949e) 16%, #161b22);
-  border-bottom: 1px solid #30363d;
-  border-left: 3px solid var(--accent, #8b949e);
+  gap: 7px;
+  padding: 0 30px;
+  height: 32px;
+  background: var(--accent, #555);
+  flex-shrink: 0;
+  border-radius: 6px 6px 0 0; /* match .bn top radius — no overflow:hidden to rely on */
 }
-.bn-type {
-  font: 700 11px/1 var(--sans, system-ui, sans-serif);
-  letter-spacing: 0.12em;
-  color: var(--accent, #c9d1d9);
-}
+
 .bn-icon {
-  color: var(--accent, #c9d1d9);
   font-size: 13px;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
 }
 
-.bn-body {
-  padding: 10px 12px;
-  font-size: 13px;
-  color: #c9d1d9;
-  white-space: pre;
-  letter-spacing: 0;
-}
-
-.bn-foot {
-  display: flex;
-  border-top: 1px solid #30363d;
-}
-.bn-foot-cell {
-  flex: 1;
-  text-align: center;
-  padding: 6px 0;
+.bn-type {
   font: 700 10px/1 var(--sans, system-ui, sans-serif);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.95);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Body — fixed height so handle positions are predictable */
+.bn-body {
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 30px 0 10px;
+  display: flex;
+  align-items: center;
+  overflow: hidden; /* clips code text — OK here, .bn is the scroll context */
+}
+
+/* Non-branching: body is the last section → round its bottom corners */
+.bn-body:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
+.bn-body code {
+  font-size: 12px;
+  color: #d4d4d4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Branch footer */
+.bn-foot {
+  border-top: 1px solid #3f3f3f;
+}
+
+.bn-foot-cell {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 26px;
+  padding: 0 30px 0 10px;
   position: relative;
 }
-.bn-foot-true {
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.08);
-}
-.bn-foot-false {
-  color: #8b949e;
-  border-left: 1px solid #30363d;
+
+.bn-foot-cell + .bn-foot-cell {
+  border-top: 1px solid #3a3a3a;
 }
 
-/* --- Pill d'expression --- */
+/* Branching: last footer row rounds the bottom corners */
+.bn-foot-cell:last-child {
+  border-radius: 0 0 6px 6px;
+}
+
+.bn-foot-label {
+  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+}
+
+.bn-foot-true .bn-foot-label  { color: #2dd4bf; }
+.bn-foot-false .bn-foot-label { color: #9ca3af; }
+.bn-foot-body .bn-foot-label  { color: #f59e0b; } /* loop BODY port — amber */
+.bn-foot-expand   .bn-foot-label { color: #c084fc; letter-spacing: 0.1em; } /* collapsed fn — violet */
+.bn-foot-collapse .bn-foot-label { color: #a855f7; letter-spacing: 0.1em; } /* expanded fn — deeper violet */
+
+/* Collapsed function nodes show a pointer cursor and a subtle pulsing border */
+.bn.bn-collapsed {
+  cursor: pointer;
+  border-color: #c084fc55;
+}
+.bn.bn-collapsed:hover {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.3), 0 4px 18px rgba(0, 0, 0, 0.65);
+}
+
+/* --- Exec handles — Bolt arrow shape (pentagon pointing right) --- */
+.react-flow__handle.bn-exec-handle {
+  width: 16px !important;
+  height: 14px !important;
+  background: #c8c8c8 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, 62% 0, 100% 50%, 62% 100%, 0 100%);
+}
+
+.react-flow__handle.bn-handle-true {
+  background: #2dd4bf !important;
+}
+
+.react-flow__handle.bn-handle-false {
+  background: #9ca3af !important;
+}
+
+/* --- Data output handle — coloured circle --- */
+.react-flow__handle.bn-data-handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: #f59e0b !important;
+  border: 2px solid #2b2b2b !important;
+  border-radius: 50% !important;
+}
+
+/* --- Expression node — compact Bolt data box --- */
 .xn {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #1c2128;
-  border: 1px solid #30363d;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #252525;
+  border: 1px solid #3f3f3f;
   font: 12px/1 var(--mono, ui-monospace, Consolas, monospace);
-  color: #c9d1d9;
-  overflow: hidden;
+  color: #d4d4d4;
+  overflow: visible; /* handles must not be clipped */
+  position: relative;
 }
+
 .xn code {
   flex: 1;
   min-width: 0;
@@ -141,102 +215,68 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .xn-expr {
-  border-color: #fb7185;
-  background: rgba(251, 113, 133, 0.08);
+  border-left: 3px solid #fb7185;
 }
+
 .xn-leaf {
-  color: #8b949e;
+  border-left: 3px solid #555;
+  color: #9ca3af;
 }
 
-/* --- Handles --- */
-.react-flow__handle {
-  width: 7px;
-  height: 7px;
-  background: #6e7681;
-  border: 1px solid #0d1117;
-}
-.bn-handle-exec {
-  background: #e6edf3;
-}
-.bn-handle-data,
-.xn-handle {
-  background: #6e7681;
-}
-.bn-handle-true {
-  background: #2dd4bf;
-  left: 25% !important;
-}
-.bn-handle-false {
-  background: #8b949e;
-  left: 75% !important;
+/* Expression handles — small coloured circles */
+.react-flow__handle.xn-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #6b7280 !important;
+  border: 1px solid #252525 !important;
+  border-radius: 50% !important;
 }
 
-/* --- Étiquettes d'arête lisibles sur fond sombre --- */
-.react-flow__edge-text {
-  fill: #c9d1d9;
-  font-size: 10px;
-}
-.react-flow__edge-textbg {
-  fill: #161b22;
-}
+/* --- Edge labels --- */
+.react-flow__edge-text    { fill: #9ca3af; font-size: 10px; }
+.react-flow__edge-textbg  { fill: #1e1e1e; }
 
-/* --- Coloration syntaxique --- */
-.tok-ws {
-  white-space: pre;
-}
-.tok-keyword {
-  color: #ff7b72;
-}
-.tok-string {
-  color: #a5d6ff;
-}
-.tok-number {
-  color: #79c0ff;
-}
-.tok-fn {
-  color: #d2a8ff;
-}
-.tok-ident {
-  color: #c9d1d9;
-}
-.tok-punct {
-  color: #8b949e;
-}
+/* --- Syntax highlighting (GitHub Dark palette) --- */
+.tok-ws      { white-space: pre; }
+.tok-keyword { color: #ff7b72; }
+.tok-string  { color: #a5d6ff; }
+.tok-number  { color: #79c0ff; }
+.tok-fn      { color: #d2a8ff; }
+.tok-ident   { color: #c9d1d9; }
+.tok-punct   { color: #8b949e; }
 
-/* --- Légende --- */
+/* --- Legend panel --- */
 .legend {
-  background: rgba(22, 27, 34, 0.85);
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  background: rgba(22, 22, 22, 0.88);
+  border: 1px solid #3f3f3f;
+  border-radius: 6px;
   padding: 10px 12px;
   font: 12px/1.7 var(--sans, system-ui, sans-serif);
   color: #c9d1d9;
   backdrop-filter: blur(4px);
 }
+
 .legend-title {
-  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  font: 700 10px/1 var(--sans);
   letter-spacing: 0.14em;
-  color: #8b949e;
+  color: #6b7280;
   margin-bottom: 6px;
 }
+
 .legend-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
 .legend-swatch {
   width: 20px;
   border-top: 3px solid transparent;
   display: inline-block;
 }
-.sw-exec {
-  border-top-color: #e6edf3;
-}
-.sw-true {
-  border-top-color: #2dd4bf;
-}
-.sw-call {
-  border-top-color: #c084fc;
-  border-top-style: dashed;
-}
+
+.sw-exec  { border-top-color: #c8c8c8; }
+.sw-true  { border-top-color: #2dd4bf; }
+.sw-call  { border-top-color: #c084fc; border-top-style: dashed; }

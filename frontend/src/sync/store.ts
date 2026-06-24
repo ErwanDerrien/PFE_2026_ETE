@@ -38,6 +38,7 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
   language: DEFAULT_LANGUAGE,
   error: null,
   lastOrigin: null,
+  expandedFunctions: new Set<string>(),
 
   // --- écritures ---
   setSource: (source, origin) => {
@@ -45,14 +46,13 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
     try {
       const ast = parse(source, language);
       try {
+        // Reset expansion state when source changes — node IDs are path-based and may shift.
         const graph = astToGraph(ast);
-        set({ ast, source, graph, error: null, lastOrigin: origin });
+        set({ ast, source, graph, expandedFunctions: new Set(), error: null, lastOrigin: origin });
       } catch (e) {
-        // AST valide mais projection en blocs échouée : on garde l'AST à jour.
-        set({ ast, source, error: toSyncError('astToGraph', e), lastOrigin: origin });
+        set({ ast, source, expandedFunctions: new Set(), error: toSyncError('astToGraph', e), lastOrigin: origin });
       }
     } catch (e) {
-      // Code invalide : on conserve le texte saisi et on remonte l'erreur.
       set({ source, error: toSyncError('parse', e), lastOrigin: origin });
     }
   },
@@ -96,5 +96,19 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
       graph: EMPTY_GRAPH,
       error: null,
       lastOrigin: null,
+      expandedFunctions: new Set(),
     }),
+
+  toggleFunctionNode: (nodeId: string) => {
+    const { ast, expandedFunctions } = get();
+    if (!ast) return;
+    const next = new Set(expandedFunctions);
+    if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId);
+    try {
+      const graph = astToGraph(ast, { expandedFunctions: next });
+      set({ expandedFunctions: next, graph });
+    } catch (e) {
+      set({ expandedFunctions: next, error: toSyncError('astToGraph', e) });
+    }
+  },
 }));

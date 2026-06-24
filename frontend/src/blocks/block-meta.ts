@@ -46,6 +46,21 @@ export function blockMeta(astType: string, role: NodeRole): BlockMeta {
   return BY_AST_TYPE[astType] ?? BY_ROLE[role];
 }
 
-const BRANCHING = new Set(["IfStatement", "SwitchStatement"]);
+const LOOPING = new Set([
+  "WhileStatement",
+  "DoWhileStatement",
+  "ForStatement",
+  "ForInStatement",
+  "ForOfStatement",
+]);
+
+const BRANCHING = new Set([
+  "IfStatement",
+  "SwitchStatement",
+  ...LOOPING,
+]);
 
 export const isBranching = (astType: string): boolean => BRANCHING.has(astType);
+
+/** True for loop nodes — they show a BODY port instead of TRUE/FALSE. */
+export const isLooping = (astType: string): boolean => LOOPING.has(astType);

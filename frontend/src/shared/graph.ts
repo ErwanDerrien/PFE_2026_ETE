@@ -60,7 +60,8 @@ export type EdgeKind =
   | 'expression'
   | 'branch-true'
   | 'branch-false'
-  | 'calls';
+  | 'calls'
+  | 'loop-back'; // end of loop body → loop node (back edge showing iteration)
 
 /**
  * Poignées typées (« typed handles ») pour l'édition par blocs : ne permettre que

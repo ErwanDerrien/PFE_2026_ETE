@@ -27,6 +27,8 @@ export interface GraphOptions {
   collapseMaxLength?: number;
   /** Regrouper les statements en phases via les lignes vides (Niveau 1). */
   groupByBlankLines?: boolean;
+  /** IDs des nœuds de définition de fonction dont le corps est déplié. */
+  expandedFunctions?: Set<string>;
 }
 
 // --- Les quatre transformations (signatures de contrat) ---
@@ -104,4 +106,10 @@ export interface AstStoreState {
   setLanguage: (language: SupportedLanguage) => void;
   /** Réinitialise tout l'état. */
   reset: () => void;
+
+  // --- expansion des définitions de fonction ---
+  /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */
+  expandedFunctions: Set<string>;
+  /** Bascule l'état déplié/replié d'un nœud de définition de fonction. */
+  toggleFunctionNode: (nodeId: string) => void;
 }

@@ -38,7 +38,12 @@ import type {
   Spread,
 } from "./types/variable";
 
-type Endpoints = { headId: string; tailId: string };
+type Endpoints = {
+  headId: string;
+  tailId: string;
+  // if-node IDs whose branch-false port has no target yet — connect to the next stmt in sequence
+  openFalseBranches?: string[];
+};
 
 const BOUNDARY_KINDS = new Set(["function-declaration", "function"]);
 const CONTROL_KINDS = new Set([
@@ -101,11 +106,16 @@ const isLeaf = (v: Value): boolean =>
 // garde comme nœuds (définitions) mais hors de la chaîne d'exécution `exec`.
 const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
 
-// Nom de la fonction appelée si `value` est un appel DIRECT à un identifiant
-// simple (foo(...)). null pour les appels de méthode (obj.m()) ou expressions.
+// Nom racine de la valeur appelée pour tracer un lien `calls` vers sa définition :
+// - foo(...)          → "foo"
+// - obj.method(...)   → "obj"  (on lie l'appel à la variable contenant l'objet)
+// - null si on ne peut pas résoudre statiquement
 function directCalleeName(value: Value | undefined): string | null {
   if (!value || value.kind !== "call") return null;
-  return value.callee.kind === "variable" ? value.callee.name : null;
+  if (value.callee.kind === "variable") return value.callee.name;
+  if (value.callee.kind === "property" && value.callee.object.kind === "variable")
+    return value.callee.object.name;
+  return null;
 }
 
 const roleForStatement = (kind: string): NodeRole => {
@@ -415,6 +425,7 @@ export function objectToGraph(
       label: string;
       astType: string;
       source?: string;
+      collapsed?: boolean;
     },
   ): string => {
     const id = uniqueId(path);
@@ -428,6 +439,7 @@ export function objectToGraph(
       astType: fields.astType,
     };
     if (fields.source !== undefined) node.source = fields.source;
+    if (fields.collapsed !== undefined) node.collapsed = fields.collapsed;
     nodes.push(node);
     return id;
   };
@@ -479,6 +491,8 @@ export function objectToGraph(
   };
 
   // Relie un sous-bloc au nœud de contrôle parent (corps de boucle/try/fonction).
+  // When expanding a function body (kind === "calls"), passes fromId so that
+  // walkBlock can also add edges to any nested function declarations inside.
   const connectBlock = (
     block: Block,
     fromId: string,
@@ -486,7 +500,8 @@ export function objectToGraph(
     kind: GraphEdge["kind"],
     label?: string,
   ): void => {
-    const ends = walkBlock(block.content, path);
+    const containerFromId = kind === "calls" ? fromId : undefined;
+    const ends = walkBlock(block.content, path, containerFromId);
     if (!ends) return;
     addEdge(fromId, ends.headId, kind, {
       sourceHandle: kind === "calls" ? "args" : "exec-out",
@@ -495,7 +510,27 @@ export function objectToGraph(
     });
   };
 
-  const buildIf = (stmt: IfStatement, id: string, path: string): void => {
+  // Connexion spécifique aux boucles : entre dans le corps via branch-true
+  // ET ajoute une back-edge depuis la fin du corps vers le nœud de la boucle.
+  const connectLoopBlock = (block: Block, loopId: string, path: string): void => {
+    const ends = walkBlock(block.content, path);
+    if (!ends) return;
+    // Nœud boucle → premier statement du corps (BODY port)
+    addEdge(loopId, ends.headId, "branch-true", {
+      sourceHandle: "branch-true",
+      targetHandle: "exec-in",
+      label: "body",
+    });
+    // Dernier statement du corps → nœud boucle (back-edge)
+    addEdge(ends.tailId, loopId, "loop-back", {
+      sourceHandle: "exec-out",
+      targetHandle: "exec-in",
+      label: "↩",
+    });
+  };
+
+  // Returns the list of if-node IDs whose branch-false port still needs connecting.
+  const buildIf = (stmt: IfStatement, id: string, path: string): string[] => {
     maybeWalkValue(stmt.condition, id, `${path}/cond`);
     const thenEnds = walkBlock(stmt.then.content, `${path}/then`);
     if (thenEnds)
@@ -512,6 +547,8 @@ export function objectToGraph(
           targetHandle: "exec-in",
           label: "else if",
         });
+        // Propagate open false branches from the else-if chain
+        return elseIf.openFalseBranches ?? [];
       } else {
         const elseEnds = walkBlock(stmt.else.content, `${path}/else`);
         if (elseEnds)
@@ -520,8 +557,11 @@ export function objectToGraph(
             targetHandle: "exec-in",
             label: "false",
           });
+        return [];
       }
     }
+    // No else: this if's FALSE port needs connecting to the continuation
+    return [id];
   };
 
   const buildCase = (c: SwitchCase, id: string, path: string): void => {
@@ -537,6 +577,9 @@ export function objectToGraph(
   const walkStatement = (stmt: Statement, path: string): Endpoints => {
     const role = roleForStatement(stmt.kind);
     const level: NodeLevel = role === "boundary" ? 1 : 2;
+    // Collapsed by default; expanded only when this exact path is in expandedFunctions.
+    const isFuncDecl = stmt.kind === "function-declaration";
+    const funcExpanded = isFuncDecl && (options.expandedFunctions?.has(path) ?? false);
     const id = emitNode(path, {
       role,
       track: "spine",
@@ -544,16 +587,20 @@ export function objectToGraph(
       label: labelForStatement(stmt),
       astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
       source: sourceForStatement(stmt),
+      ...(isFuncDecl ? { collapsed: !funcExpanded } : {}),
     });
 
+    let openFalseBranches: string[] | undefined;
     switch (stmt.kind) {
-      case "if":
-        buildIf(stmt, id, path);
+      case "if": {
+        const ob = buildIf(stmt, id, path);
+        if (ob.length > 0) openFalseBranches = ob;
         break;
+      }
       case "while":
       case "do-while":
         maybeWalkValue(stmt.condition, id, `${path}/cond`);
-        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        connectLoopBlock(stmt.body, id, `${path}/body`);
         break;
       case "for":
         if (!collapseExpr) {
@@ -569,12 +616,12 @@ export function objectToGraph(
           if (stmt.test) maybeWalkValue(stmt.test, id, `${path}/test`);
           if (stmt.update) maybeWalkValue(stmt.update, id, `${path}/update`);
         }
-        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        connectLoopBlock(stmt.body, id, `${path}/body`);
         break;
       case "for-in":
       case "for-of":
         maybeWalkValue(stmt.right, id, `${path}/right`);
-        connectBlock(stmt.body, id, `${path}/body`, "exec", "loop");
+        connectLoopBlock(stmt.body, id, `${path}/body`);
         break;
       case "switch":
         maybeWalkValue(stmt.discriminant, id, `${path}/disc`);
@@ -612,13 +659,32 @@ export function objectToGraph(
       }
       case "function-declaration":
         funcRegistry.set(stmt.name, id);
-        connectBlock(stmt.body, id, `${path}/body`, "calls");
+        if (funcExpanded) connectBlock(stmt.body, id, `${path}/body`, "calls");
         break;
       case "variable-declaration":
         stmt.declarations.forEach((d, i) => {
           if (d.init) {
             maybeWalkValue(d.init, id, `${path}/d${i}`);
             recordCall(d.init, id);
+          }
+          if (d.target.kind === "variable") {
+            const varName = d.target.name;
+            if (d.init?.kind === "function") {
+              // Arrow fn / fn expression: this node IS the definition.
+              funcRegistry.set(varName, id);
+            } else if (d.init?.kind === "call") {
+              // The variable holds the result of calling something.
+              // Resolve transitively so that callers of this variable trace back
+              // to the originating function declaration (e.g. memoFib → memoize,
+              // counter → makeCounter).
+              const calledName = directCalleeName(d.init);
+              const resolvedId = calledName ? funcRegistry.get(calledName) : undefined;
+              funcRegistry.set(varName, resolvedId ?? id);
+            } else {
+              // Variable alias, object-destructure result, etc. — store the node
+              // itself so obj.method() calls can still find the object definition.
+              funcRegistry.set(varName, id);
+            }
           }
         });
         break;
@@ -640,29 +706,56 @@ export function objectToGraph(
       // break, continue, interface-declaration : aucun enfant à émettre
     }
 
-    return { headId: id, tailId: id };
+    return openFalseBranches
+      ? { headId: id, tailId: id, openFalseBranches }
+      : { headId: id, tailId: id };
   };
 
-  const walkBlock = (statements: Statement[], path: string): Endpoints | null => {
+  const walkBlock = (statements: Statement[], path: string, containerFromId?: string): Endpoints | null => {
     let firstHead: string | null = null;
     let prevTail: string | null = null;
+    let prevOpenFalse: string[] = [];
     statements.forEach((stmt, i) => {
-      const { headId, tailId } = walkStatement(stmt, `${path}/${i}`);
+      const stmtPath = `${path}/${i}`;
+      const ends = walkStatement(stmt, stmtPath);
       // Les définitions (fonction/interface) sont émises mais restent HORS du
       // flux d'exécution : on ne les chaîne pas en exec.
-      if (NON_EXEC.has(stmt.kind)) return;
-      if (prevTail) {
-        addEdge(prevTail, headId, "exec", {
+      if (NON_EXEC.has(stmt.kind)) {
+        // When inside an expanded function body, add a calls edge from the
+        // container function to each nested function declaration so it appears
+        // connected in the layout rather than floating.
+        if (stmt.kind === "function-declaration" && containerFromId) {
+          addEdge(containerFromId, ends.headId, "calls", {
+            sourceHandle: "args",
+            targetHandle: "exec-in",
+          });
+        }
+        return;
+      }
+      if (prevTail !== null) {
+        addEdge(prevTail, ends.headId, "exec", {
           sourceHandle: "exec-out",
           targetHandle: "exec-in",
         });
+        // Wire any dangling FALSE ports from the previous statement to this node
+        for (const fromId of prevOpenFalse) {
+          addEdge(fromId, ends.headId, "branch-false", {
+            sourceHandle: "branch-false",
+            targetHandle: "exec-in",
+          });
+        }
       } else {
-        firstHead = headId;
+        firstHead = ends.headId;
       }
-      prevTail = tailId;
+      prevTail = ends.tailId;
+      prevOpenFalse = ends.openFalseBranches ?? [];
     });
     if (firstHead === null || prevTail === null) return null;
-    return { headId: firstHead, tailId: prevTail };
+    return {
+      headId: firstHead,
+      tailId: prevTail,
+      ...(prevOpenFalse.length > 0 ? { openFalseBranches: prevOpenFalse } : {}),
+    };
   };
 
   walkBlock(root.body.content, "s");

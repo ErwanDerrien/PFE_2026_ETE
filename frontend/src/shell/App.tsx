@@ -6,10 +6,60 @@ import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
 import "./App.css"
 
+
+
+
+export const DEFAULT_CODE : string = `// Mini-démo - Éditeur de code + Console d'exécution
+                      // Ce code de démonstration peut être facilement modifié ou supprimé
+
+                      console.log("=== Démonstration de l'exécution sandbox ===");
+
+                      // Exemple 1: Fonctions de base (JavaScript pur)
+                      function saluer(nom) {
+                        return \`Bonjour \${nom}!\`;
+                      }
+
+                      console.log(saluer("Étudiant"));
+                      console.log("");
+
+                      // Exemple 2: Opérations mathématiques
+                      function calculerSurface(rayon) {
+                        return Math.PI * rayon * rayon;
+                      }
+
+                      const rayon = 5;
+                      const surface = calculerSurface(rayon);
+                      console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
+                      console.log("");
+
+                      // Exemple 3: Tableaux et boucles
+                      const nombres = [1, 2, 3, 4, 5];
+                      console.log("Nombres:", nombres);
+
+                      let somme = 0;
+                      for (const n of nombres) {
+                        somme += n;
+                      }
+                      console.log(\`Somme des nombres = \${somme}\`);
+                      console.log("");
+
+                      // Exemple 4: Conditions
+                      const age = 20;
+                      if (age >= 18) {
+                        console.log(\`Âge: \${age} - Majeur\`);
+                      } else {
+                        console.log(\`Âge: \${age} - Mineur\`);
+                      }
+
+                      console.log("=== Fin de la démonstration ===");
+                      console.log("Modifiez ce code et cliquez sur 'Exécuter le code' pour tester!");`;
+
 // Composant pour le layout principal avec onglets
 function MainLayout() {
+
+
   const location = useLocation()
-  const [code, setCode] = useState<string>("")
+  const [code, setCode] = useState<string>(DEFAULT_CODE)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {

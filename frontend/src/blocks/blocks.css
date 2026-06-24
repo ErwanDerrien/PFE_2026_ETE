@@ -52,7 +52,12 @@
 
 /* --- Carte de bloc (spine) --- */
 .bn {
-  width: 240px;
+  box-sizing: border-box;
+  /* largeur ajustée exactement au contenu (padding symétrique, jamais de coupe) ;
+     dagre réserve un peu plus (cf. node-size.ts) → pas de chevauchement. */
+  width: max-content;
+  min-width: 180px;
+  max-width: 760px;
   border-radius: 10px;
   background: #161b22;
   border: 1px solid #30363d;
@@ -92,8 +97,7 @@
   font-size: 13px;
   color: #c9d1d9;
   white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0;
 }
 
 .bn-foot {
@@ -119,13 +123,23 @@
 
 /* --- Pill d'expression --- */
 .xn {
-  padding: 5px 10px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 5px 12px;
   border-radius: 999px;
   background: #1c2128;
   border: 1px solid #30363d;
   font: 12px/1 var(--mono, ui-monospace, Consolas, monospace);
   color: #c9d1d9;
+  overflow: hidden;
+}
+.xn code {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .xn-expr {
   border-color: #fb7185;
@@ -168,6 +182,9 @@
 }
 
 /* --- Coloration syntaxique --- */
+.tok-ws {
+  white-space: pre;
+}
 .tok-keyword {
   color: #ff7b72;
 }
@@ -216,10 +233,10 @@
 .sw-exec {
   border-top-color: #e6edf3;
 }
-.sw-data {
-  border-top-color: #6e7681;
-  border-top-style: dashed;
-}
 .sw-true {
   border-top-color: #2dd4bf;
+}
+.sw-call {
+  border-top-color: #c084fc;
+  border-top-style: dashed;
 }

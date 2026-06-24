@@ -51,7 +51,13 @@ export function highlight(code: string): ReactNode {
   while ((match = TOKEN.exec(code)) !== null) {
     const [, ws, str, num, ident, punct] = match;
     if (ws !== undefined) {
-      out.push(ws);
+      // Espaces dans un <span> explicite (avec white-space: pre) : ils ne peuvent
+      // jamais être avalés par un contexte flex / un collapse de whitespace.
+      out.push(
+        <span key={key++} className="tok-ws">
+          {ws}
+        </span>,
+      );
     } else if (str !== undefined) {
       out.push(
         <span key={key++} className="tok-string">

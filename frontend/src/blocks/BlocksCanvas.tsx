@@ -58,10 +58,10 @@ export default function BlocksCanvas() {
           <span className="legend-swatch sw-exec" /> Execution Flow
         </div>
         <div className="legend-row">
-          <span className="legend-swatch sw-data" /> Data Dependency
+          <span className="legend-swatch sw-true" /> True Branch
         </div>
         <div className="legend-row">
-          <span className="legend-swatch sw-true" /> True Branch
+          <span className="legend-swatch sw-call" /> Function Call
         </div>
       </Panel>
     </ReactFlow>

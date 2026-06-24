@@ -96,6 +96,18 @@ const VALUE_AST_TYPE: Record<string, string> = {
 const isLeaf = (v: Value): boolean =>
   v.kind === "literal" || v.kind === "variable";
 
+// Statements « définitions » : une déclaration de fonction est hoistée et une
+// interface est purement type-level — aucune ne s'exécute au lancement. On les
+// garde comme nœuds (définitions) mais hors de la chaîne d'exécution `exec`.
+const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
+
+// Nom de la fonction appelée si `value` est un appel DIRECT à un identifiant
+// simple (foo(...)). null pour les appels de méthode (obj.m()) ou expressions.
+function directCalleeName(value: Value | undefined): string | null {
+  if (!value || value.kind !== "call") return null;
+  return value.callee.kind === "variable" ? value.callee.name : null;
+}
+
 const roleForStatement = (kind: string): NodeRole => {
   if (BOUNDARY_KINDS.has(kind)) return "boundary";
   if (CONTROL_KINDS.has(kind)) return "control";
@@ -368,11 +380,23 @@ export function objectToGraph(
     return { ...EMPTY_GRAPH };
   }
 
-  const collapseExpr = options.collapseExpressions === true;
+  // Par défaut on n'émet PAS de nœuds d'expression séparés : l'expression est déjà
+  // affichée en toutes lettres dans la ligne de code du statement. On peut les
+  // réactiver explicitement via `options.collapseExpressions === false`.
+  const collapseExpr = options.collapseExpressions !== false;
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const seenIds = new Set<string>();
   let edgeSeq = 0;
+
+  // Registre nom de fonction → id du nœud, et appels directs à relier après coup
+  // (les fonctions sont hoistées : un appel peut précéder la déclaration).
+  const funcRegistry = new Map<string, string>();
+  const pendingCalls: { fromId: string; name: string }[] = [];
+  const recordCall = (value: Value | undefined, fromId: string) => {
+    const name = directCalleeName(value);
+    if (name) pendingCalls.push({ fromId, name });
+  };
 
   const uniqueId = (path: string): string => {
     let id = path;
@@ -587,22 +611,31 @@ export function objectToGraph(
         break;
       }
       case "function-declaration":
+        funcRegistry.set(stmt.name, id);
         connectBlock(stmt.body, id, `${path}/body`, "calls");
         break;
       case "variable-declaration":
         stmt.declarations.forEach((d, i) => {
-          if (d.init) maybeWalkValue(d.init, id, `${path}/d${i}`);
+          if (d.init) {
+            maybeWalkValue(d.init, id, `${path}/d${i}`);
+            recordCall(d.init, id);
+          }
         });
         break;
       case "assignment":
         maybeWalkValue(stmt.assignmentTargetValue, id, `${path}/val`);
+        recordCall(stmt.assignmentTargetValue, id);
         break;
       case "return":
-        if (stmt.value) maybeWalkValue(stmt.value, id, `${path}/val`);
+        if (stmt.value) {
+          maybeWalkValue(stmt.value, id, `${path}/val`);
+          recordCall(stmt.value, id);
+        }
         break;
       case "expression-statement":
       case "throw":
         maybeWalkValue(stmt.value, id, `${path}/val`);
+        recordCall(stmt.value, id);
         break;
       // break, continue, interface-declaration : aucun enfant à émettre
     }
@@ -615,6 +648,9 @@ export function objectToGraph(
     let prevTail: string | null = null;
     statements.forEach((stmt, i) => {
       const { headId, tailId } = walkStatement(stmt, `${path}/${i}`);
+      // Les définitions (fonction/interface) sont émises mais restent HORS du
+      // flux d'exécution : on ne les chaîne pas en exec.
+      if (NON_EXEC.has(stmt.kind)) return;
       if (prevTail) {
         addEdge(prevTail, headId, "exec", {
           sourceHandle: "exec-out",
@@ -630,6 +666,18 @@ export function objectToGraph(
   };
 
   walkBlock(root.body.content, "s");
+
+  // Relie chaque appel direct à la fonction qu'il invoque (arête `calls`).
+  for (const { fromId, name } of pendingCalls) {
+    const target = funcRegistry.get(name);
+    if (target) {
+      addEdge(fromId, target, "calls", {
+        sourceHandle: "args",
+        targetHandle: "exec-in",
+        label: "calls",
+      });
+    }
+  }
 
   return { nodes, edges };
 }

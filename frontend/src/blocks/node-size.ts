@@ -35,10 +35,12 @@ export function nodeSize(node: GraphNode): NodeSize {
   const text = node.source ?? node.label;
   const width = clamp(text.length * CHAR_W + CARD_PAD_X, CARD_MIN_W, CARD_MAX_W);
   // Header(32) + Body(44) = 76 base.
-  // Function declarations (collapsed or expanded): +1 footer row (26) → 106. Loops: same. Conditions: 2 rows → 132. Plain: 80.
+  // Function declarations: +1 footer row (26) → 106. Loops: same. Conditions: 2 rows → 132. Plain: 80.
+  // Interface nodes grow by one row (24px) per member.
   const isFuncDeclNode = node.astType === "FunctionDeclaration" && node.collapsed !== undefined;
-  const height = (isFuncDeclNode || isLooping(node.astType)) ? 106
-               : isBranching(node.astType) ? 132
-               : 80;
-  return { width, height };
+  const memberCount = node.members?.length ?? 0;
+  const base = (isFuncDeclNode || isLooping(node.astType)) ? 106
+             : isBranching(node.astType) ? 132
+             : 80;
+  return { width, height: base + memberCount * 24 };
 }

@@ -18,14 +18,12 @@
 
 import type {
   GraphEdge,
-  GraphModel,
-  GraphNode,
   GraphOptions,
   HandleKind,
   NodeLevel,
   NodeRole,
 } from "../shared";
-import { EMPTY_GRAPH } from "../shared";
+import type { TypedGraphModel, TypedGraphNode } from "./typed-nodes";
 import type { FunctionDeclaration, FunctionValue } from "./types/function";
 import type { Block, Statement, Value } from "./types/globalType";
 import type { IfStatement } from "./types/ifStatement";
@@ -36,7 +34,9 @@ import type {
   AssignmentTarget,
   BindingTarget,
   Spread,
+  TypeAnnotation,
 } from "./types/variable";
+import type { InterfaceDeclaration, InterfaceMember } from "./types/interface";
 
 type Endpoints = {
   headId: string;
@@ -222,6 +222,51 @@ function describeParam(p: Parameter): string {
 const describeParams = (params: Parameter[]): string =>
   params.map(describeParam).join(", ");
 
+function describeType(t: TypeAnnotation): string {
+  switch (t.kind) {
+    case "primitive":     return t.name;
+    case "literal-type":  return String(t.value);
+    case "union":         return t.members.map(describeType).join(" | ");
+    case "intersection":  return t.members.map(describeType).join(" & ");
+    case "array":         return `${describeType(t.element)}[]`;
+    case "tuple":         return `[${t.elements.map(describeType).join(", ")}]`;
+    case "object":        return `{ ${t.properties.map((p) => `${p.key}${p.optional ? "?" : ""}: ${describeType(p.value)}`).join("; ")} }`;
+    case "function":      return `(${t.params.map((p) => `${p.name}: ${describeType(p.type)}`).join(", ")}) => ${describeType(t.returns)}`;
+    case "generic":       return `${describeType(t.base)}<${t.args.map(describeType).join(", ")}>`;
+    case "type-reference": return t.name;
+  }
+}
+
+/** Collects all named type-reference strings from a TypeAnnotation (recursive). */
+function typeRefNames(t: TypeAnnotation): string[] {
+  switch (t.kind) {
+    case "type-reference": return [t.name];
+    case "union":          return t.members.flatMap(typeRefNames);
+    case "intersection":   return t.members.flatMap(typeRefNames);
+    case "array":          return typeRefNames(t.element);
+    case "tuple":          return t.elements.flatMap(typeRefNames);
+    case "generic":        return [...typeRefNames(t.base), ...t.args.flatMap(typeRefNames)];
+    case "object":         return t.properties.flatMap((p) => typeRefNames(p.value));
+    case "function":       return [...t.params.flatMap((p) => typeRefNames(p.type)), ...typeRefNames(t.returns)];
+    default:               return [];
+  }
+}
+
+function describeMember(m: InterfaceMember): string {
+  switch (m.kind) {
+    case "property-signature":
+      return `${m.readonly ? "readonly " : ""}${m.name}${m.optional ? "?" : ""}: ${describeType(m.type)}`;
+    case "method-signature":
+      return `${m.name}${m.optional ? "?" : ""}(${describeParams(m.params)}): ${describeType(m.returnType)}`;
+    case "index-signature":
+      return `${m.readonly ? "readonly " : ""}[${m.keyName}: ${m.keyType}]: ${describeType(m.valueType)}`;
+    case "call-signature":
+      return `(${describeParams(m.params)}): ${describeType(m.returnType)}`;
+    case "construct-signature":
+      return `new (${describeParams(m.params)}): ${describeType(m.returnType)}`;
+  }
+}
+
 // Sous-valeurs d'une expression (pour la récursion niveau 3).
 function childValues(v: Value, path: string): [string, Value][] {
   switch (v.kind) {
@@ -282,7 +327,7 @@ function childValues(v: Value, path: string): [string, Value][] {
 function labelForStatement(stmt: Statement): string {
   switch (stmt.kind) {
     case "variable-declaration":
-      return `${stmt.declarationKind} ${stmt.declarations.map((d) => describeBinding(d.target)).join(", ")}`;
+      return `${stmt.declarationKind} ${stmt.declarations.map((d) => `${describeBinding(d.target)}${d.type ? `: ${describeType(d.type)}` : ""}`).join(", ")}`;
     case "assignment":
       return `${describeTarget(stmt.assignmentTargetName)} ${stmt.operator}`;
     case "return":
@@ -325,7 +370,7 @@ function sourceForStatement(stmt: Statement): string | undefined {
     case "variable-declaration":
       return truncate(
         `${stmt.declarationKind} ${stmt.declarations
-          .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
+          .map((d) => `${describeBinding(d.target)}${d.type ? `: ${describeType(d.type)}` : ""}${d.init ? ` = ${describe(d.init)}` : ""}`)
           .join(", ")}`,
         80,
       );
@@ -383,18 +428,18 @@ function sourceForStatement(stmt: Statement): string | undefined {
 export function objectToGraph(
   mapping: Record<number, FunctionDeclaration | FunctionValue>,
   options: GraphOptions = {},
-): GraphModel {
+): TypedGraphModel {
   const entries = Object.values(mapping);
   const root = entries.find((f) => f.name === "<global>") ?? entries[0];
   if (!root || !root.body || !("kind" in root.body) || root.body.kind !== "block") {
-    return { ...EMPTY_GRAPH };
+    return { nodes: [], edges: [] };
   }
 
   // Par défaut on n'émet PAS de nœuds d'expression séparés : l'expression est déjà
   // affichée en toutes lettres dans la ligne de code du statement. On peut les
   // réactiver explicitement via `options.collapseExpressions === false`.
   const collapseExpr = options.collapseExpressions !== false;
-  const nodes: GraphNode[] = [];
+  const nodes: TypedGraphNode[] = [];
   const edges: GraphEdge[] = [];
   const seenIds = new Set<string>();
   let edgeSeq = 0;
@@ -403,6 +448,9 @@ export function objectToGraph(
   // (les fonctions sont hoistées : un appel peut précéder la déclaration).
   const funcRegistry = new Map<string, string>();
   const pendingCalls: { fromId: string; name: string }[] = [];
+  // Registre nom d'interface → id du nœud, et références de type à relier après coup.
+  const interfaceRegistry = new Map<string, string>();
+  const pendingTypeRefs: { fromId: string; typeName: string }[] = [];
   const recordCall = (value: Value | undefined, fromId: string) => {
     const name = directCalleeName(value);
     if (name) pendingCalls.push({ fromId, name });
@@ -420,16 +468,18 @@ export function objectToGraph(
     path: string,
     fields: {
       role: NodeRole;
-      track: GraphNode["track"];
+      track: TypedGraphNode["track"];
       level: NodeLevel;
       label: string;
       astType: string;
       source?: string;
       collapsed?: boolean;
+      members?: string[];
     },
+    stmt: Statement | Value,
   ): string => {
     const id = uniqueId(path);
-    const node: GraphNode = {
+    const node = {
       id,
       astPath: id,
       role: fields.role,
@@ -437,9 +487,11 @@ export function objectToGraph(
       level: fields.level,
       label: fields.label,
       astType: fields.astType,
-    };
-    if (fields.source !== undefined) node.source = fields.source;
-    if (fields.collapsed !== undefined) node.collapsed = fields.collapsed;
+      stmt,
+      ...(fields.source !== undefined ? { source: fields.source } : {}),
+      ...(fields.collapsed !== undefined ? { collapsed: fields.collapsed } : {}),
+      ...(fields.members !== undefined ? { members: fields.members } : {}),
+    } as TypedGraphNode;
     nodes.push(node);
     return id;
   };
@@ -476,7 +528,7 @@ export function objectToGraph(
       label,
       astType: VALUE_AST_TYPE[value.kind] ?? value.kind,
       source: label,
-    });
+    }, value);
     addEdge(parentId, id, "expression", { sourceHandle, targetHandle: "value-out" });
     for (const [childPath, child] of childValues(value, path)) {
       if (isLeaf(child)) continue; // feuille résumée dans le label parent
@@ -577,9 +629,14 @@ export function objectToGraph(
   const walkStatement = (stmt: Statement, path: string): Endpoints => {
     const role = roleForStatement(stmt.kind);
     const level: NodeLevel = role === "boundary" ? 1 : 2;
-    // Collapsed by default; expanded only when this exact path is in expandedFunctions.
+    // Function declarations: collapsed by default, expanded when path is in expandedFunctions.
+    // Interface declarations: always shown with members inline (never collapsed).
     const isFuncDecl = stmt.kind === "function-declaration";
-    const funcExpanded = isFuncDecl && (options.expandedFunctions?.has(path) ?? false);
+    const isIfaceDecl = stmt.kind === "interface-declaration";
+    const isExpanded = isFuncDecl && (options.expandedFunctions?.has(path) ?? false);
+    const ifaceMembers = isIfaceDecl
+      ? (stmt as InterfaceDeclaration).members.map(describeMember)
+      : undefined;
     const id = emitNode(path, {
       role,
       track: "spine",
@@ -587,8 +644,9 @@ export function objectToGraph(
       label: labelForStatement(stmt),
       astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
       source: sourceForStatement(stmt),
-      ...(isFuncDecl ? { collapsed: !funcExpanded } : {}),
-    });
+      ...(isFuncDecl ? { collapsed: !isExpanded } : {}),
+      ...(ifaceMembers ? { members: ifaceMembers } : {}),
+    }, stmt);
 
     let openFalseBranches: string[] | undefined;
     switch (stmt.kind) {
@@ -659,13 +717,21 @@ export function objectToGraph(
       }
       case "function-declaration":
         funcRegistry.set(stmt.name, id);
-        if (funcExpanded) connectBlock(stmt.body, id, `${path}/body`, "calls");
+        if (isExpanded) connectBlock(stmt.body, id, `${path}/body`, "calls");
+        break;
+      case "interface-declaration":
+        interfaceRegistry.set((stmt as InterfaceDeclaration).name, id);
         break;
       case "variable-declaration":
         stmt.declarations.forEach((d, i) => {
           if (d.init) {
             maybeWalkValue(d.init, id, `${path}/d${i}`);
             recordCall(d.init, id);
+          }
+          if (d.type) {
+            for (const typeName of typeRefNames(d.type)) {
+              pendingTypeRefs.push({ fromId: id, typeName });
+            }
           }
           if (d.target.kind === "variable") {
             const varName = d.target.name;
@@ -768,6 +834,18 @@ export function objectToGraph(
         sourceHandle: "args",
         targetHandle: "exec-in",
         label: "calls",
+      });
+    }
+  }
+
+  // Relie chaque référence de type d'une variable à son interface de déclaration.
+  for (const { fromId, typeName } of pendingTypeRefs) {
+    const target = interfaceRegistry.get(typeName);
+    if (target) {
+      addEdge(fromId, target, "calls", {
+        sourceHandle: "args",
+        targetHandle: "exec-in",
+        label: "type",
       });
     }
   }

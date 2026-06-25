@@ -89,6 +89,8 @@ export interface GraphNode {
   source?: string;
   /** True si le sous-arbre est replié en une pastille. */
   collapsed?: boolean;
+  /** Inline member rows (used by interface nodes to show properties directly). */
+  members?: string[];
   /** Type du nœud Babel d'origine (debug + aide au round-trip), ex. « IfStatement ». */
   astType: string;
   /** Pointeur de retour vers l'emplacement dans l'AST (pour `graphToAst`). */

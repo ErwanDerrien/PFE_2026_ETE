@@ -23,6 +23,7 @@ import { useAstStore } from "../sync";
 import { graphToFlow } from "./graph-to-flow";
 import { nodeTypes } from "./nodes";
 import type { BlockFlowNode } from "./nodes/BlockNode";
+import type { TypedGraphModel } from "./typed-nodes";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);
@@ -32,7 +33,7 @@ export default function BlocksCanvas() {
 
   useEffect(() => {
     if (graph.nodes.length === 0) return;
-    const flow = graphToFlow(graph);
+    const flow = graphToFlow(graph as TypedGraphModel);
     setNodes(flow.nodes);
     setEdges(flow.edges);
   }, [graph, setNodes, setEdges]);

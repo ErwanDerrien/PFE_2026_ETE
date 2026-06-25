@@ -43,8 +43,10 @@ export const generate: Generate = (ast) =>
  * On passe par l'objet structuré (`traversePath`) puis on le projette en
  * `GraphModel` via `objectToGraph` (voir ../blocks/object-to-graph.ts).
  */
-export const astToGraph: AstToGraph = (ast, options) =>
-  objectToGraph(traversePath(ast), options);
+export const astToGraph: AstToGraph = (ast, options) => {
+  console.log(traversePath(ast));
+  return objectToGraph(traversePath(ast), options);
+};
 
 /**
  * graphe de blocs -> AST. Cœur en édition (le plus difficile).

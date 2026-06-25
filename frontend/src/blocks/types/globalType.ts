@@ -52,7 +52,7 @@ export type Statement =
   | TryStatement
   | ThrowStatement;
 
-interface ExpressionStatement {
+export interface ExpressionStatement {
   kind: "expression-statement";
   value: Value;
 }

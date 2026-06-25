@@ -343,13 +343,12 @@ const traversePath = (
       if (!body) return;
       body.push(getVariablesDeclaration(path));
     },
-    InterfaceDeclaration(path: NodePath<t.TSInterfaceDeclaration>) {
+    TSInterfaceDeclaration(path: NodePath<t.TSInterfaceDeclaration>) {
       const scope = current();
       if (!scope) return;
       const body = getBlockBody(scope);
       if (!body) return;
       const interfaceDeclaration = getInterfaceDeclaration(path);
-
       if (!interfaceDeclaration) return;
       body.push(interfaceDeclaration);
     },

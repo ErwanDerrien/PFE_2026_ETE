@@ -5,11 +5,11 @@
  */
 
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import type { GraphNode } from "../../shared";
 import { highlight } from "../highlight";
 import { nodeSize } from "../node-size";
+import type { TypedGraphNode } from "../typed-nodes";
 
-export type ExprData = { node: GraphNode };
+export type ExprData = { node: TypedGraphNode };
 export type ExprFlowNode = Node<ExprData, "expr">;
 
 export default function ExpressionNode({ data }: NodeProps<ExprFlowNode>) {

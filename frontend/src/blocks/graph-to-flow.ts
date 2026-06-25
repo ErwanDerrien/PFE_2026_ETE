@@ -2,11 +2,11 @@
  * graphToFlow — adapte un `GraphModel` (projection agnostique, voir
  * ../shared/graph.ts) vers les `Node[]`/`Edge[]` de React Flow.
  *
- * Mise en page : auto-layout **complet** avec dagre (vertical, top-down) sur TOUS
- * les nœuds (blocs + expressions) et TOUTES les arêtes. Les arêtes structurelles
- * (exec/calls/branches) ont un poids fort pour garder la colonne d'exécution droite ;
- * les arêtes `expression` un poids faible. Les tailles déclarées à dagre viennent de
- * `nodeSize` (mêmes valeurs que le rendu) → aucun chevauchement.
+ * Mise en page : auto-layout dagre (top-down) sur TOUS les nœuds et TOUTES
+ * les arêtes. Les arêtes structurelles (exec/calls/branches) ont un poids fort
+ * pour garder la colonne d'exécution droite ; les arêtes `expression` un poids
+ * faible. Les tailles déclarées à dagre viennent de `nodeSize` → aucun
+ * chevauchement.
  *
  * Nœuds custom : `block` (carte) et `expr` (pill) — voir ./nodes/.
  * Arêtes : style par `kind` (exec clair épais, data gris pointillé, branches).
@@ -14,8 +14,9 @@
 
 import dagre from "@dagrejs/dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { EdgeKind, GraphModel } from "../shared";
+import type { EdgeKind } from "../shared";
 import { nodeSize } from "./node-size";
+import type { TypedGraphModel } from "./typed-nodes";
 
 export interface FlowModel {
   nodes: Node[];
@@ -35,18 +36,16 @@ function sourceHandleFor(kind: EdgeKind): string | undefined {
   if (kind === "branch-true") return "true";
   if (kind === "branch-false") return "false";
   if (kind === "expression" || kind === "calls") return "data";
-  return undefined; // exec → default source handle
+  return undefined;
 }
 
-// Les arêtes d'exécution structurent la colonne ; les data dependencies suivent.
 const edgeWeight = (kind: EdgeKind): number => (kind === "expression" ? 1 : 3);
 
-export function graphToFlow(graph: GraphModel): FlowModel {
+export function graphToFlow(graph: TypedGraphModel): FlowModel {
   const sizes = new Map(graph.nodes.map((n) => [n.id, nodeSize(n)] as const));
 
-  // Auto-layout dagre sur le graphe ENTIER (blocs + expressions).
   const layout = new dagre.graphlib.Graph();
-  layout.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 160, marginx: 48, marginy: 48 });
+  layout.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100, marginx: 48, marginy: 48 });
   layout.setDefaultEdgeLabel(() => ({}));
 
   for (const node of graph.nodes) {
@@ -71,8 +70,6 @@ export function graphToFlow(graph: GraphModel): FlowModel {
     };
   });
 
-  // Exec/branch/calls edges use smoothstep (clean right-angle routing like Bolt).
-  // Expression and loop-back stay as bezier — they're secondary or cycle edges.
   const SMOOTHSTEP_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "calls", "loop-back"]);
 
   const edges: Edge[] = graph.edges.map((edge) => {

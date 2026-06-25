@@ -156,6 +156,28 @@
 .bn-foot-expand   .bn-foot-label { color: #c084fc; letter-spacing: 0.1em; } /* collapsed fn — violet */
 .bn-foot-collapse .bn-foot-label { color: #a855f7; letter-spacing: 0.1em; } /* expanded fn — deeper violet */
 
+/* Interface member rows — inline property list on the node card */
+.bn-members {
+  border-top: 1px solid #3f3f3f;
+}
+.bn-member-row {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #2d2d2d;
+}
+.bn-member-row:first-child { border-top: none; }
+.bn-member-row:last-child  { border-radius: 0 0 6px 6px; }
+.bn-member-row code {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Collapsed function nodes show a pointer cursor and a subtle pulsing border */
 .bn.bn-collapsed {
   cursor: pointer;

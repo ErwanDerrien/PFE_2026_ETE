@@ -556,7 +556,7 @@ export function objectToGraph(
     const ends = walkBlock(block.content, path, containerFromId);
     if (!ends) return;
     addEdge(fromId, ends.headId, kind, {
-      sourceHandle: kind === "calls" ? "args" : "exec-out",
+      sourceHandle: (kind === "calls" || kind === "function-body") ? "args" : "exec-out",
       targetHandle: "exec-in",
       label,
     });
@@ -717,7 +717,7 @@ export function objectToGraph(
       }
       case "function-declaration":
         funcRegistry.set(stmt.name, id);
-        if (isExpanded) connectBlock(stmt.body, id, `${path}/body`, "calls");
+        if (isExpanded) connectBlock(stmt.body, id, `${path}/body`, "function-body");
         break;
       case "interface-declaration":
         interfaceRegistry.set((stmt as InterfaceDeclaration).name, id);

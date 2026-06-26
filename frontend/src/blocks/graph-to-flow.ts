@@ -26,6 +26,7 @@ export interface FlowModel {
 const EDGE_STYLE: Record<EdgeKind, { stroke: string; width: number; dash?: string }> = {
   exec: { stroke: "#c8c8c8", width: 3 },
   calls: { stroke: "#c084fc", width: 2, dash: "3 4" },
+  "function-body": { stroke: "#818cf8", width: 2.5 },
   "branch-true": { stroke: "#2dd4bf", width: 2.5 },
   "branch-false": { stroke: "#9ca3af", width: 2, dash: "5 4" },
   expression: { stroke: "#5a5a5a", width: 1.5, dash: "4 3" },
@@ -35,7 +36,7 @@ const EDGE_STYLE: Record<EdgeKind, { stroke: string; width: number; dash?: strin
 function sourceHandleFor(kind: EdgeKind): string | undefined {
   if (kind === "branch-true") return "true";
   if (kind === "branch-false") return "false";
-  if (kind === "expression" || kind === "calls") return "data";
+  if (kind === "expression" || kind === "calls" || kind === "function-body") return "data";
   return undefined;
 }
 
@@ -70,7 +71,7 @@ export function graphToFlow(graph: TypedGraphModel): FlowModel {
     };
   });
 
-  const SMOOTHSTEP_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "calls", "loop-back"]);
+  const SMOOTHSTEP_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "calls", "function-body", "loop-back"]);
 
   const edges: Edge[] = graph.edges.map((edge) => {
     const style = EDGE_STYLE[edge.kind];

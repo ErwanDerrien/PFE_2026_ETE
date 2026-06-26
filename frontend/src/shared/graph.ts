@@ -61,6 +61,7 @@ export type EdgeKind =
   | 'branch-true'
   | 'branch-false'
   | 'calls'
+  | 'function-body' // expanded function definition → first body statement
   | 'loop-back'; // end of loop body → loop node (back edge showing iteration)
 
 /**

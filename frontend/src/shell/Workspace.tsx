@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useAstStore } from "../sync";
-import BlocksCanvas from "../blocks/BlocksCanvas";
+import BlocksCanvas from "../blocks/Components/BlocksCanvas";
 import "../blocks/blocks.css";
 
 const SAMPLE = `function classify(score) {

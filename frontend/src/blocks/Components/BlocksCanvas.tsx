@@ -19,11 +19,11 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useAstStore } from "../sync";
-import { graphToFlow } from "./graph-to-flow";
-import { nodeTypes } from "./nodes";
-import type { BlockFlowNode } from "./nodes/BlockNode";
-import type { TypedGraphModel } from "./typed-nodes";
+import { useAstStore } from "../../sync";
+import { graphToFlow } from "../graph-to-flow";
+import { nodeTypes } from "../nodes";
+import type { BlockFlowNode } from "../nodes/BlockNode";
+import type { TypedGraphModel } from "../typed-nodes";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);

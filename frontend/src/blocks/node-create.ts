@@ -55,13 +55,26 @@ export type BlockSpec =
       operator: AssignmentOperator;
       valueText: string;
     }
-  | { kind: "call"; calleeText: string; argsText: string };
+  | { kind: "call"; calleeText: string; argsText: string }
+  | { kind: "if"; conditionText: string }
+  | { kind: "while"; conditionText: string }
+  | {
+      kind: "for";
+      declarationKind: DeclarationKind;
+      varName: string;
+      initText?: string;
+      testText?: string;
+      updateText?: string;
+    };
 
 /** Les types de blocs proposés par la palette (ordre d'affichage). */
 export const PALETTE_KINDS: BlockSpec["kind"][] = [
   "variable",
   "assignment",
   "call",
+  "if",
+  "while",
+  "for",
   "return",
   "break",
   "continue",
@@ -73,6 +86,9 @@ const FORM_KINDS = new Set<BlockSpec["kind"]>([
   "variable",
   "assignment",
   "call",
+  "if",
+  "while",
+  "for",
 ]);
 
 export const needsForm = (kind: BlockSpec["kind"]): boolean => FORM_KINDS.has(kind);
@@ -86,11 +102,24 @@ const KIND_AST_TYPE: Record<BlockSpec["kind"], string> = {
   variable: "VariableDeclaration",
   assignment: "AssignmentExpression",
   call: "CallExpression",
+  if: "IfStatement",
+  while: "WhileStatement",
+  for: "ForStatement",
 };
 
 /** astType associé à un type de bloc de la palette (pour block-meta). */
 export const astTypeForKind = (kind: BlockSpec["kind"]): string =>
   KIND_AST_TYPE[kind];
+
+// Libellés de palette distincts là où block-meta regroupe (while/for → « LOOP »).
+const KIND_LABEL: Partial<Record<BlockSpec["kind"], string>> = {
+  while: "WHILE",
+  for: "FOR",
+};
+
+/** Libellé affiché dans la palette ; distingue les blocs regroupés par block-meta. */
+export const paletteLabel = (kind: BlockSpec["kind"], fallback: string): string =>
+  KIND_LABEL[kind] ?? fallback;
 
 // Compteur de session pour des ids uniques et non-collisionnants. Les ids des
 // nodes dérivés de l'AST sont path-based (`s/0`, `s/0/then/1`…) ; le préfixe
@@ -179,6 +208,37 @@ function buildStmt(spec: BlockSpec): Statement {
       const args: Argument[] = splitArgs(spec.argsText).map((a) => parseValue(a));
       const call: Call = { kind: "call", callee, typeArgs: [], args, optional: false };
       return { kind: "expression-statement", value: call };
+    }
+    case "if":
+      // Corps `then` vide : on le remplit ensuite via les slots « + » des ports.
+      return { kind: "if", condition: parseValue(spec.conditionText), then: { kind: "block", content: [] } };
+    case "while":
+      return { kind: "while", condition: parseValue(spec.conditionText), body: { kind: "block", content: [] } };
+    case "for": {
+      const init = spec.varName.trim()
+        ? {
+            kind: "variable-declaration" as const,
+            declarationKind: spec.declarationKind,
+            declarations: [
+              {
+                target: { kind: "variable" as const, name: spec.varName.trim() },
+                ...(spec.initText?.trim() ? { init: parseValue(spec.initText) } : {}),
+              },
+            ],
+            order: 0,
+            blockParentId: 0,
+            isGlobal: false,
+          }
+        : undefined;
+      const test = spec.testText?.trim() ? parseValue(spec.testText) : undefined;
+      const update = spec.updateText?.trim() ? parseValue(spec.updateText) : undefined;
+      return {
+        kind: "for",
+        ...(init ? { init } : {}),
+        ...(test ? { test } : {}),
+        ...(update ? { update } : {}),
+        body: { kind: "block", content: [] },
+      };
     }
   }
 }

@@ -34,6 +34,9 @@ export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
   const [calleeText, setCalleeText] = useState("");
   const [argsText, setArgsText] = useState("");
   const [returnValue, setReturnValue] = useState("");
+  const [conditionText, setConditionText] = useState("");
+  const [testText, setTestText] = useState("");
+  const [updateText, setUpdateText] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,7 +52,8 @@ export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
   const invalid =
     (kind === "variable" && !name.trim()) ||
     (kind === "assignment" && (!targetText.trim() || !valueText.trim())) ||
-    (kind === "call" && !calleeText.trim());
+    (kind === "call" && !calleeText.trim()) ||
+    ((kind === "if" || kind === "while") && !conditionText.trim());
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +71,15 @@ export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
         break;
       case "call":
         spec = { kind: "call", calleeText, argsText };
+        break;
+      case "if":
+        spec = { kind: "if", conditionText };
+        break;
+      case "while":
+        spec = { kind: "while", conditionText };
+        break;
+      case "for":
+        spec = { kind: "for", declarationKind, varName: name, initText, testText, updateText };
         break;
       default:
         return;
@@ -183,6 +196,62 @@ export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
                 value={argsText}
                 onChange={(e) => setArgsText(e.target.value)}
                 placeholder="ex. x, y, 42"
+              />
+            </label>
+          </>
+        )}
+
+        {(kind === "if" || kind === "while") && (
+          <label className="bf-field">
+            <span>condition</span>
+            <input
+              autoFocus
+              value={conditionText}
+              onChange={(e) => setConditionText(e.target.value)}
+              placeholder="ex. score >= 90"
+            />
+          </label>
+        )}
+
+        {kind === "for" && (
+          <>
+            <div className="bf-row">
+              <select
+                value={declarationKind}
+                onChange={(e) => setDeclarationKind(e.target.value as DeclarationKind)}
+              >
+                {DECLARATION_KINDS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <input
+                autoFocus
+                className="bf-grow"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="i"
+              />
+              <input
+                className="bf-grow"
+                value={initText}
+                onChange={(e) => setInitText(e.target.value)}
+                placeholder="= 0"
+              />
+            </div>
+            <label className="bf-field">
+              <span>condition (test)</span>
+              <input
+                value={testText}
+                onChange={(e) => setTestText(e.target.value)}
+                placeholder="ex. i < n"
+              />
+            </label>
+            <label className="bf-field">
+              <span>incrément (update)</span>
+              <input
+                value={updateText}
+                onChange={(e) => setUpdateText(e.target.value)}
+                placeholder="ex. i++"
               />
             </label>
           </>

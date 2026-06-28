@@ -6,7 +6,7 @@
 
 import { type CSSProperties, useEffect } from "react";
 import { blockMeta } from "../block-meta";
-import { PALETTE_KINDS, astTypeForKind, type BlockSpec } from "../node-create";
+import { PALETTE_KINDS, astTypeForKind, paletteLabel, type BlockSpec } from "../node-create";
 
 interface Props {
   x: number;
@@ -45,7 +45,7 @@ export default function BlockPalette({ x, y, onPick, onClose }: Props) {
                 onClick={() => onPick(kind)}
               >
                 <span className="palette-icon">{meta.icon}</span>
-                <span className="palette-label">{meta.label}</span>
+                <span className="palette-label">{paletteLabel(kind, meta.label)}</span>
               </button>
             );
           })}

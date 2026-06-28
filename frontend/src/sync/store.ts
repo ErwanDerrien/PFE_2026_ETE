@@ -24,7 +24,7 @@ import { create } from 'zustand';
 import type { AstStoreState, SyncError, SyncPhase } from '../shared';
 import { DEFAULT_LANGUAGE, EMPTY_GRAPH } from '../shared';
 import { astToGraph, generate, graphToAst, parse } from './transforms';
-import { applyDeletions, collectVariableDeletionIds } from '../blocks/graph-edit';
+import { applyDeletions, applyInsertions, collectVariableDeletionIds, insertNodeOnEdge } from '../blocks/graph-edit';
 
 /** Normalise n'importe quelle exception en `SyncError` taggée par phase. */
 function toSyncError(phase: SyncPhase, e: unknown): SyncError {
@@ -41,6 +41,7 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
   lastOrigin: null,
   expandedFunctions: new Set<string>(),
   deletedNodes: new Set<string>(),
+  insertions: [],
 
   // --- écritures ---
   setSource: (source, origin) => {
@@ -51,9 +52,9 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
         // Reset expansion AND deletion state when source changes — node IDs are
         // path-based and may shift, so persisted deletions no longer apply.
         const graph = astToGraph(ast);
-        set({ ast, source, graph, expandedFunctions: new Set(), deletedNodes: new Set(), error: null, lastOrigin: origin });
+        set({ ast, source, graph, expandedFunctions: new Set(), deletedNodes: new Set(), insertions: [], error: null, lastOrigin: origin });
       } catch (e) {
-        set({ ast, source, expandedFunctions: new Set(), deletedNodes: new Set(), error: toSyncError('astToGraph', e), lastOrigin: origin });
+        set({ ast, source, expandedFunctions: new Set(), deletedNodes: new Set(), insertions: [], error: toSyncError('astToGraph', e), lastOrigin: origin });
       }
     } catch (e) {
       set({ source, error: toSyncError('parse', e), lastOrigin: origin });
@@ -101,6 +102,7 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
       lastOrigin: null,
       expandedFunctions: new Set(),
       deletedNodes: new Set(),
+      insertions: [],
     }),
 
   deleteNode: (nodeId: string) => {
@@ -115,14 +117,26 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
     set({ graph: applyDeletions(graph, ids), deletedNodes: nextDeleted, lastOrigin: 'blocks' });
   },
 
+  insertNode: (target, node) => {
+    // Phase 1 : création purement visuelle. On mute directement le `graph` sans
+    // passer par graphToAst/generate (encore en stub). On mémorise l'opération
+    // pour la ré-appliquer après collapse/expand (cf. toggleFunctionNode).
+    const { graph, insertions } = get();
+    let next = graph;
+    if (target.kind === 'edge') next = insertNodeOnEdge(graph, target.edgeId, node);
+    if (next === graph) return; // cible introuvable : no-op
+    set({ graph: next, insertions: [...insertions, { target, node }], lastOrigin: 'blocks' });
+  },
+
   toggleFunctionNode: (nodeId: string) => {
-    const { ast, expandedFunctions, deletedNodes } = get();
+    const { ast, expandedFunctions, deletedNodes, insertions } = get();
     if (!ast) return;
     const next = new Set(expandedFunctions);
     if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId);
     try {
-      // Re-dérive depuis l'AST PUIS ré-applique les suppressions persistées.
-      const graph = applyDeletions(astToGraph(ast, { expandedFunctions: next }), deletedNodes);
+      // Re-dérive depuis l'AST PUIS ré-applique suppressions et créations persistées.
+      const derived = applyDeletions(astToGraph(ast, { expandedFunctions: next }), deletedNodes);
+      const graph = applyInsertions(derived, insertions);
       set({ expandedFunctions: next, graph });
     } catch (e) {
       set({ expandedFunctions: next, error: toSyncError('astToGraph', e) });

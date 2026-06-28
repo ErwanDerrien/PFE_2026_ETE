@@ -17,7 +17,7 @@
 
 import type { File } from './ast';
 import type { SupportedLanguage } from './ast';
-import type { GraphModel, SourceLoc } from './graph';
+import type { GraphModel, GraphNode, InsertOp, InsertTarget, SourceLoc } from './graph';
 
 /** Options de transformation AST -> graphe (réglages de l'équipe A). */
 export interface GraphOptions {
@@ -108,6 +108,12 @@ export interface AstStoreState {
    * l'AST (les transforms sont encore en stub).
    */
   deleteNode: (nodeId: string) => void;
+  /**
+   * Création visuelle d'un node : insère `node` (déjà construit, voir
+   * `blocks/node-create.ts`) selon `target` (ex. en scindant une arête). Phase 1 :
+   * édite uniquement la projection `graph`, n'écrit PAS vers l'AST.
+   */
+  insertNode: (target: InsertTarget, node: GraphNode) => void;
   /** Change le langage de parsing (re-parse le code courant). */
   setLanguage: (language: SupportedLanguage) => void;
   /** Réinitialise tout l'état. */
@@ -120,6 +126,14 @@ export interface AstStoreState {
    * quand le code source change (les ids path-based peuvent alors se décaler).
    */
   deletedNodes: Set<string>;
+
+  // --- créations visuelles persistées (phase 1, sans round-trip AST) ---
+  /**
+   * Insertions de nodes appliquées visuellement. Ré-appliquées après chaque
+   * re-dérivation du graphe (collapse/expand) pour que la création « tienne ».
+   * Réinitialisé quand le code source change (ids path-based instables).
+   */
+  insertions: InsertOp[];
 
   // --- expansion des définitions de fonction ---
   /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */

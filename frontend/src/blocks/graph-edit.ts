@@ -6,7 +6,7 @@
  * des stubs — voir ../sync/transforms.ts). Fonctions pures et testables.
  */
 
-import type { GraphEdge, GraphModel } from "../shared";
+import type { GraphEdge, GraphModel, GraphNode, InsertOp } from "../shared";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { Statement } from "./types/globalType";
 import { declaredNames, referencedNames } from "./var-refs";
@@ -97,6 +97,51 @@ export function deleteNodeFromGraph(
 }
 
 /**
+ * Insère `newNode` SUR une arête de flux existante, en la scindant en deux :
+ * `source → newNode` (conserve le kind/handle/label de l'arête d'origine, ex.
+ * une branche `branch-true`) puis `newNode → target` (continuation `exec`).
+ *
+ * Le node créé devient donc le nouveau maillon à cet endroit de la spine. Si
+ * l'arête n'existe pas (ou si le node existe déjà), no-op défensif.
+ */
+export function insertNodeOnEdge(
+  graph: GraphModel,
+  edgeId: string,
+  newNode: GraphNode,
+): GraphModel {
+  const edge = graph.edges.find((e) => e.id === edgeId);
+  if (!edge) return graph;
+  if (graph.nodes.some((n) => n.id === newNode.id)) return graph;
+
+  const nodes = [...graph.nodes, newNode];
+
+  // Arête entrante : on hérite du kind/handle d'origine pour rester cohérent
+  // (insérer sur une branche `true` garde la branche jusqu'au nouveau node).
+  const incoming: GraphEdge = {
+    id: `ins-${newNode.id}-in`,
+    source: edge.source,
+    target: newNode.id,
+    kind: edge.kind,
+    ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+    ...(edge.label ? { label: edge.label } : {}),
+    targetHandle: "exec-in",
+  };
+  // Arête sortante : continuation d'exécution standard vers l'ancienne cible.
+  const outgoing: GraphEdge = {
+    id: `ins-${newNode.id}-out`,
+    source: newNode.id,
+    target: edge.target,
+    kind: "exec",
+    sourceHandle: "exec-out",
+    targetHandle: "exec-in",
+  };
+
+  const edges = graph.edges.filter((e) => e.id !== edgeId);
+  edges.push(incoming, outgoing);
+  return { nodes, edges };
+}
+
+/**
  * Calcule l'ensemble des ids à supprimer quand on supprime `nodeId`.
  *
  * - Si le node n'est pas une déclaration de variable → `[nodeId]` (suppression
@@ -149,5 +194,24 @@ export function applyDeletions(
 ): GraphModel {
   let result = graph;
   for (const id of deletedIds) result = deleteNodeFromGraph(result, id);
+  return result;
+}
+
+/**
+ * Ré-applique une série de créations (insertions) sur un graphe fraîchement
+ * dérivé de l'AST. Pendant de `applyDeletions` pour la création : rend les nodes
+ * créés « collants » à travers les re-dérivations (collapse/expand) tant que le
+ * round-trip AST n'existe pas. Une cible introuvable est ignorée (no-op).
+ */
+export function applyInsertions(
+  graph: GraphModel,
+  ops: Iterable<InsertOp>,
+): GraphModel {
+  let result = graph;
+  for (const op of ops) {
+    if (op.target.kind === "edge") {
+      result = insertNodeOnEdge(result, op.target.edgeId, op.node);
+    }
+  }
   return result;
 }

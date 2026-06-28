@@ -20,17 +20,50 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import type { InsertTarget } from "../../shared";
 import { useAstStore } from "../../sync";
+import { edgeTypes } from "../edges";
+import {
+  HoveredEdgeProvider,
+  InsertionProvider,
+  type RequestInsert,
+} from "../edges/insertion-context";
 import { graphToFlow } from "../graph-to-flow";
+import { buildStatementNode, nextNodeId, type BlockSpec } from "../node-create";
 import { nodeTypes } from "../nodes";
 import type { TypedGraphModel } from "../typed-nodes";
+import BlockPalette from "./BlockPalette";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);
   const deleteNode = useAstStore((s) => s.deleteNode);
+  const insertNode = useAstStore((s) => s.insertNode);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Insertion en cours : cible (arête à scinder) + point d'ancrage du popup.
+  const [pending, setPending] = useState<
+    { target: InsertTarget; x: number; y: number } | null
+  >(null);
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+
+  const requestInsert = useCallback<RequestInsert>((target, at) => {
+    setPending({ target, x: at.x, y: at.y });
+  }, []);
+
+  // Bloc choisi dans la palette → construit le node et l'insère via le store.
+  const onPickBlock = useCallback(
+    (kind: BlockSpec["kind"]) => {
+      setPending((cur) => {
+        if (cur) {
+          const node = buildStatementNode({ kind } as BlockSpec, nextNodeId());
+          insertNode(cur.target, node);
+        }
+        return null;
+      });
+    },
+    [insertNode],
+  );
 
   useEffect(() => {
     if (graph.nodes.length === 0) return;
@@ -63,37 +96,52 @@ export default function BlocksCanvas() {
   }, [selectedId, deleteNode]);
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onSelectionChange={onSelectionChange}
-      deleteKeyCode={null}
-      nodeTypes={nodeTypes}
-      fitView
-      fitViewOptions={{ padding: 0.2 }}
-      nodesConnectable={false}
-      colorMode="dark"
-      proOptions={{ hideAttribution: true }}
-      minZoom={0.2}
-      maxZoom={2}
-    >
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
-      <Controls showInteractive={false} />
-      <MiniMap pannable zoomable />
-      <Panel position="top-right" className="legend">
-        <div className="legend-title">LEGEND</div>
-        <div className="legend-row">
-          <span className="legend-swatch sw-exec" /> Execution Flow
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch sw-true" /> True Branch
-        </div>
-        <div className="legend-row">
-          <span className="legend-swatch sw-call" /> Function Call
-        </div>
-      </Panel>
-    </ReactFlow>
+    <InsertionProvider value={requestInsert}>
+      <HoveredEdgeProvider value={hoveredEdge}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onSelectionChange={onSelectionChange}
+        onEdgeMouseEnter={(_, edge) => setHoveredEdge(edge.id)}
+        onEdgeMouseLeave={() => setHoveredEdge(null)}
+        deleteKeyCode={null}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        nodesConnectable={false}
+        colorMode="dark"
+        proOptions={{ hideAttribution: true }}
+        minZoom={0.2}
+        maxZoom={2}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
+        <Controls showInteractive={false} />
+        <MiniMap pannable zoomable />
+        <Panel position="top-right" className="legend">
+          <div className="legend-title">LEGEND</div>
+          <div className="legend-row">
+            <span className="legend-swatch sw-exec" /> Execution Flow
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch sw-true" /> True Branch
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch sw-call" /> Function Call
+          </div>
+        </Panel>
+      </ReactFlow>
+      {pending && (
+        <BlockPalette
+          x={pending.x}
+          y={pending.y}
+          onPick={onPickBlock}
+          onClose={() => setPending(null)}
+        />
+      )}
+      </HoveredEdgeProvider>
+    </InsertionProvider>
   );
 }

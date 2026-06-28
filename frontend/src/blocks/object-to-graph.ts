@@ -57,7 +57,7 @@ const CONTROL_KINDS = new Set([
   "try",
 ]);
 
-const STATEMENT_AST_TYPE: Record<string, string> = {
+export const STATEMENT_AST_TYPE: Record<string, string> = {
   "function-declaration": "FunctionDeclaration",
   function: "FunctionExpression",
   if: "IfStatement",
@@ -118,7 +118,7 @@ function directCalleeName(value: Value | undefined): string | null {
   return null;
 }
 
-const roleForStatement = (kind: string): NodeRole => {
+export const roleForStatement = (kind: string): NodeRole => {
   if (BOUNDARY_KINDS.has(kind)) return "boundary";
   if (CONTROL_KINDS.has(kind)) return "control";
   return "statement";
@@ -324,7 +324,7 @@ function childValues(v: Value, path: string): [string, Value][] {
   }
 }
 
-function labelForStatement(stmt: Statement): string {
+export function labelForStatement(stmt: Statement): string {
   switch (stmt.kind) {
     case "variable-declaration":
       return `${stmt.declarationKind} ${stmt.declarations.map((d) => `${describeBinding(d.target)}${d.type ? `: ${describeType(d.type)}` : ""}`).join(", ")}`;
@@ -365,7 +365,7 @@ function labelForStatement(stmt: Statement): string {
   }
 }
 
-function sourceForStatement(stmt: Statement): string | undefined {
+export function sourceForStatement(stmt: Statement): string | undefined {
   switch (stmt.kind) {
     case "variable-declaration":
       return truncate(

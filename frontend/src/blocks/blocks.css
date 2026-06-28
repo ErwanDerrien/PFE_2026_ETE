@@ -264,6 +264,118 @@
 .react-flow__edge-text    { fill: #9ca3af; font-size: 10px; }
 .react-flow__edge-textbg  { fill: #1e1e1e; }
 
+/* --- Custom flow-edge label (rendered by InsertableEdge) --- */
+.edge-flow-label {
+  position: absolute;
+  pointer-events: none;
+  font: 10px/1 var(--sans, system-ui, sans-serif);
+  color: #9ca3af;
+  background: #1e1e1e;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* --- Insertable edge — "+" button on hover --- */
+.edge-insert-hit {
+  cursor: pointer;
+}
+
+.edge-insert-wrap {
+  position: absolute;
+  pointer-events: all;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.edge-insert-wrap.is-visible {
+  opacity: 1;
+}
+
+.edge-insert-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font: 700 16px/1 var(--sans, system-ui, sans-serif);
+  color: #0d0d0d;
+  background: var(--accent, #c8c8c8);
+  border: 2px solid #1e1e1e;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+.edge-insert-btn:hover {
+  transform: scale(1.18);
+  background: #fff;
+}
+
+/* --- Block palette popup --- */
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.palette {
+  position: fixed;
+  z-index: 1001;
+  transform: translate(-50%, 12px);
+  min-width: 200px;
+  padding: 10px;
+  background: rgba(24, 24, 24, 0.97);
+  border: 1px solid #3f3f3f;
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.palette-title {
+  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.14em;
+  color: #6b7280;
+  margin: 2px 2px 8px;
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.palette-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: #2b2b2b;
+  border: 1px solid #3f3f3f;
+  border-left: 3px solid var(--accent, #555);
+  border-radius: 7px;
+  color: #c9d1d9;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+.palette-item:hover {
+  background: #343434;
+  border-color: var(--accent, #777);
+}
+
+.palette-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent, #c9d1d9);
+}
+
+.palette-label {
+  font: 700 9px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.1em;
+  color: #9ca3af;
+}
+
 /* --- Syntax highlighting (GitHub Dark palette) --- */
 .tok-ws      { white-space: pre; }
 .tok-keyword { color: #ff7b72; }

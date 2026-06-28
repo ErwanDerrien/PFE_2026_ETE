@@ -125,3 +125,21 @@ export interface GraphModel {
 
 /** Un graphe vide — point de départ pratique. */
 export const EMPTY_GRAPH: GraphModel = { nodes: [], edges: [] };
+
+/**
+ * Cible d'une insertion de node (création de blocs, phase visuelle).
+ * - `edge` : scinder une arête de flux existante (le `+` au survol d'une arête).
+ *   (Les cibles « port » — fin de spine, corps vide — arrivent en milestone 2.)
+ */
+export type InsertTarget = { kind: "edge"; edgeId: string };
+
+/**
+ * Une insertion persistée : le node construit + sa cible. Mémorisée par le store
+ * pour ré-appliquer la création après chaque re-dérivation du graphe
+ * (collapse/expand), tant que le round-trip AST n'existe pas — miroir de la
+ * liste des suppressions.
+ */
+export interface InsertOp {
+  target: InsertTarget;
+  node: GraphNode;
+}

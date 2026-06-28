@@ -72,15 +72,23 @@ export function graphToFlow(graph: TypedGraphModel): FlowModel {
   });
 
   const SMOOTHSTEP_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "calls", "function-body", "loop-back"]);
+  // Arêtes « de flux » où l'on peut insérer un node (bouton + au survol). On
+  // exclut `calls`/`loop-back`/`expression` : y insérer n'a pas de sens.
+  const INSERTABLE_KINDS = new Set<EdgeKind>(["exec", "branch-true", "branch-false", "function-body"]);
 
   const edges: Edge[] = graph.edges.map((edge) => {
     const style = EDGE_STYLE[edge.kind];
     const sourceHandle = sourceHandleFor(edge.kind);
+    const insertable = INSERTABLE_KINDS.has(edge.kind);
     return {
       id: edge.id,
       source: edge.source,
       target: edge.target,
-      ...(SMOOTHSTEP_KINDS.has(edge.kind) ? { type: "smoothstep", pathOptions: { borderRadius: 12 } } : {}),
+      ...(insertable
+        ? { type: "insertable" }
+        : SMOOTHSTEP_KINDS.has(edge.kind)
+          ? { type: "smoothstep", pathOptions: { borderRadius: 12 } }
+          : {}),
       ...(sourceHandle ? { sourceHandle } : {}),
       label: edge.label,
       style: {

@@ -6,7 +6,7 @@
  * des stubs — voir ../sync/transforms.ts). Fonctions pures et testables.
  */
 
-import type { GraphEdge, GraphModel, GraphNode, InsertOp, InsertPort } from "../shared";
+import type { CreatedSubgraph, GraphEdge, GraphModel, GraphNode, InsertOp, InsertPort } from "../shared";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { Statement } from "./types/globalType";
 import { declaredNames, referencedNames } from "./var-refs";
@@ -107,20 +107,21 @@ export function deleteNodeFromGraph(
 export function insertNodeOnEdge(
   graph: GraphModel,
   edgeId: string,
-  newNode: GraphNode,
+  created: CreatedSubgraph,
 ): GraphModel {
   const edge = graph.edges.find((e) => e.id === edgeId);
   if (!edge) return graph;
-  if (graph.nodes.some((n) => n.id === newNode.id)) return graph;
+  const entry = created.node;
+  if (graph.nodes.some((n) => n.id === entry.id)) return graph;
 
-  const nodes = [...graph.nodes, newNode];
+  const nodes = [...graph.nodes, entry, ...created.nodes];
 
   // Arête entrante : on hérite du kind/handle d'origine pour rester cohérent
   // (insérer sur une branche `true` garde la branche jusqu'au nouveau node).
   const incoming: GraphEdge = {
-    id: `ins-${newNode.id}-in`,
+    id: `ins-${entry.id}-in`,
     source: edge.source,
-    target: newNode.id,
+    target: entry.id,
     kind: edge.kind,
     ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
     ...(edge.label ? { label: edge.label } : {}),
@@ -128,8 +129,8 @@ export function insertNodeOnEdge(
   };
   // Arête sortante : continuation d'exécution standard vers l'ancienne cible.
   const outgoing: GraphEdge = {
-    id: `ins-${newNode.id}-out`,
-    source: newNode.id,
+    id: `ins-${entry.id}-out`,
+    source: entry.id,
     target: edge.target,
     kind: "exec",
     sourceHandle: "exec-out",
@@ -137,7 +138,7 @@ export function insertNodeOnEdge(
   };
 
   const edges = graph.edges.filter((e) => e.id !== edgeId);
-  edges.push(incoming, outgoing);
+  edges.push(incoming, outgoing, ...created.edges);
   return { nodes, edges };
 }
 
@@ -152,31 +153,35 @@ export function insertNodeAtPort(
   graph: GraphModel,
   nodeId: string,
   port: InsertPort,
-  newNode: GraphNode,
+  created: CreatedSubgraph,
 ): GraphModel {
   if (!graph.nodes.some((n) => n.id === nodeId)) return graph;
-  if (graph.nodes.some((n) => n.id === newNode.id)) return graph;
+  const entry = created.node;
+  if (graph.nodes.some((n) => n.id === entry.id)) return graph;
 
-  const id = `ins-${newNode.id}-port`;
+  const id = `ins-${entry.id}-port`;
   const newEdges: GraphEdge[] = [];
 
   switch (port) {
     case "exec-out":
-      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "exec", sourceHandle: "exec-out", targetHandle: "exec-in" });
+      newEdges.push({ id, source: nodeId, target: entry.id, kind: "exec", sourceHandle: "exec-out", targetHandle: "exec-in" });
       break;
     case "true":
-      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "true" });
+      newEdges.push({ id, source: nodeId, target: entry.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "true" });
       break;
     case "false":
-      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-false", sourceHandle: "branch-false", targetHandle: "exec-in", label: "false" });
+      newEdges.push({ id, source: nodeId, target: entry.id, kind: "branch-false", sourceHandle: "branch-false", targetHandle: "exec-in", label: "false" });
       break;
     case "body":
-      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "body" });
-      newEdges.push({ id: `ins-${newNode.id}-loopback`, source: newNode.id, target: nodeId, kind: "loop-back", sourceHandle: "exec-out", targetHandle: "exec-in", label: "↩" });
+      newEdges.push({ id, source: nodeId, target: entry.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "body" });
+      newEdges.push({ id: `ins-${entry.id}-loopback`, source: entry.id, target: nodeId, kind: "loop-back", sourceHandle: "exec-out", targetHandle: "exec-in", label: "↩" });
       break;
   }
 
-  return { nodes: [...graph.nodes, newNode], edges: [...graph.edges, ...newEdges] };
+  return {
+    nodes: [...graph.nodes, entry, ...created.nodes],
+    edges: [...graph.edges, ...newEdges, ...created.edges],
+  };
 }
 
 /**
@@ -248,9 +253,9 @@ export function applyInsertions(
   let result = graph;
   for (const op of ops) {
     if (op.target.kind === "edge") {
-      result = insertNodeOnEdge(result, op.target.edgeId, op.node);
+      result = insertNodeOnEdge(result, op.target.edgeId, op.created);
     } else if (op.target.kind === "port") {
-      result = insertNodeAtPort(result, op.target.nodeId, op.target.port, op.node);
+      result = insertNodeAtPort(result, op.target.nodeId, op.target.port, op.created);
     }
   }
   return result;

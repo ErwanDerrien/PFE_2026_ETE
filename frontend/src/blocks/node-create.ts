@@ -15,7 +15,7 @@
  */
 
 import { parseExpression } from "@babel/parser";
-import type { NodeLevel } from "../shared";
+import type { CreatedSubgraph, GraphEdge, NodeLevel } from "../shared";
 import {
   STATEMENT_AST_TYPE,
   describe,
@@ -23,9 +23,11 @@ import {
   describeTarget,
   describeType,
   labelForStatement,
+  objectToGraph,
   roleForStatement,
   sourceForStatement,
 } from "./object-to-graph";
+import type { FunctionDeclaration } from "./types/function";
 import { assignmentTargetFromNode, valueFromNode } from "./node-utils";
 import { parseTypeText } from "./type-options";
 import type { Statement, Value } from "./types/globalType";
@@ -73,7 +75,8 @@ export type BlockSpec =
       updateText?: string;
     }
   | { kind: "for-of"; declarationKind: DeclarationKind; varName: string; iterableText: string }
-  | { kind: "for-in"; declarationKind: DeclarationKind; varName: string; iterableText: string };
+  | { kind: "for-in"; declarationKind: DeclarationKind; varName: string; iterableText: string }
+  | { kind: "switch"; discriminantText: string; casesText: string };
 
 /** Les types de blocs proposés par la palette (ordre d'affichage). */
 export const PALETTE_KINDS: BlockSpec["kind"][] = [
@@ -86,6 +89,7 @@ export const PALETTE_KINDS: BlockSpec["kind"][] = [
   "for",
   "for-of",
   "for-in",
+  "switch",
   "return",
   "throw",
   "break",
@@ -105,6 +109,7 @@ const FORM_KINDS = new Set<BlockSpec["kind"]>([
   "for",
   "for-of",
   "for-in",
+  "switch",
 ]);
 
 export const needsForm = (kind: BlockSpec["kind"]): boolean => FORM_KINDS.has(kind);
@@ -125,6 +130,7 @@ const KIND_AST_TYPE: Record<BlockSpec["kind"], string> = {
   for: "ForStatement",
   "for-of": "ForOfStatement",
   "for-in": "ForInStatement",
+  switch: "SwitchStatement",
 };
 
 /** astType associé à un type de bloc de la palette (pour block-meta). */
@@ -290,6 +296,17 @@ function buildStmt(spec: BlockSpec): Statement {
         right: parseValue(spec.iterableText),
         body: { kind: "block", content: [] },
       };
+    case "switch": {
+      // Chaque case reçoit un `break;` par défaut : sans corps, une case ne rend
+      // aucune arête (donc serait invisible). On remplit ensuite la case en
+      // insérant sur son arête (avant le break).
+      const cases = splitArgs(spec.casesText).map((t) =>
+        t.toLowerCase() === "default"
+          ? { kind: "default" as const, body: [{ kind: "break" as const }] }
+          : { kind: "case" as const, test: parseValue(t), body: [{ kind: "break" as const }] },
+      );
+      return { kind: "switch", discriminant: parseValue(spec.discriminantText), cases };
+    }
   }
 }
 
@@ -340,6 +357,14 @@ export function specFromNode(node: TypedGraphNode): BlockSpec | null {
       };
     case "throw":
       return { kind: "throw", valueText: describe(stmt.value) };
+    case "switch":
+      return {
+        kind: "switch",
+        discriminantText: describe(stmt.discriminant),
+        casesText: stmt.cases
+          .map((c) => (c.kind === "default" ? "default" : describe(c.test)))
+          .join(", "),
+      };
     case "if":
       return { kind: "if", conditionText: describe(stmt.condition) };
     case "while":
@@ -399,4 +424,43 @@ export function buildStatementNode(spec: BlockSpec, id: string): TypedGraphNode 
     stmt,
     ...(source !== undefined ? { source } : {}),
   } as TypedGraphNode;
+}
+
+/**
+ * Construit le sous-graphe d'un bloc créé. La plupart des blocs = un seul node.
+ * Les blocs à sous-structure rendue (switch → un node par `case`) sont projetés
+ * via `objectToGraph` puis ré-identifiés sous `baseId` (ids déterministes et
+ * stables pour la persistance des insertions).
+ */
+export function buildCreatedGraph(spec: BlockSpec, baseId: string): CreatedSubgraph {
+  if (spec.kind !== "switch") {
+    return { node: buildStatementNode(spec, baseId), nodes: [], edges: [] };
+  }
+
+  const stmt = buildStmt(spec);
+  const root: FunctionDeclaration = {
+    kind: "function-declaration",
+    name: "<created>",
+    typeParams: [],
+    params: [],
+    async: false,
+    generator: false,
+    body: { kind: "block", content: [stmt] },
+  };
+  const model = objectToGraph(root); // ids sous « s/0 »
+  const remap = (id: string): string =>
+    id === "s/0" ? baseId : id.startsWith("s/0/") ? baseId + id.slice(3) : id;
+  const nodes: TypedGraphNode[] = model.nodes.map((n) => ({
+    ...n,
+    id: remap(n.id),
+    astPath: remap(n.id),
+  }));
+  const edges: GraphEdge[] = model.edges.map((e) => ({
+    ...e,
+    id: `${baseId}~${e.id}`,
+    source: remap(e.source),
+    target: remap(e.target),
+  }));
+  const entry = nodes.find((n) => n.id === baseId)!;
+  return { node: entry, nodes: nodes.filter((n) => n.id !== baseId), edges };
 }

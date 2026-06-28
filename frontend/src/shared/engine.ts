@@ -17,7 +17,7 @@
 
 import type { File } from './ast';
 import type { SupportedLanguage } from './ast';
-import type { GraphModel, GraphNode, InsertOp, InsertTarget, SourceLoc } from './graph';
+import type { CreatedSubgraph, GraphModel, GraphNode, InsertOp, InsertTarget, SourceLoc } from './graph';
 
 /** Options de transformation AST -> graphe (réglages de l'équipe A). */
 export interface GraphOptions {
@@ -113,7 +113,7 @@ export interface AstStoreState {
    * `blocks/node-create.ts`) selon `target` (ex. en scindant une arête). Phase 1 :
    * édite uniquement la projection `graph`, n'écrit PAS vers l'AST.
    */
-  insertNode: (target: InsertTarget, node: GraphNode) => void;
+  insertNode: (target: InsertTarget, created: CreatedSubgraph) => void;
   /**
    * Modification visuelle d'un node : remplace le node `nodeId` par `node`
    * (reconstruit depuis le formulaire d'édition), arêtes inchangées. Phase 1 :

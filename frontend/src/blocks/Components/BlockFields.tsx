@@ -40,6 +40,8 @@ export interface FormValues {
   testText: string;
   updateText: string;
   iterableText: string;
+  discriminantText: string;
+  casesText: string;
 }
 
 export const EMPTY_VALUES: FormValues = {
@@ -57,6 +59,8 @@ export const EMPTY_VALUES: FormValues = {
   testText: "",
   updateText: "",
   iterableText: "",
+  discriminantText: "",
+  casesText: "",
 };
 
 const DECLARATION_KINDS: DeclarationKind[] = ["const", "let", "var"];
@@ -108,6 +112,8 @@ export function buildSpec(kind: BlockSpec["kind"], v: FormValues): BlockSpec {
       return { kind: "for-of", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
     case "for-in":
       return { kind: "for-in", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
+    case "switch":
+      return { kind: "switch", discriminantText: v.discriminantText, casesText: v.casesText };
   }
 }
 
@@ -154,6 +160,10 @@ export function valuesFromSpec(spec: BlockSpec): FormValues {
       v.name = spec.varName;
       v.iterableText = spec.iterableText;
       break;
+    case "switch":
+      v.discriminantText = spec.discriminantText;
+      v.casesText = spec.casesText;
+      break;
   }
   return v;
 }
@@ -166,7 +176,8 @@ export function isInvalid(kind: BlockSpec["kind"], v: FormValues): boolean {
     (kind === "call" && !v.calleeText.trim()) ||
     (kind === "throw" && !v.valueText.trim()) ||
     ((kind === "if" || kind === "while" || kind === "do-while") && !v.conditionText.trim()) ||
-    ((kind === "for-of" || kind === "for-in") && (!v.name.trim() || !v.iterableText.trim()))
+    ((kind === "for-of" || kind === "for-in") && (!v.name.trim() || !v.iterableText.trim())) ||
+    (kind === "switch" && !v.discriminantText.trim())
   );
 }
 
@@ -449,6 +460,28 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               value={v.updateText}
               onChange={(e) => onChange({ updateText: e.target.value })}
               placeholder="ex. i++"
+            />
+          </label>
+        </>
+      )}
+
+      {kind === "switch" && (
+        <>
+          <label className="bf-field">
+            <span>expression (discriminant)</span>
+            <input
+              autoFocus={autoFocus}
+              value={v.discriminantText}
+              onChange={(e) => onChange({ discriminantText: e.target.value })}
+              placeholder="ex. code"
+            />
+          </label>
+          <label className="bf-field">
+            <span>cas (séparés par , — « default » accepté)</span>
+            <input
+              value={v.casesText}
+              onChange={(e) => onChange({ casesText: e.target.value })}
+              placeholder="ex. 200, 404, default"
             />
           </label>
         </>

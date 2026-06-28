@@ -29,7 +29,7 @@ import {
   type RequestInsert,
 } from "../edges/insertion-context";
 import { graphToFlow } from "../graph-to-flow";
-import { buildStatementNode, needsForm, nextNodeId, type BlockSpec } from "../node-create";
+import { buildCreatedGraph, needsForm, nextNodeId, type BlockSpec } from "../node-create";
 import { nodeTypes } from "../nodes";
 import type { TypedGraphModel, TypedGraphNode } from "../typed-nodes";
 import BlockForm from "./BlockForm";
@@ -67,7 +67,7 @@ export default function BlocksCanvas() {
   const insertSpec = useCallback(
     (spec: BlockSpec) => {
       if (!pending) return;
-      insertNode(pending.target, buildStatementNode(spec, nextNodeId()));
+      insertNode(pending.target, buildCreatedGraph(spec, nextNodeId()));
       setPending(null);
       setFormKind(null);
     },

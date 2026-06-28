@@ -47,6 +47,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
   const meta = blockMeta(node.astType, node.role);
   const branching = isBranching(node.astType);
   const looping   = isLooping(node.astType);
+  const isSwitch  = node.astType === "SwitchStatement";
   const collapsed = node.role === "boundary" ? node.collapsed : false;
   const members   = node.role === "statement" ? node.members : undefined;
   const code = node.source ?? node.label;
@@ -120,6 +121,17 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
             <div className="bn-foot-cell bn-foot-body">
               <span className="bn-foot-label">BODY</span>
               {openSlots.includes("body") && addBtn("body", "bn-add-port")}
+              <Handle
+                id="true"
+                type="source"
+                position={Position.Right}
+                className="bn-exec-handle bn-handle-true"
+              />
+            </div>
+          ) : isSwitch ? (
+            /* Switch: les cases partent toutes du port CASES (sourceHandle `true`) */
+            <div className="bn-foot-cell bn-foot-body">
+              <span className="bn-foot-label">CASES</span>
               <Handle
                 id="true"
                 type="source"

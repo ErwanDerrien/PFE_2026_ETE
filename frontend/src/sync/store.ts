@@ -119,16 +119,16 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
     set({ graph: applyDeletions(graph, ids), deletedNodes: nextDeleted, lastOrigin: 'blocks' });
   },
 
-  insertNode: (target, node) => {
+  insertNode: (target, created) => {
     // Phase 1 : création purement visuelle. On mute directement le `graph` sans
     // passer par graphToAst/generate (encore en stub). On mémorise l'opération
     // pour la ré-appliquer après collapse/expand (cf. toggleFunctionNode).
     const { graph, insertions } = get();
     let next = graph;
-    if (target.kind === 'edge') next = insertNodeOnEdge(graph, target.edgeId, node);
-    else if (target.kind === 'port') next = insertNodeAtPort(graph, target.nodeId, target.port, node);
+    if (target.kind === 'edge') next = insertNodeOnEdge(graph, target.edgeId, created);
+    else if (target.kind === 'port') next = insertNodeAtPort(graph, target.nodeId, target.port, created);
     if (next === graph) return; // cible introuvable : no-op
-    set({ graph: next, insertions: [...insertions, { target, node }], lastOrigin: 'blocks' });
+    set({ graph: next, insertions: [...insertions, { target, created }], lastOrigin: 'blocks' });
   },
 
   updateNode: (nodeId, node) => {

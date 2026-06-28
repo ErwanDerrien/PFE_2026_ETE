@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { useAstStore } from "../../sync";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import { PRIMITIVE_TYPE_NAMES, namedTypesFromGraph } from "../type-options";
-import { reassignableNames } from "../scope-options";
+import { callableNamesFromAst, reassignableNames } from "../scope-options";
 import {
   ASSIGNMENT_OPERATORS,
   type AssignmentOperator,
@@ -152,8 +152,13 @@ interface Props {
 
 export default function BlockFields({ kind, values: v, onChange, autoFocus }: Props) {
   const graph = useAstStore((s) => s.graph);
+  const ast = useAstStore((s) => s.ast);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
   const targets = useMemo(() => reassignableNames(graph), [graph]);
+  // Fonctions appelables depuis l'AST (toutes, indépendamment du repli des nodes).
+  const callables = useMemo(() => callableNamesFromAst(ast), [ast]);
+  const curCallee = v.calleeText.trim();
+  const extraCallee = curCallee && !callables.includes(curCallee) ? curCallee : null;
   // Conserve le type courant comme option s'il n'est ni primitif ni déclaré
   // (ex. un générique `Record<…>` venu de l'AST), pour ne pas le perdre à l'édition.
   const cur = v.typeText.trim();
@@ -284,12 +289,22 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus }: Pr
         <>
           <label className="bf-field">
             <span>fonction</span>
-            <input
+            <select
               autoFocus={autoFocus}
+              className="bf-fullwidth"
               value={v.calleeText}
               onChange={(e) => onChange({ calleeText: e.target.value })}
-              placeholder="foo, obj.method"
-            />
+            >
+              <option value="">fonction…</option>
+              {callables.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+              {extraCallee && (
+                <optgroup label="Actuel">
+                  <option value={extraCallee}>{extraCallee}</option>
+                </optgroup>
+              )}
+            </select>
           </label>
           <label className="bf-field">
             <span>arguments (séparés par ,)</span>

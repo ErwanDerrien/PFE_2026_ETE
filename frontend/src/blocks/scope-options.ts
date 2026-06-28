@@ -8,12 +8,19 @@
  * calcul de scope plus tard.
  */
 
-import type { GraphModel } from "../shared";
+import _traverse, { type NodePath } from "@babel/traverse";
+import * as t from "@babel/types";
+import type { File } from "@babel/types";
+import type { GraphModel, InsertTarget } from "../shared";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { FunctionDeclaration } from "./types/function";
 import type { Statement } from "./types/globalType";
 import type { Parameter } from "./types/parameter";
 import { declaredNames } from "./var-refs";
+
+// Interop ESM/CJS de @babel/traverse (cf. ast-mapping.ts).
+const traverse =
+  typeof _traverse === "function" ? _traverse : (_traverse as { default: typeof _traverse }).default;
 
 /** Nom d'un paramètre simple (ignore la déstructuration pour l'instant). */
 function simpleParamName(p: Parameter): string | null {
@@ -25,6 +32,35 @@ function simpleParamName(p: Parameter): string | null {
     default:
       return null; // destructured-param
   }
+}
+
+/**
+ * Noms APPELABLES déclarés dans le code, collectés depuis l'AST (source de
+ * vérité) — donc indépendant de l'état replié/déplié des nodes : toute fonction
+ * du code apparaît, qu'elle soit visible comme node ou non.
+ *
+ * Couvre les déclarations de fonction (`function foo() {}`) et les variables liées
+ * à une fonction (`const f = () => …`, `const g = function () {}`). Collecte
+ * globale (toutes portées) ; un raffinement par portée pourra suivre.
+ */
+export function callableNamesFromAst(ast: File | null): string[] {
+  if (!ast) return [];
+  const names = new Set<string>();
+  traverse(ast, {
+    FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
+      if (path.node.id) names.add(path.node.id.name);
+    },
+    VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
+      const init = path.node.init;
+      if (
+        (t.isArrowFunctionExpression(init) || t.isFunctionExpression(init)) &&
+        t.isIdentifier(path.node.id)
+      ) {
+        names.add(path.node.id.name);
+      }
+    },
+  });
+  return [...names].sort();
 }
 
 /**

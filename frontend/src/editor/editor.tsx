@@ -2,10 +2,13 @@ import { useRef } from "react";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { useAstStore } from '../sync';
+import { DEFAULT_CODE } from '../shell/App'
 
 interface CodeEditorProps {
   onChange?: (value: string) => void;
 }
+
+
 
 function CodeEditor({ onChange }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -17,6 +20,10 @@ function CodeEditor({ onChange }: CodeEditorProps) {
     // Reference a l'editeur
     function handleEditorDidMount(editor: editor.IStandaloneCodeEditor) {
         editorRef.current = editor;
+        const currentValue = editor.getValue();
+        if (currentValue) {
+            setSource(currentValue, "editor");
+        }
     }
 
     // Pour obtenir la valeur lors d'un changement dans le code
@@ -40,50 +47,7 @@ function CodeEditor({ onChange }: CodeEditorProps) {
         <Editor
             height="100%"
             defaultLanguage="javascript"
-            defaultValue={`// Mini-démo - Éditeur de code + Console d'exécution
-// Ce code de démonstration peut être facilement modifié ou supprimé
-
-console.log("=== Démonstration de l'exécution sandbox ===");
-
-// Exemple 1: Fonctions de base (JavaScript pur)
-function saluer(nom) {
-  return \`Bonjour \${nom}!\`;
-}
-
-console.log(saluer("Étudiant"));
-console.log("");
-
-// Exemple 2: Opérations mathématiques
-function calculerSurface(rayon) {
-  return Math.PI * rayon * rayon;
-}
-
-const rayon = 5;
-const surface = calculerSurface(rayon);
-console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
-console.log("");
-
-// Exemple 3: Tableaux et boucles
-const nombres = [1, 2, 3, 4, 5];
-console.log("Nombres:", nombres);
-
-let somme = 0;
-for (const n of nombres) {
-  somme += n;
-}
-console.log(\`Somme des nombres = \${somme}\`);
-console.log("");
-
-// Exemple 4: Conditions
-const age = 20;
-if (age >= 18) {
-  console.log(\`Âge: \${age} - Majeur\`);
-} else {
-  console.log(\`Âge: \${age} - Mineur\`);
-}
-
-console.log("=== Fin de la démonstration ===");
-console.log("Modifiez ce code et cliquez sur 'Exécuter le code' pour tester!");`}
+            defaultValue={DEFAULT_CODE}
             value={lastOrigin === "editor" ? undefined : source}
             onMount={handleEditorDidMount}
             onChange={handleEditorChange}

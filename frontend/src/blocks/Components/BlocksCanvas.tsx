@@ -169,6 +169,7 @@ export default function BlocksCanvas() {
           kind={formKind}
           x={pending.x}
           y={pending.y}
+          target={pending.target}
           onSubmit={insertSpec}
           onCancel={closeAll}
         />

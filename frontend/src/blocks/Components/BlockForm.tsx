@@ -5,6 +5,7 @@
  */
 
 import { type CSSProperties, useEffect, useState } from "react";
+import type { InsertTarget } from "../../shared";
 import { blockMeta } from "../block-meta";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import BlockFields, {
@@ -18,11 +19,12 @@ interface Props {
   kind: BlockSpec["kind"];
   x: number;
   y: number;
+  target: InsertTarget;
   onSubmit: (spec: BlockSpec) => void;
   onCancel: () => void;
 }
 
-export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
+export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Props) {
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
 
   useEffect(() => {
@@ -59,6 +61,7 @@ export default function BlockForm({ kind, x, y, onSubmit, onCancel }: Props) {
           values={values}
           onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
           autoFocus
+          scopeAnchor={{ kind: "insert", target }}
         />
 
         <div className="bf-actions">

@@ -65,8 +65,8 @@ export function callableNamesFromAst(ast: File | null): string[] {
 
 /**
  * Noms RÉASSIGNABLES déclarés dans le code : variables `let`/`var` (les `const`
- * sont exclus — non réassignables) et paramètres de fonction. Sert au dropdown de
- * cible d'une affectation.
+ * sont exclus — non réassignables) et paramètres de fonction. Collecte GLOBALE
+ * (sans portée) — sert de repli quand on n'a pas de point d'ancrage.
  */
 export function reassignableNames(graph: GraphModel): string[] {
   const names = new Set<string>();
@@ -82,5 +82,88 @@ export function reassignableNames(graph: GraphModel): string[] {
       }
     }
   }
+  return [...names].sort();
+}
+
+// --- Scope lexical pour la cible d'une affectation --------------------------
+//
+// Les ids de nodes sont path-based (`s/2/then/1`) : un statement a pour chemin
+// `<blocPath>/<index>`, et un bloc imbriqué est `<statementPath>/<motclé>`
+// (`/then`, `/else`, `/body`, `/try`, `/catch`, `/finally`, `/caseN`). On en
+// déduit le nesting (= portée lexicale) et l'ordre (= « déclaré avant »).
+
+/** Point d'ancrage d'où calculer la portée : un node existant (édition) ou une
+ *  insertion (création). */
+export type ScopeAnchor =
+  | { kind: "node"; nodeId: string }
+  | { kind: "insert"; target: InsertTarget };
+
+/**
+ * Un candidat (chemin `Pv`) est-il visible et déclaré AVANT le point `Pa` ?
+ * Vrai si `Pv = B/k` avec `B` un bloc ancêtre de `Pa` et `k` antérieur à l'index
+ * par lequel `Pa` traverse `B`. `inclusive` autorise le node d'ancrage lui-même
+ * (insertion « après » ce node).
+ */
+function inScopeBefore(Pv: string, Pa: string, inclusive: boolean): boolean {
+  if (Pv === Pa) return inclusive;
+  const ls = Pv.lastIndexOf("/");
+  if (ls < 0) return false;
+  const block = Pv.slice(0, ls);
+  const k = Number(Pv.slice(ls + 1));
+  if (Number.isNaN(k)) return false; // pas un statement « simple » (ex. else-if)
+  if (!Pa.startsWith(block + "/")) return false; // block doit être un préfixe-bloc de Pa
+  const j = Number(Pa.slice(block.length + 1).split("/")[0]);
+  if (Number.isNaN(j)) return false;
+  return k < j;
+}
+
+/** Résout un ScopeAnchor en (chemin d'ancrage, inclusif du node d'ancrage). */
+function resolveAnchor(
+  graph: GraphModel,
+  anchor: ScopeAnchor,
+): { path: string; inclusive: boolean } | null {
+  if (anchor.kind === "node") return { path: anchor.nodeId, inclusive: false };
+  const t = anchor.target;
+  if (t.kind === "port") return { path: t.nodeId, inclusive: true };
+  // edge : le nouveau node se place après la source de l'arête.
+  const edge = graph.edges.find((e) => e.id === t.edgeId);
+  return edge ? { path: edge.source, inclusive: true } : null;
+}
+
+/**
+ * Noms réassignables EN PORTÉE au point d'ancrage : variables `let`/`var`
+ * déclarées avant dans le bloc courant ou un bloc ancêtre (closures incluses) +
+ * paramètres des fonctions englobantes. Exclut `const`, les fonctions sœurs et
+ * tout ce qui est déclaré plus tard.
+ */
+export function reassignableInScope(graph: GraphModel, anchor: ScopeAnchor): string[] {
+  const resolved = resolveAnchor(graph, anchor);
+  if (!resolved) return reassignableNames(graph); // repli prudent
+  const { path: Pa, inclusive } = resolved;
+  const names = new Set<string>();
+
+  for (const node of graph.nodes as TypedGraphNode[]) {
+    const stmt = node.stmt as Statement | undefined;
+    if (!stmt) continue;
+
+    // Variables let/var visibles et déclarées avant.
+    if (stmt.kind === "variable-declaration" && stmt.declarationKind !== "const") {
+      if (inScopeBefore(node.id, Pa, inclusive)) {
+        for (const n of declaredNames(stmt)) names.add(n);
+      }
+    }
+
+    // Paramètres d'une fonction englobante (son corps est un ancêtre de Pa).
+    if (stmt.kind === "function-declaration") {
+      const bodyBlock = `${node.id}/body`;
+      if (Pa.startsWith(`${bodyBlock}/`)) {
+        for (const p of (stmt as FunctionDeclaration).params) {
+          const pn = simpleParamName(p);
+          if (pn) names.add(pn);
+        }
+      }
+    }
+  }
+
   return [...names].sort();
 }

@@ -12,7 +12,12 @@ import { useMemo } from "react";
 import { useAstStore } from "../../sync";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import { PRIMITIVE_TYPE_NAMES, namedTypesFromGraph } from "../type-options";
-import { callableNamesFromAst, reassignableNames } from "../scope-options";
+import {
+  callableNamesFromAst,
+  reassignableInScope,
+  reassignableNames,
+  type ScopeAnchor,
+} from "../scope-options";
 import {
   ASSIGNMENT_OPERATORS,
   type AssignmentOperator,
@@ -148,13 +153,22 @@ interface Props {
   values: FormValues;
   onChange: (patch: Partial<FormValues>) => void;
   autoFocus?: boolean;
+  /** Point d'ancrage pour la portée (cible d'affectation in-scope). */
+  scopeAnchor?: ScopeAnchor;
 }
 
-export default function BlockFields({ kind, values: v, onChange, autoFocus }: Props) {
+export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor }: Props) {
   const graph = useAstStore((s) => s.graph);
   const ast = useAstStore((s) => s.ast);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
-  const targets = useMemo(() => reassignableNames(graph), [graph]);
+  // Cible d'affectation : variables réassignables EN PORTÉE au point d'ancrage
+  // (repli global si pas d'ancrage).
+  const anchorKey = scopeAnchor ? JSON.stringify(scopeAnchor) : "";
+  const targets = useMemo(
+    () => (scopeAnchor ? reassignableInScope(graph, scopeAnchor) : reassignableNames(graph)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [graph, anchorKey],
+  );
   // Fonctions appelables depuis l'AST (toutes, indépendamment du repli des nodes).
   const callables = useMemo(() => callableNamesFromAst(ast), [ast]);
   const curCallee = v.calleeText.trim();

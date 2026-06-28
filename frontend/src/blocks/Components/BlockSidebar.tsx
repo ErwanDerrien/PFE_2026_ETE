@@ -64,6 +64,7 @@ export default function BlockSidebar({ node, onClose }: Props) {
             kind={spec.kind}
             values={values}
             onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
+            scopeAnchor={{ kind: "node", nodeId: node.id }}
           />
           <div className="bf-actions">
             <button

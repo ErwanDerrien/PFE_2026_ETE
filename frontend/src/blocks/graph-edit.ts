@@ -7,6 +7,9 @@
  */
 
 import type { GraphEdge, GraphModel } from "../shared";
+import type { TypedGraphNode } from "./typed-nodes";
+import type { Statement } from "./types/globalType";
+import { declaredNames, referencedNames } from "./var-refs";
 
 /**
  * Une arête est « de flux » (continuation de la spine) si elle arrive sur la
@@ -91,6 +94,47 @@ export function deleteNodeFromGraph(
   }
 
   return { nodes, edges };
+}
+
+/**
+ * Calcule l'ensemble des ids à supprimer quand on supprime `nodeId`.
+ *
+ * - Si le node n'est pas une déclaration de variable → `[nodeId]` (suppression
+ *   simple, comportement inchangé).
+ * - Sinon → « slice » transitif global : la variable, tout node de la spine qui
+ *   référence un de ses noms, puis (transitivité) les noms déclarés par ces
+ *   nodes, jusqu'au point fixe. La recherche est globale (par nom, sans scope).
+ *
+ * On ne retourne que des ids de spine ; leurs sous-arbres (expressions, corps de
+ * bloc) suivent via le cascade par préfixe de `deleteNodeFromGraph`.
+ */
+export function collectVariableDeletionIds(
+  graph: GraphModel,
+  nodeId: string,
+): string[] {
+  const nodes = graph.nodes as TypedGraphNode[];
+  const target = nodes.find((n) => n.id === nodeId);
+  const targetStmt = target?.stmt as Statement | undefined;
+  if (!targetStmt || targetStmt.kind !== "variable-declaration") return [nodeId];
+
+  const deadNames = new Set(declaredNames(targetStmt));
+  const toDelete = new Set<string>([nodeId]);
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of nodes) {
+      if (node.track !== "spine" || toDelete.has(node.id)) continue;
+      const stmt = node.stmt as Statement;
+      if (!referencedNames(stmt).some((r) => deadNames.has(r))) continue;
+      toDelete.add(node.id);
+      changed = true;
+      // Transitivité : ce node déclare-t-il de nouveaux noms désormais morts ?
+      for (const n of declaredNames(stmt)) deadNames.add(n);
+    }
+  }
+
+  return [...toDelete];
 }
 
 /**

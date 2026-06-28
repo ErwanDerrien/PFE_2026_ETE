@@ -24,7 +24,7 @@ import { create } from 'zustand';
 import type { AstStoreState, SyncError, SyncPhase } from '../shared';
 import { DEFAULT_LANGUAGE, EMPTY_GRAPH } from '../shared';
 import { astToGraph, generate, graphToAst, parse } from './transforms';
-import { applyDeletions, deleteNodeFromGraph } from '../blocks/graph-edit';
+import { applyDeletions, collectVariableDeletionIds } from '../blocks/graph-edit';
 
 /** Normalise n'importe quelle exception en `SyncError` taggée par phase. */
 function toSyncError(phase: SyncPhase, e: unknown): SyncError {
@@ -106,10 +106,13 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
   deleteNode: (nodeId: string) => {
     // Phase 1 : suppression purement visuelle. On mute directement le `graph`
     // (que le canvas lit) sans passer par graphToAst/generate (encore en stub).
-    // On mémorise l'id pour ré-appliquer la suppression après un collapse/expand.
+    // Supprimer une variable supprime aussi (en cascade transitive) tout ce qui
+    // la référence. On mémorise tous les ids pour ré-appliquer après collapse/expand.
     const { graph, deletedNodes } = get();
-    const nextDeleted = new Set(deletedNodes).add(nodeId);
-    set({ graph: deleteNodeFromGraph(graph, nodeId), deletedNodes: nextDeleted, lastOrigin: 'blocks' });
+    const ids = collectVariableDeletionIds(graph, nodeId);
+    const nextDeleted = new Set(deletedNodes);
+    ids.forEach((id) => nextDeleted.add(id));
+    set({ graph: applyDeletions(graph, ids), deletedNodes: nextDeleted, lastOrigin: 'blocks' });
   },
 
   toggleFunctionNode: (nodeId: string) => {

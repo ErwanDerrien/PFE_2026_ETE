@@ -1,4 +1,4 @@
-const code = `
+export const code = `
 
 var u: number = 10;
 
@@ -25,7 +25,7 @@ function main() {
 main();
 `;
 
-const codeFunctionParam = `
+export const codeFunctionParam = `
 
 function add(a: number = 7, b: number): number {
   return a + b;
@@ -50,7 +50,7 @@ function main() {
 main();
 `;
 
-const nestedCode = `
+export const nestedCode = `
 function outerFunction(a: number) {
   function innerFunction(b: number): number {
     return a + b;
@@ -62,7 +62,7 @@ outerFunction(10);
 
 `;
 
-const assignmentSimple = `
+export const assignmentSimple = `
 function returnValue() {
   return 42;
 }
@@ -74,7 +74,7 @@ function simpleAssignment() {
 }
 `;
 
-const assignmentCompoundArithmetic = `
+export const assignmentCompoundArithmetic = `
 function compoundArithmetic() {
   let x = 100;
   x += 10;
@@ -87,7 +87,7 @@ function compoundArithmetic() {
 }
 `;
 
-const assignmentCompoundBitwise = `
+export const assignmentCompoundBitwise = `
 function compoundBitwise() {
   let x = 255;
   x &= 0xFF;
@@ -100,7 +100,7 @@ function compoundBitwise() {
 }
 `;
 
-const assignmentCompoundLogical = `
+export const assignmentCompoundLogical = `
 function compoundLogical() {
   let a: number | null = null;
   a ??= 99;
@@ -111,7 +111,7 @@ function compoundLogical() {
 }
 `;
 
-const assignmentMemberExpression = `
+export const assignmentMemberExpression = `
 function memberExpressionAssignment() {
   const obj = { prop: 0, nested: { value: 0 } };
   obj.prop = 5;
@@ -120,7 +120,7 @@ function memberExpressionAssignment() {
 }
 `;
 
-const assignmentComputedMember = `
+export const assignmentComputedMember = `
 function computedMemberAssignment() {
   const map: Record<string, number> = {};
   const obj = { prop: 0, nested: { value: 0 } };
@@ -131,7 +131,7 @@ function computedMemberAssignment() {
 }
 `;
 
-const assignmentArrayPattern = `
+export const assignmentArrayPattern = `
 function arrayPatternAssignment() {
   let b = 0, c = 0;
   [b, c] = [1, 2];
@@ -139,7 +139,7 @@ function arrayPatternAssignment() {
 }
 `;
 
-const assignmentObjectPattern = `
+export const assignmentObjectPattern = `
 function objectPatternAssignment() {
   let p = 0, q = 0;
   ({ p, q } = { p: 3, q: 4 });
@@ -147,7 +147,7 @@ function objectPatternAssignment() {
 }
 `;
 
-const codeComplex = `
+export const codeComplex = `
 var globalMultiplier: number = 2;
 
 function fibonacci(n: number): number {
@@ -224,7 +224,7 @@ function main(): number {
 main();
 `;
 
-const switchCaseCode = `
+export const switchCaseCode = `
 function classify(value: number): string {
   let category: string;
   let bonus: number = 0;
@@ -277,7 +277,7 @@ classify(42);
 describeStatus(404);
 `;
 
-const ifStatementCode = `
+export const ifStatementCode = `
 function getDiscount(price: number, isMember: boolean, quantity: number): number {
   let discount = 0;
 
@@ -326,7 +326,7 @@ getDiscount(200, true, 60);
 classify(85);
 `;
 
-const loopCode = `
+export const loopCode = `
 function loops(items: number[], n: number): number {
   let total = 0;
 
@@ -362,7 +362,7 @@ function loops(items: number[], n: number): number {
 loops([1, 2, 3], 10);
 `;
 
-const tryCatchThrowCode = `
+export const tryCatchThrowCode = `
 function risky(value: number): number {
   if (value < 0) {
     throw new Error("negative");
@@ -388,20 +388,109 @@ function safe(value: number): number {
 safe(5);
 `;
 
-export {
-  code,
-  nestedCode,
-  assignmentSimple,
-  assignmentCompoundArithmetic,
-  assignmentCompoundBitwise,
-  assignmentCompoundLogical,
-  assignmentMemberExpression,
-  assignmentComputedMember,
-  assignmentArrayPattern,
-  assignmentObjectPattern,
-  codeComplex,
-  switchCaseCode,
-  ifStatementCode,
-  loopCode,
-  tryCatchThrowCode,
+export const assignmentExpressionCode = `
+function allAssignments() {
+  let x = 0;
+
+  x = 42;
+  x += 10;
+  x -= 5;
+  x *= 2;
+  x /= 4;
+  x %= 7;
+  x **= 2;
+
+  x &= 0xFF;
+  x |= 0x01;
+  x ^= 0x10;
+  x <<= 1;
+  x >>= 1;
+  x >>>= 1;
+
+  let a: number | null = null;
+  a ??= 99;
+  let flag = false;
+  flag ||= true;
+  flag &&= false;
+
+  const obj = { prop: 0, nested: { value: 0 } };
+  obj.prop = 5;
+  obj.nested.value = 10;
+  obj.prop += 3;
+  obj.nested.value -= 2;
+
+  const map: Record<string, number> = {};
+  const arr: number[] = [0, 0, 0];
+  map["key"] = 1;
+  map["key"] += 10;
+  arr[0] = 7;
+  arr[1] += 3;
+  obj["prop"] = 5;
+  obj["nested"]["value"] = 10;
+
+  let b = 0, c = 0;
+  [b, c] = [1, 2];
+
+  let p = 0, q = 0;
+  ({ p, q } = { p: 3, q: 4 });
+
+  return { x, a, flag, obj, map, arr, b, c, p, q };
+}
+`;
+
+export const variablesCode = `
+const hello = 5;
+let counter = 0;
+var legacy = "old";
+
+const name: string = "Alice";
+let age: number = 30;
+let isActive: boolean = true;
+
+let maybeNull: string | null = null;
+let maybeUndefined: number | undefined = undefined;
+
+const pi = 3.14159;
+const message = "hello world";
+const flag = false;
+const nothing = null;
+
+let x = 1, y = 2, z = 3;
+let a: number = 10, b: number = 20;
+
+const coords: [number, number] = [42, 7];
+const triple: [string, number, boolean] = ["ok", 1, true];
+
+const scores: number[] = [10, 20, 30];
+const tags: Array<string> = ["ts", "js"];
+
+const user: { name: string; age: number } = { name: "Bob", age: 25 };
+
+const [first, second] = [1, 2];
+const [head, ...tail] = [10, 20, 30, 40];
+const [p = 0, q = 0] = [5];
+
+const { name: userName, age: userAge } = { name: "Carol", age: 28 };
+const { x: ox = 0, y: oy = 0 } = { x: 3 };
+const { a: fa, b: fb, ...rest } = { a: 1, b: 2, c: 3, d: 4 };
+
+const nested: { id: number; meta: { label: string } } = {
+  id: 1,
+  meta: { label: "item" },
 };
+const { id, meta: { label } } = nested;
+
+const square = (n: number): number => n * n;
+const add = (a: number, b: number) => a + b;
+const greet = (name: string) => \`Hello, \${name}!\`;
+
+const greeting = \`Hi \${name}, you are \${age} years old\`;
+const multiline = \`line one
+line two
+line three\`;
+
+const MAX: number = 100;
+const RATIO = 1 / 3;
+const SUM = a + b;
+const PRODUCT = x * y * z;
+`;

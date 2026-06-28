@@ -3,7 +3,10 @@ import type {
   ArrayDestructure,
   ObjectDestructure,
   TypeAnnotation,
+  TypeParam,
 } from "./variable";
+
+export type { TypeParam };
 
 export type Parameter =
   | SimpleParam
@@ -37,8 +40,3 @@ export interface RestParam {
   type?: TypeAnnotation; // foo(...args: string[])
 }
 
-export interface TypeParam {
-  name: string;
-  constraint?: TypeAnnotation;
-  default?: TypeAnnotation;
-}

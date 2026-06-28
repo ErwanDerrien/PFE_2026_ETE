@@ -80,8 +80,16 @@ export interface ObjectType {
   properties: { key: string; value: TypeAnnotation; optional: boolean }[];
 }
 
+export interface TypeParam {
+  kind: "type-param";
+  name: string;
+  constraint?: TypeAnnotation;
+  default?: TypeAnnotation;
+}
+
 export interface FunctionType {
   kind: "function";
+  typeParams?: TypeParam[];
   params: { name: string; type: TypeAnnotation }[];
   returns: TypeAnnotation;
 }
@@ -101,29 +109,40 @@ export interface TypeReference {
 
 export interface VariableDeclaration {
   kind: "variable-declaration";
+  order: number;
+  blockParentId: number;
+  isGlobal: boolean;
   declarationKind: DeclarationKind;
   declarations: VariableDeclarator[]; // const a = 1, b = 2  →  two declarators
 }
 
 // --- Operator ---
 
-export type AssignmentOperator =
-  | "="
-  | "+="
-  | "-="
-  | "*="
-  | "/="
-  | "%="
-  | "**="
-  | "&="
-  | "|="
-  | "^="
-  | "<<="
-  | ">>="
-  | ">>>="
-  | "&&="
-  | "||="
-  | "??=";
+// 1. Define the runtime array first
+export const ASSIGNMENT_OPERATORS = [
+  "=",
+  "+=",
+  "-=",
+  "*=",
+  "/=",
+  "%=",
+  "**=",
+  "&=",
+  "|=",
+  "^=",
+  "<<=",
+  ">>=",
+  ">>>=",
+  "&&=",
+  "||=",
+  "??=",
+] as const;
+
+export type AssignmentOperator = (typeof ASSIGNMENT_OPERATORS)[number];
+
+export function isNotAssignmentOperator(value: unknown): boolean {
+  return !ASSIGNMENT_OPERATORS.includes(value as any);
+}
 
 // --- Assignment target (left side) ---
 
@@ -182,6 +201,7 @@ export interface Rest {
 }
 
 export interface Literal {
+  type: any;
   kind: "literal";
   value: string | number | boolean | null | undefined;
 }
@@ -205,7 +225,6 @@ export interface IndexAccess {
   optional: boolean; // arr?.[i]
 }
 
-
 export interface BinaryOp {
   kind: "binary";
   op: string; // "+", "===", "instanceof", ...
@@ -225,7 +244,6 @@ export interface Ternary {
   then: Value;
   else: Value;
 }
-
 
 export interface ArrayValue {
   kind: "array";

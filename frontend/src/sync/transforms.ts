@@ -13,11 +13,17 @@
  *   4. `graphToAst`— le plus dur : reconstruire un AST valide depuis le graphe.
  */
 
-import type { AstToGraph, Generate, GraphToAst, Parse } from "../shared";
+import type { AstToGraph, Generate, Parse } from "../shared";
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
 import { parse as babelParser } from "@babel/parser";
 import traversePath from "../blocks/ast-mapping";
 import { objectToGraph } from "../blocks/object-to-graph";
+import type {
+  FunctionDeclaration,
+  FunctionValue,
+} from "../blocks/types/function";
+import { convertObjectToAst } from "../blocks/astConverter/ast-converter";
+import type { File } from "@babel/types"
 
 /** Lève une erreur explicite tant qu'une transformation n'est pas implémentée. */
 function notImplemented(fn: string, context: string): never {
@@ -53,8 +59,8 @@ export const astToGraph: AstToGraph = (ast, options) => {
  * Parcourir l'ordre de la spine des nœuds connectés et reconstruire l'AST en
  * mettant `base` à jour (poignées typées pour garantir des connexions valides).
  */
-export const graphToAst: GraphToAst = (graph, base) =>
-  notImplemented(
-    "graphToAst",
-    `${graph.nodes.length} nœud(s), ${graph.edges.length} arête(s), base=${base.type}`,
-  );
+export const graphToAst = (
+  codeObj: FunctionDeclaration | FunctionValue,
+): File => {
+  return convertObjectToAst(codeObj);
+};

@@ -67,11 +67,7 @@ export function getFunctionCallInfo(
 //   let a = 1, b: number = 2
 export function getVariablesDeclaration(
   path: NodePath<t.VariableDeclaration>,
-): VariableDeclaration & {
-  order: number;
-  blockParentId: number;
-  isGlobal: boolean;
-} {
+): VariableDeclaration {
   const declarations = path.get("declarations").flatMap((decl) => {
     const node = decl.node as t.VariableDeclarator;
     const nodeId = node.id;
@@ -203,9 +199,7 @@ export function getDoWhileStatement(
   };
 }
 
-export function getForStatement(
-  path: NodePath<t.ForStatement>,
-): ForStatement {
+export function getForStatement(path: NodePath<t.ForStatement>): ForStatement {
   const node = path.node;
 
   let init: ForStatement["init"];

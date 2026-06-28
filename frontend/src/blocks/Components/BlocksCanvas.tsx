@@ -160,6 +160,7 @@ export default function BlocksCanvas() {
         <BlockPalette
           x={pending.x}
           y={pending.y}
+          target={pending.target}
           onPick={onPickBlock}
           onClose={closeAll}
         />

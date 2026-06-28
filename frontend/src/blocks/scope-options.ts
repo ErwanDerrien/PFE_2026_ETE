@@ -174,6 +174,59 @@ function resolveAnchor(
 }
 
 /**
+ * Contexte d'exécution au point d'insertion : est-on dans une boucle / un switch
+ * englobant (sans franchir une frontière de fonction) ? Sert à n'autoriser
+ * `continue` que dans une boucle et `break` que dans une boucle ou un switch.
+ */
+export function breakContinueAllowed(
+  graph: GraphModel,
+  target: InsertTarget,
+): { break: boolean; continue: boolean } {
+  const byId = new Map((graph.nodes as TypedGraphNode[]).map((n) => [n.id, n]));
+
+  let startId: string;
+  let includeStart: boolean; // le node de départ est-il un CONTENEUR du nouveau node ?
+  if (target.kind === "port") {
+    startId = target.nodeId;
+    includeStart = target.port !== "exec-out"; // true/false/body → on entre dans ce node
+  } else {
+    const edge = graph.edges.find((e) => e.id === target.edgeId);
+    if (!edge) return { break: false, continue: false };
+    startId = edge.source;
+    includeStart = edge.kind !== "exec"; // branche/corps → on entre dans la source
+  }
+
+  let loop = false;
+  let sw = false;
+  // Teste un node conteneur ; retourne true si on doit STOPPER (frontière de fonction).
+  const test = (id: string): boolean => {
+    const n = byId.get(id);
+    if (!n) return false;
+    if (n.role === "boundary") return true; // fonction : réinitialise le contexte
+    if (isLooping(n.astType)) loop = true;
+    else if (n.astType === "SwitchStatement") sw = true;
+    return false;
+  };
+
+  if (includeStart && test(startId)) return { break: loop || sw, continue: loop };
+
+  // Remonte les statements conteneurs via le chemin path-based.
+  let path = startId;
+  while (true) {
+    const ls = path.lastIndexOf("/");
+    if (ls < 0) break;
+    const block = path.slice(0, ls); // retire l'index → chemin du bloc
+    if (block === "s" || block === "") break; // bloc racine : plus de conteneur
+    const ks = block.lastIndexOf("/");
+    const container = block.slice(0, ks); // retire le mot-clé → statement conteneur
+    if (test(container)) break;
+    path = container;
+  }
+
+  return { break: loop || sw, continue: loop };
+}
+
+/**
  * Noms réassignables EN PORTÉE au point d'ancrage : variables `let`/`var`
  * déclarées avant dans le bloc courant ou un bloc ancêtre (closures incluses) +
  * paramètres des fonctions englobantes. Exclut `const`, les fonctions sœurs et

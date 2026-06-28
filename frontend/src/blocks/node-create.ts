@@ -60,8 +60,10 @@ export type BlockSpec =
       valueText: string;
     }
   | { kind: "call"; calleeText: string; argsText: string }
+  | { kind: "throw"; valueText: string }
   | { kind: "if"; conditionText: string }
   | { kind: "while"; conditionText: string }
+  | { kind: "do-while"; conditionText: string }
   | {
       kind: "for";
       declarationKind: DeclarationKind;
@@ -69,7 +71,9 @@ export type BlockSpec =
       initText?: string;
       testText?: string;
       updateText?: string;
-    };
+    }
+  | { kind: "for-of"; declarationKind: DeclarationKind; varName: string; iterableText: string }
+  | { kind: "for-in"; declarationKind: DeclarationKind; varName: string; iterableText: string };
 
 /** Les types de blocs proposés par la palette (ordre d'affichage). */
 export const PALETTE_KINDS: BlockSpec["kind"][] = [
@@ -78,8 +82,12 @@ export const PALETTE_KINDS: BlockSpec["kind"][] = [
   "call",
   "if",
   "while",
+  "do-while",
   "for",
+  "for-of",
+  "for-in",
   "return",
+  "throw",
   "break",
   "continue",
 ];
@@ -90,9 +98,13 @@ const FORM_KINDS = new Set<BlockSpec["kind"]>([
   "variable",
   "assignment",
   "call",
+  "throw",
   "if",
   "while",
+  "do-while",
   "for",
+  "for-of",
+  "for-in",
 ]);
 
 export const needsForm = (kind: BlockSpec["kind"]): boolean => FORM_KINDS.has(kind);
@@ -106,9 +118,13 @@ const KIND_AST_TYPE: Record<BlockSpec["kind"], string> = {
   variable: "VariableDeclaration",
   assignment: "AssignmentExpression",
   call: "CallExpression",
+  throw: "ThrowStatement",
   if: "IfStatement",
   while: "WhileStatement",
+  "do-while": "DoWhileStatement",
   for: "ForStatement",
+  "for-of": "ForOfStatement",
+  "for-in": "ForInStatement",
 };
 
 /** astType associé à un type de bloc de la palette (pour block-meta). */
@@ -118,7 +134,10 @@ export const astTypeForKind = (kind: BlockSpec["kind"]): string =>
 // Libellés de palette distincts là où block-meta regroupe (while/for → « LOOP »).
 const KIND_LABEL: Partial<Record<BlockSpec["kind"], string>> = {
   while: "WHILE",
+  "do-while": "DO…WHILE",
   for: "FOR",
+  "for-of": "FOR…OF",
+  "for-in": "FOR…IN",
 };
 
 /** Libellé affiché dans la palette ; distingue les blocs regroupés par block-meta. */
@@ -167,6 +186,16 @@ function parseTarget(text: string): AssignmentTarget {
 const splitArgs = (text: string): string[] =>
   text.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
 
+/** Déclaration de variable de boucle (for-of/for-in : `const x`). */
+const loopBinding = (declarationKind: DeclarationKind, name: string) => ({
+  kind: "variable-declaration" as const,
+  declarationKind,
+  declarations: [{ target: { kind: "variable" as const, name: name.trim() || "item" } }],
+  order: 0,
+  blockParentId: 0,
+  isGlobal: false,
+});
+
 // --- Construction du Statement ----------------------------------------------
 
 /** BlockSpec → objet structuré `Statement` valide. */
@@ -211,11 +240,15 @@ function buildStmt(spec: BlockSpec): Statement {
       const call: Call = { kind: "call", callee, typeArgs: [], args, optional: false };
       return { kind: "expression-statement", value: call };
     }
+    case "throw":
+      return { kind: "throw", value: parseValue(spec.valueText) };
     case "if":
       // Corps `then` vide : on le remplit ensuite via les slots « + » des ports.
       return { kind: "if", condition: parseValue(spec.conditionText), then: { kind: "block", content: [] } };
     case "while":
       return { kind: "while", condition: parseValue(spec.conditionText), body: { kind: "block", content: [] } };
+    case "do-while":
+      return { kind: "do-while", condition: parseValue(spec.conditionText), body: { kind: "block", content: [] } };
     case "for": {
       const init = spec.varName.trim()
         ? {
@@ -242,6 +275,21 @@ function buildStmt(spec: BlockSpec): Statement {
         body: { kind: "block", content: [] },
       };
     }
+    case "for-of":
+      return {
+        kind: "for-of",
+        await: false,
+        left: loopBinding(spec.declarationKind, spec.varName),
+        right: parseValue(spec.iterableText),
+        body: { kind: "block", content: [] },
+      };
+    case "for-in":
+      return {
+        kind: "for-in",
+        left: loopBinding(spec.declarationKind, spec.varName),
+        right: parseValue(spec.iterableText),
+        body: { kind: "block", content: [] },
+      };
   }
 }
 
@@ -254,7 +302,7 @@ const argText = (a: Argument): string =>
  * Reconstruit le `BlockSpec` d'un node existant pour pré-remplir le formulaire
  * d'édition. Inverse (approximatif) de `buildStmt` : les sous-expressions sont
  * rendues en texte via `describe`. Retourne `null` pour les types non éditables
- * (fonction, switch, try, interface, for-of/in, do-while…).
+ * (fonction, switch, try, interface).
  */
 export function specFromNode(node: TypedGraphNode): BlockSpec | null {
   const stmt = node.stmt as Statement;
@@ -290,10 +338,29 @@ export function specFromNode(node: TypedGraphNode): BlockSpec | null {
         calleeText: describe(stmt.value.callee),
         argsText: stmt.value.args.map(argText).join(", "),
       };
+    case "throw":
+      return { kind: "throw", valueText: describe(stmt.value) };
     case "if":
       return { kind: "if", conditionText: describe(stmt.condition) };
     case "while":
       return { kind: "while", conditionText: describe(stmt.condition) };
+    case "do-while":
+      return { kind: "do-while", conditionText: describe(stmt.condition) };
+    case "for-of":
+    case "for-in": {
+      const left = stmt.left;
+      const decl = left.kind === "variable-declaration" ? left.declarations[0] : undefined;
+      return {
+        kind: stmt.kind,
+        declarationKind: left.kind === "variable-declaration" ? left.declarationKind : "const",
+        varName: decl
+          ? describeBinding(decl.target)
+          : left.kind !== "variable-declaration"
+            ? describeTarget(left)
+            : "",
+        iterableText: describe(stmt.right),
+      };
+    }
     case "for": {
       const init = stmt.init;
       const decl = init?.kind === "variable-declaration" ? init.declarations[0] : undefined;

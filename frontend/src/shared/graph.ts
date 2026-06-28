@@ -144,12 +144,24 @@ export type InsertTarget =
   | { kind: "port"; nodeId: string; port: InsertPort };
 
 /**
- * Une insertion persistée : le node construit + sa cible. Mémorisée par le store
- * pour ré-appliquer la création après chaque re-dérivation du graphe
+ * Sous-graphe créé pour un nouveau bloc. La plupart des blocs = un seul `node`
+ * (nodes/edges vides). Les blocs à sous-structure (ex. switch : un node par
+ * `case`) fournissent en plus `nodes`/`edges` internes. `node` est l'entrée
+ * raccordée à la spine.
+ */
+export interface CreatedSubgraph {
+  node: GraphNode;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+/**
+ * Une insertion persistée : le sous-graphe construit + sa cible. Mémorisée par le
+ * store pour ré-appliquer la création après chaque re-dérivation du graphe
  * (collapse/expand), tant que le round-trip AST n'existe pas — miroir de la
  * liste des suppressions.
  */
 export interface InsertOp {
   target: InsertTarget;
-  node: GraphNode;
+  created: CreatedSubgraph;
 }

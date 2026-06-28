@@ -39,6 +39,7 @@ export interface FormValues {
   conditionText: string;
   testText: string;
   updateText: string;
+  iterableText: string;
 }
 
 export const EMPTY_VALUES: FormValues = {
@@ -55,6 +56,7 @@ export const EMPTY_VALUES: FormValues = {
   conditionText: "",
   testText: "",
   updateText: "",
+  iterableText: "",
 };
 
 const DECLARATION_KINDS: DeclarationKind[] = ["const", "let", "var"];
@@ -85,10 +87,14 @@ export function buildSpec(kind: BlockSpec["kind"], v: FormValues): BlockSpec {
       };
     case "call":
       return { kind: "call", calleeText: v.calleeText, argsText: v.argsText };
+    case "throw":
+      return { kind: "throw", valueText: v.valueText };
     case "if":
       return { kind: "if", conditionText: v.conditionText };
     case "while":
       return { kind: "while", conditionText: v.conditionText };
+    case "do-while":
+      return { kind: "do-while", conditionText: v.conditionText };
     case "for":
       return {
         kind: "for",
@@ -98,6 +104,10 @@ export function buildSpec(kind: BlockSpec["kind"], v: FormValues): BlockSpec {
         testText: v.testText,
         updateText: v.updateText,
       };
+    case "for-of":
+      return { kind: "for-of", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
+    case "for-in":
+      return { kind: "for-in", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
   }
 }
 
@@ -123,8 +133,12 @@ export function valuesFromSpec(spec: BlockSpec): FormValues {
       v.calleeText = spec.calleeText;
       v.argsText = spec.argsText;
       break;
+    case "throw":
+      v.valueText = spec.valueText;
+      break;
     case "if":
     case "while":
+    case "do-while":
       v.conditionText = spec.conditionText;
       break;
     case "for":
@@ -133,6 +147,12 @@ export function valuesFromSpec(spec: BlockSpec): FormValues {
       v.initText = spec.initText ?? "";
       v.testText = spec.testText ?? "";
       v.updateText = spec.updateText ?? "";
+      break;
+    case "for-of":
+    case "for-in":
+      v.declarationKind = spec.declarationKind;
+      v.name = spec.varName;
+      v.iterableText = spec.iterableText;
       break;
   }
   return v;
@@ -144,7 +164,9 @@ export function isInvalid(kind: BlockSpec["kind"], v: FormValues): boolean {
     (kind === "variable" && !v.name.trim()) ||
     (kind === "assignment" && (!v.targetText.trim() || !v.valueText.trim())) ||
     (kind === "call" && !v.calleeText.trim()) ||
-    ((kind === "if" || kind === "while") && !v.conditionText.trim())
+    (kind === "throw" && !v.valueText.trim()) ||
+    ((kind === "if" || kind === "while" || kind === "do-while") && !v.conditionText.trim()) ||
+    ((kind === "for-of" || kind === "for-in") && (!v.name.trim() || !v.iterableText.trim()))
   );
 }
 
@@ -334,7 +356,19 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
         </>
       )}
 
-      {(kind === "if" || kind === "while") && (
+      {kind === "throw" && (
+        <label className="bf-field">
+          <span>valeur</span>
+          <input
+            autoFocus={autoFocus}
+            value={v.valueText}
+            onChange={(e) => onChange({ valueText: e.target.value })}
+            placeholder='ex. new Error("…")'
+          />
+        </label>
+      )}
+
+      {(kind === "if" || kind === "while" || kind === "do-while") && (
         <label className="bf-field">
           <span>condition</span>
           <input
@@ -344,6 +378,36 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
             placeholder="ex. score >= 90"
           />
         </label>
+      )}
+
+      {(kind === "for-of" || kind === "for-in") && (
+        <>
+          <div className="bf-row">
+            <select
+              value={v.declarationKind}
+              onChange={(e) => onChange({ declarationKind: e.target.value as DeclarationKind })}
+            >
+              {DECLARATION_KINDS.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+            <input
+              autoFocus={autoFocus}
+              className="bf-grow"
+              value={v.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder={kind === "for-of" ? "item" : "key"}
+            />
+          </div>
+          <label className="bf-field">
+            <span>{kind === "for-of" ? "itérable (of)" : "objet (in)"}</span>
+            <input
+              value={v.iterableText}
+              onChange={(e) => onChange({ iterableText: e.target.value })}
+              placeholder={kind === "for-of" ? "ex. items" : "ex. obj"}
+            />
+          </label>
+        </>
       )}
 
       {kind === "for" && (

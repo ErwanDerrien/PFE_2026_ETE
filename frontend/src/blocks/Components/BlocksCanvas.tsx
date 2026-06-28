@@ -31,9 +31,10 @@ import {
 import { graphToFlow } from "../graph-to-flow";
 import { buildStatementNode, needsForm, nextNodeId, type BlockSpec } from "../node-create";
 import { nodeTypes } from "../nodes";
-import type { TypedGraphModel } from "../typed-nodes";
+import type { TypedGraphModel, TypedGraphNode } from "../typed-nodes";
 import BlockForm from "./BlockForm";
 import BlockPalette from "./BlockPalette";
+import BlockSidebar from "./BlockSidebar";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);
@@ -112,6 +113,11 @@ export default function BlocksCanvas() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, deleteNode]);
 
+  // Node sélectionné (pour la sidebar d'édition).
+  const selectedNode = selectedId
+    ? (graph.nodes.find((n) => n.id === selectedId) as TypedGraphNode | undefined)
+    : undefined;
+
   return (
     <InsertionProvider value={requestInsert}>
       <HoveredEdgeProvider value={hoveredEdge}>
@@ -166,6 +172,9 @@ export default function BlocksCanvas() {
           onSubmit={insertSpec}
           onCancel={closeAll}
         />
+      )}
+      {selectedNode && (
+        <BlockSidebar node={selectedNode} onClose={() => setSelectedId(null)} />
       )}
       </HoveredEdgeProvider>
     </InsertionProvider>

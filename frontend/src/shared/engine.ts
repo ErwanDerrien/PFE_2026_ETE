@@ -114,6 +114,12 @@ export interface AstStoreState {
    * édite uniquement la projection `graph`, n'écrit PAS vers l'AST.
    */
   insertNode: (target: InsertTarget, node: GraphNode) => void;
+  /**
+   * Modification visuelle d'un node : remplace le node `nodeId` par `node`
+   * (reconstruit depuis le formulaire d'édition), arêtes inchangées. Phase 1 :
+   * édite uniquement la projection `graph`.
+   */
+  updateNode: (nodeId: string, node: GraphNode) => void;
   /** Change le langage de parsing (re-parse le code courant). */
   setLanguage: (language: SupportedLanguage) => void;
   /** Réinitialise tout l'état. */
@@ -134,6 +140,13 @@ export interface AstStoreState {
    * Réinitialisé quand le code source change (ids path-based instables).
    */
   insertions: InsertOp[];
+
+  // --- éditions visuelles persistées (phase 1, sans round-trip AST) ---
+  /**
+   * Nodes modifiés (id → node édité), ré-appliqués en dernier après chaque
+   * re-dérivation du graphe. Réinitialisé quand le code source change.
+   */
+  edits: Map<string, GraphNode>;
 
   // --- expansion des définitions de fonction ---
   /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */

@@ -18,18 +18,22 @@ import { parseExpression } from "@babel/parser";
 import type { NodeLevel } from "../shared";
 import {
   STATEMENT_AST_TYPE,
+  describe,
+  describeBinding,
+  describeTarget,
+  describeType,
   labelForStatement,
   roleForStatement,
   sourceForStatement,
 } from "./object-to-graph";
 import { assignmentTargetFromNode, valueFromNode } from "./node-utils";
+import { parseTypeText } from "./type-options";
 import type { Statement, Value } from "./types/globalType";
 import type { Argument, Call, Callee } from "./types/functionCall";
 import type {
   AssignmentOperator,
   AssignmentTarget,
   DeclarationKind,
-  TypeAnnotation,
 } from "./types/variable";
 import type { TypedGraphNode } from "./typed-nodes";
 
@@ -178,9 +182,7 @@ function buildStmt(spec: BlockSpec): Statement {
       return { kind: "continue" };
     case "variable": {
       const init = spec.initText?.trim() ? parseValue(spec.initText) : undefined;
-      const type: TypeAnnotation | undefined = spec.typeText?.trim()
-        ? { kind: "type-reference", name: spec.typeText.trim() }
-        : undefined;
+      const type = parseTypeText(spec.typeText ?? "");
       return {
         kind: "variable-declaration",
         declarationKind: spec.declarationKind,
@@ -240,6 +242,73 @@ function buildStmt(spec: BlockSpec): Statement {
         body: { kind: "block", content: [] },
       };
     }
+  }
+}
+
+// --- Inverse : node existant → BlockSpec (pré-remplissage de la sidebar) ------
+
+const argText = (a: Argument): string =>
+  describe(a.kind === "spread-arg" ? a.value : a);
+
+/**
+ * Reconstruit le `BlockSpec` d'un node existant pour pré-remplir le formulaire
+ * d'édition. Inverse (approximatif) de `buildStmt` : les sous-expressions sont
+ * rendues en texte via `describe`. Retourne `null` pour les types non éditables
+ * (fonction, switch, try, interface, for-of/in, do-while…).
+ */
+export function specFromNode(node: TypedGraphNode): BlockSpec | null {
+  const stmt = node.stmt as Statement;
+  switch (stmt.kind) {
+    case "return":
+      return { kind: "return", value: stmt.value ? describe(stmt.value) : "" };
+    case "break":
+      return { kind: "break" };
+    case "continue":
+      return { kind: "continue" };
+    case "variable-declaration": {
+      const d = stmt.declarations[0];
+      if (!d) return null;
+      return {
+        kind: "variable",
+        declarationKind: stmt.declarationKind,
+        name: describeBinding(d.target),
+        typeText: d.type ? describeType(d.type) : "",
+        initText: d.init ? describe(d.init) : "",
+      };
+    }
+    case "assignment":
+      return {
+        kind: "assignment",
+        targetText: describeTarget(stmt.assignmentTargetName),
+        operator: stmt.operator,
+        valueText: describe(stmt.assignmentTargetValue),
+      };
+    case "expression-statement":
+      if (stmt.value.kind !== "call") return null;
+      return {
+        kind: "call",
+        calleeText: describe(stmt.value.callee),
+        argsText: stmt.value.args.map(argText).join(", "),
+      };
+    case "if":
+      return { kind: "if", conditionText: describe(stmt.condition) };
+    case "while":
+      return { kind: "while", conditionText: describe(stmt.condition) };
+    case "for": {
+      const init = stmt.init;
+      const decl = init?.kind === "variable-declaration" ? init.declarations[0] : undefined;
+      return {
+        kind: "for",
+        declarationKind:
+          init?.kind === "variable-declaration" ? init.declarationKind : "let",
+        varName: decl ? describeBinding(decl.target) : "",
+        initText: decl?.init ? describe(decl.init) : "",
+        testText: stmt.test ? describe(stmt.test) : "",
+        updateText: stmt.update ? describe(stmt.update) : "",
+      };
+    }
+    default:
+      return null;
   }
 }
 

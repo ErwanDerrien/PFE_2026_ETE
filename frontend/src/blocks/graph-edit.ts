@@ -255,3 +255,20 @@ export function applyInsertions(
   }
   return result;
 }
+
+/**
+ * Ré-applique les éditions de nodes (modification visuelle). Remplace chaque node
+ * dont l'id est dans `edits` par sa version éditée — appliqué EN DERNIER, après
+ * suppressions et insertions, donc couvre uniformément les nodes dérivés de l'AST
+ * comme ceux créés à la main. Arêtes inchangées (l'édition ne touche que le node).
+ */
+export function applyEdits(
+  graph: GraphModel,
+  edits: Map<string, GraphNode>,
+): GraphModel {
+  if (edits.size === 0) return graph;
+  return {
+    nodes: graph.nodes.map((n) => edits.get(n.id) ?? n),
+    edges: graph.edges,
+  };
+}

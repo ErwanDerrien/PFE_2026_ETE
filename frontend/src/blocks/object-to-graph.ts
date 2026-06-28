@@ -113,7 +113,10 @@ const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
 function directCalleeName(value: Value | undefined): string | null {
   if (!value || value.kind !== "call") return null;
   if (value.callee.kind === "variable") return value.callee.name;
-  if (value.callee.kind === "property" && value.callee.object.kind === "variable")
+  if (
+    value.callee.kind === "property" &&
+    value.callee.object.kind === "variable"
+  )
     return value.callee.object.name;
   return null;
 }
@@ -127,7 +130,9 @@ export const roleForStatement = (kind: string): NodeRole => {
 const truncate = (text: string, max = 48): string =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
-const literalText = (value: string | number | boolean | null | undefined): string =>
+const literalText = (
+  value: string | number | boolean | null | undefined,
+): string =>
   typeof value === "string" ? JSON.stringify(value) : String(value);
 
 const argValue = (arg: Argument): Value =>
@@ -137,7 +142,7 @@ const elementValue = (el: Value | Spread): Value =>
   el.kind === "spread" ? el.value : el;
 
 // Texte court reconstruit depuis l'objet structuré (sert aux labels et `source`).
-function describe(v: Value): string {
+export function describe(v: Value): string {
   switch (v.kind) {
     case "literal":
       return literalText(v.value);
@@ -163,7 +168,13 @@ function describe(v: Value): string {
       return `{ ${v.properties.map((p) => `${p.key}: ${describe(p.value)}`).join(", ")} }`;
     case "template":
       return `\`${v.quasis
-        .map((q, i) => q + (i < v.expressions.length ? `\${${describe(v.expressions[i])}}` : ""))
+        .map(
+          (q, i) =>
+            q +
+            (i < v.expressions.length
+              ? `\${${describe(v.expressions[i])}}`
+              : ""),
+        )
         .join("")}\``;
     case "await":
       return `await ${describe(v.value)}`;
@@ -180,7 +191,7 @@ function describe(v: Value): string {
   }
 }
 
-function describeTarget(t: AssignmentTarget): string {
+export function describeTarget(t: AssignmentTarget): string {
   switch (t.kind) {
     case "variable":
       return t.name;
@@ -195,7 +206,7 @@ function describeTarget(t: AssignmentTarget): string {
   }
 }
 
-function describeBinding(t: BindingTarget): string {
+export function describeBinding(t: BindingTarget): string {
   switch (t.kind) {
     case "variable":
       return t.name;
@@ -222,33 +233,55 @@ function describeParam(p: Parameter): string {
 const describeParams = (params: Parameter[]): string =>
   params.map(describeParam).join(", ");
 
-function describeType(t: TypeAnnotation): string {
+export function describeType(t: TypeAnnotation): string {
   switch (t.kind) {
-    case "primitive": return t.name;
-    case "literal-type": return String(t.value);
-    case "union": return t.members.map(describeType).join(" | ");
-    case "intersection": return t.members.map(describeType).join(" & ");
-    case "array": return `${describeType(t.element)}[]`;
-    case "tuple": return `[${t.elements.map(describeType).join(", ")}]`;
-    case "object": return `{ ${t.properties.map((p) => `${p.key}${p.optional ? "?" : ""}: ${describeType(p.value)}`).join("; ")} }`;
-    case "function": return `(${t.params.map((p) => `${p.name}: ${describeType(p.type)}`).join(", ")}) => ${describeType(t.returns)}`;
-    case "generic": return `${describeType(t.base)}<${t.args.map(describeType).join(", ")}>`;
-    case "type-reference": return t.name;
+    case "primitive":
+      return t.name;
+    case "literal-type":
+      return String(t.value);
+    case "union":
+      return t.members.map(describeType).join(" | ");
+    case "intersection":
+      return t.members.map(describeType).join(" & ");
+    case "array":
+      return `${describeType(t.element)}[]`;
+    case "tuple":
+      return `[${t.elements.map(describeType).join(", ")}]`;
+    case "object":
+      return `{ ${t.properties.map((p) => `${p.key}${p.optional ? "?" : ""}: ${describeType(p.value)}`).join("; ")} }`;
+    case "function":
+      return `(${t.params.map((p) => `${p.name}: ${describeType(p.type)}`).join(", ")}) => ${describeType(t.returns)}`;
+    case "generic":
+      return `${describeType(t.base)}<${t.args.map(describeType).join(", ")}>`;
+    case "type-reference":
+      return t.name;
   }
 }
 
 /** Collects all named type-reference strings from a TypeAnnotation (recursive). */
 function typeRefNames(t: TypeAnnotation): string[] {
   switch (t.kind) {
-    case "type-reference": return [t.name];
-    case "union": return t.members.flatMap(typeRefNames);
-    case "intersection": return t.members.flatMap(typeRefNames);
-    case "array": return typeRefNames(t.element);
-    case "tuple": return t.elements.flatMap(typeRefNames);
-    case "generic": return [...typeRefNames(t.base), ...t.args.flatMap(typeRefNames)];
-    case "object": return t.properties.flatMap((p) => typeRefNames(p.value));
-    case "function": return [...t.params.flatMap((p) => typeRefNames(p.type)), ...typeRefNames(t.returns)];
-    default: return [];
+    case "type-reference":
+      return [t.name];
+    case "union":
+      return t.members.flatMap(typeRefNames);
+    case "intersection":
+      return t.members.flatMap(typeRefNames);
+    case "array":
+      return typeRefNames(t.element);
+    case "tuple":
+      return t.elements.flatMap(typeRefNames);
+    case "generic":
+      return [...typeRefNames(t.base), ...t.args.flatMap(typeRefNames)];
+    case "object":
+      return t.properties.flatMap((p) => typeRefNames(p.value));
+    case "function":
+      return [
+        ...t.params.flatMap((p) => typeRefNames(p.type)),
+        ...typeRefNames(t.returns),
+      ];
+    default:
+      return [];
   }
 }
 
@@ -293,24 +326,36 @@ function childValues(v: Value, path: string): [string, Value][] {
     case "call":
       return [
         [`${path}/fn`, v.callee],
-        ...v.args.map((a, i): [string, Value] => [`${path}/a${i}`, argValue(a)]),
+        ...v.args.map((a, i): [string, Value] => [
+          `${path}/a${i}`,
+          argValue(a),
+        ]),
       ];
     case "new":
       return [
         [`${path}/fn`, v.callee],
-        ...v.args.map((a, i): [string, Value] => [`${path}/a${i}`, argValue(a)]),
+        ...v.args.map((a, i): [string, Value] => [
+          `${path}/a${i}`,
+          argValue(a),
+        ]),
       ];
     case "tagged-template":
       return [
         [`${path}/tag`, v.tag],
-        ...v.template.expressions.map((e, i): [string, Value] => [`${path}/x${i}`, e]),
+        ...v.template.expressions.map((e, i): [string, Value] => [
+          `${path}/x${i}`,
+          e,
+        ]),
       ];
     case "array":
       return v.elements.flatMap((el, i): [string, Value][] =>
         el ? [[`${path}/${i}`, elementValue(el)]] : [],
       );
     case "object":
-      return v.properties.map((p, i): [string, Value] => [`${path}/p${i}`, p.value]);
+      return v.properties.map((p, i): [string, Value] => [
+        `${path}/p${i}`,
+        p.value,
+      ]);
     case "template":
       return v.expressions.map((e, i): [string, Value] => [`${path}/x${i}`, e]);
     case "await":
@@ -370,7 +415,10 @@ export function sourceForStatement(stmt: Statement): string | undefined {
     case "variable-declaration":
       return truncate(
         `${stmt.declarationKind} ${stmt.declarations
-          .map((d) => `${describeBinding(d.target)}${d.type ? `: ${describeType(d.type)}` : ""}${d.init ? ` = ${describe(d.init)}` : ""}`)
+          .map(
+            (d) =>
+              `${describeBinding(d.target)}${d.type ? `: ${describeType(d.type)}` : ""}${d.init ? ` = ${describe(d.init)}` : ""}`,
+          )
           .join(", ")}`,
         80,
       );
@@ -380,7 +428,9 @@ export function sourceForStatement(stmt: Statement): string | undefined {
         80,
       );
     case "return":
-      return stmt.value ? truncate(`return ${describe(stmt.value)}`, 80) : "return";
+      return stmt.value
+        ? truncate(`return ${describe(stmt.value)}`, 80)
+        : "return";
     case "throw":
       return truncate(`throw ${describe(stmt.value)}`, 80);
     case "expression-statement":
@@ -397,8 +447,11 @@ export function sourceForStatement(stmt: Statement): string | undefined {
       const init = stmt.init
         ? stmt.init.kind === "variable-declaration"
           ? `${stmt.init.declarationKind} ${stmt.init.declarations
-            .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
-            .join(", ")}`
+              .map(
+                (d) =>
+                  `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`,
+              )
+              .join(", ")}`
           : describe(stmt.init)
         : "";
       const test = stmt.test ? describe(stmt.test) : "";
@@ -411,15 +464,18 @@ export function sourceForStatement(stmt: Statement): string | undefined {
       const left =
         stmt.left.kind === "variable-declaration"
           ? `${stmt.left.declarationKind} ${stmt.left.declarations
-            .map((d) => describeBinding(d.target))
-            .join(", ")}`
+              .map((d) => describeBinding(d.target))
+              .join(", ")}`
           : describeTarget(stmt.left);
       return truncate(`for (${left} ${op} ${describe(stmt.right)}) {`, 80);
     }
     case "try":
       return "try {";
     case "function-declaration":
-      return truncate(`function ${stmt.name}(${describeParams(stmt.params)}) {`, 80);
+      return truncate(
+        `function ${stmt.name}(${describeParams(stmt.params)}) {`,
+        80,
+      );
     default:
       return undefined;
   }
@@ -530,7 +586,9 @@ class GraphBuilder {
       astType: fields.astType,
       stmt,
       ...(fields.source !== undefined ? { source: fields.source } : {}),
-      ...(fields.collapsed !== undefined ? { collapsed: fields.collapsed } : {}),
+      ...(fields.collapsed !== undefined
+        ? { collapsed: fields.collapsed }
+        : {}),
       ...(fields.members !== undefined ? { members: fields.members } : {}),
     } as TypedGraphNode;
     this.nodes.push(node);
@@ -565,15 +623,22 @@ class GraphBuilder {
     sourceHandle: HandleKind = "args",
   ): string {
     const label = truncate(describe(value));
-    const id = this.emitNode(path, {
-      role: isLeaf(value) ? "literal" : "expression",
-      track: "expression",
-      level: 3,
-      label,
-      astType: VALUE_AST_TYPE[value.kind] ?? value.kind,
-      source: label,
-    }, value);
-    this.addEdge(parentId, id, "expression", { sourceHandle, targetHandle: "value-out" });
+    const id = this.emitNode(
+      path,
+      {
+        role: isLeaf(value) ? "literal" : "expression",
+        track: "expression",
+        level: 3,
+        label,
+        astType: VALUE_AST_TYPE[value.kind] ?? value.kind,
+        source: label,
+      },
+      value,
+    );
+    this.addEdge(parentId, id, "expression", {
+      sourceHandle,
+      targetHandle: "value-out",
+    });
     for (const [childPath, child] of childValues(value, path)) {
       if (isLeaf(child)) continue; // leaf summarised in parent's label
       this.walkValue(child, id, childPath);
@@ -598,11 +663,13 @@ class GraphBuilder {
     kind: GraphEdge["kind"],
     label?: string,
   ): void {
-    const containerFromId = (kind === "calls" || kind === "function-body") ? fromId : undefined;
+    const containerFromId =
+      kind === "calls" || kind === "function-body" ? fromId : undefined;
     const ends = this.walkBlock(block.content, path, containerFromId);
     if (!ends) return;
     this.addEdge(fromId, ends.headId, kind, {
-      sourceHandle: (kind === "calls" || kind === "function-body") ? "args" : "exec-out",
+      sourceHandle:
+        kind === "calls" || kind === "function-body" ? "args" : "exec-out",
       targetHandle: "exec-in",
       label,
     });
@@ -678,21 +745,26 @@ class GraphBuilder {
     const level: NodeLevel = role === "boundary" ? 1 : 2;
     const isFuncDecl = stmt.kind === "function-declaration";
     const isIfaceDecl = stmt.kind === "interface-declaration";
-    const isExpanded = isFuncDecl && (this.options.expandedFunctions?.has(path) ?? false);
+    const isExpanded =
+      isFuncDecl && (this.options.expandedFunctions?.has(path) ?? false);
     const ifaceMembers = isIfaceDecl
       ? (stmt as InterfaceDeclaration).members.map(describeMember)
       : undefined;
 
-    const id = this.emitNode(path, {
-      role,
-      track: "spine",
-      level,
-      label: labelForStatement(stmt),
-      astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
-      source: sourceForStatement(stmt),
-      ...(isFuncDecl ? { collapsed: !isExpanded } : {}),
-      ...(ifaceMembers ? { members: ifaceMembers } : {}),
-    }, stmt);
+    const id = this.emitNode(
+      path,
+      {
+        role,
+        track: "spine",
+        level,
+        label: labelForStatement(stmt),
+        astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
+        source: sourceForStatement(stmt),
+        ...(isFuncDecl ? { collapsed: !isExpanded } : {}),
+        ...(ifaceMembers ? { members: ifaceMembers } : {}),
+      },
+      stmt,
+    );
 
     let openFalseBranches: string[] | undefined;
 
@@ -719,7 +791,8 @@ class GraphBuilder {
             }
           }
           if (stmt.test) this.maybeWalkValue(stmt.test, id, `${path}/test`);
-          if (stmt.update) this.maybeWalkValue(stmt.update, id, `${path}/update`);
+          if (stmt.update)
+            this.maybeWalkValue(stmt.update, id, `${path}/update`);
         }
         this.connectLoopBlock(stmt.body, id, `${path}/body`);
         break;
@@ -741,7 +814,10 @@ class GraphBuilder {
             label: "try",
           });
         if (stmt.handler) {
-          const handlerEnds = this.walkBlock(stmt.handler.body.content, `${path}/catch`);
+          const handlerEnds = this.walkBlock(
+            stmt.handler.body.content,
+            `${path}/catch`,
+          );
           if (handlerEnds)
             this.addEdge(id, handlerEnds.headId, "branch-false", {
               sourceHandle: "branch-false",
@@ -752,7 +828,10 @@ class GraphBuilder {
             });
         }
         if (stmt.finalizer) {
-          const finallyEnds = this.walkBlock(stmt.finalizer.content, `${path}/finally`);
+          const finallyEnds = this.walkBlock(
+            stmt.finalizer.content,
+            `${path}/finally`,
+          );
           if (finallyEnds)
             this.addEdge(id, finallyEnds.headId, "exec", {
               sourceHandle: "exec-out",
@@ -764,7 +843,8 @@ class GraphBuilder {
       }
       case "function-declaration":
         this.registerFuncDef(stmt.name, id);
-        if (isExpanded) this.connectBlock(stmt.body, id, `${path}/body`, "function-body");
+        if (isExpanded)
+          this.connectBlock(stmt.body, id, `${path}/body`, "function-body");
         break;
       case "interface-declaration":
         this.typeRegistry.set((stmt as InterfaceDeclaration).name, id);
@@ -790,7 +870,9 @@ class GraphBuilder {
               // callers of this name trace back to the originating function
               // (e.g. memoFib → memoize, counter → makeCounter).
               const calledName = directCalleeName(d.init);
-              const resolvedId = calledName ? this.resolveSymbol(calledName) : undefined;
+              const resolvedId = calledName
+                ? this.resolveSymbol(calledName)
+                : undefined;
               this.registerSymbolNode(varName, resolvedId ?? id);
             } else {
               // Variable alias, destructure result, etc.
@@ -931,7 +1013,7 @@ export function objectToGraph(
   mapping: FunctionDeclaration | FunctionValue,
   options: GraphOptions = {},
 ): TypedGraphModel {
-  const root = mapping
+  const root = mapping;
   if (!root?.body || !("kind" in root.body) || root.body.kind !== "block") {
     return { nodes: [], edges: [] };
   }

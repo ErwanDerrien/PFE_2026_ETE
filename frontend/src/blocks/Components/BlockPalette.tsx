@@ -6,8 +6,7 @@
 
 import { type CSSProperties, useEffect } from "react";
 import { blockMeta } from "../block-meta";
-import { PALETTE_KINDS, type BlockSpec } from "../node-create";
-import { STATEMENT_AST_TYPE, roleForStatement } from "../object-to-graph";
+import { PALETTE_KINDS, astTypeForKind, type BlockSpec } from "../node-create";
 
 interface Props {
   x: number;
@@ -36,8 +35,7 @@ export default function BlockPalette({ x, y, onPick, onClose }: Props) {
         <div className="palette-title">AJOUTER UN BLOC</div>
         <div className="palette-grid">
           {PALETTE_KINDS.map((kind) => {
-            const astType = STATEMENT_AST_TYPE[kind] ?? kind;
-            const meta = blockMeta(astType, roleForStatement(kind));
+            const meta = blockMeta(astTypeForKind(kind), "statement");
             return (
               <button
                 key={kind}

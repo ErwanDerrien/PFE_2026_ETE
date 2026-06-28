@@ -29,9 +29,10 @@ import {
   type RequestInsert,
 } from "../edges/insertion-context";
 import { graphToFlow } from "../graph-to-flow";
-import { buildStatementNode, nextNodeId, type BlockSpec } from "../node-create";
+import { buildStatementNode, needsForm, nextNodeId, type BlockSpec } from "../node-create";
 import { nodeTypes } from "../nodes";
 import type { TypedGraphModel } from "../typed-nodes";
+import BlockForm from "./BlockForm";
 import BlockPalette from "./BlockPalette";
 
 export default function BlocksCanvas() {
@@ -46,23 +47,39 @@ export default function BlocksCanvas() {
     { target: InsertTarget; x: number; y: number } | null
   >(null);
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  // Type de bloc dont le formulaire est ouvert (null = palette ou rien).
+  const [formKind, setFormKind] = useState<BlockSpec["kind"] | null>(null);
 
   const requestInsert = useCallback<RequestInsert>((target, at) => {
+    setFormKind(null);
     setPending({ target, x: at.x, y: at.y });
   }, []);
 
-  // Bloc choisi dans la palette → construit le node et l'insère via le store.
+  const closeAll = useCallback(() => {
+    setPending(null);
+    setFormKind(null);
+  }, []);
+
+  // Construit et insère le node pour un BlockSpec complet, à la cible courante.
+  // L'effet de bord (insertNode) reste HORS d'un updater de state : sinon
+  // React StrictMode l'exécute deux fois (double insertion sur un port).
+  const insertSpec = useCallback(
+    (spec: BlockSpec) => {
+      if (!pending) return;
+      insertNode(pending.target, buildStatementNode(spec, nextNodeId()));
+      setPending(null);
+      setFormKind(null);
+    },
+    [pending, insertNode],
+  );
+
+  // Bloc choisi dans la palette : formulaire si nécessaire, sinon insertion directe.
   const onPickBlock = useCallback(
     (kind: BlockSpec["kind"]) => {
-      setPending((cur) => {
-        if (cur) {
-          const node = buildStatementNode({ kind } as BlockSpec, nextNodeId());
-          insertNode(cur.target, node);
-        }
-        return null;
-      });
+      if (needsForm(kind)) setFormKind(kind);
+      else insertSpec({ kind } as BlockSpec);
     },
-    [insertNode],
+    [insertSpec],
   );
 
   useEffect(() => {
@@ -133,12 +150,21 @@ export default function BlocksCanvas() {
           </div>
         </Panel>
       </ReactFlow>
-      {pending && (
+      {pending && !formKind && (
         <BlockPalette
           x={pending.x}
           y={pending.y}
           onPick={onPickBlock}
-          onClose={() => setPending(null)}
+          onClose={closeAll}
+        />
+      )}
+      {pending && formKind && (
+        <BlockForm
+          kind={formKind}
+          x={pending.x}
+          y={pending.y}
+          onSubmit={insertSpec}
+          onCancel={closeAll}
         />
       )}
       </HoveredEdgeProvider>

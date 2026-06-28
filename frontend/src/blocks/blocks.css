@@ -419,6 +419,110 @@
   color: #9ca3af;
 }
 
+/* --- Block creation form --- */
+.block-form {
+  position: fixed;
+  z-index: 1001;
+  transform: translate(-50%, 12px);
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(24, 24, 24, 0.98);
+  border: 1px solid #3f3f3f;
+  border-left: 3px solid var(--accent, #555);
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.bf-icon {
+  color: var(--accent, #c9d1d9);
+  margin-right: 4px;
+}
+
+.bf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bf-field > span {
+  font: 600 9px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.bf-row {
+  display: flex;
+  gap: 6px;
+}
+
+.bf-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.block-form input,
+.block-form select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  background: #1b1b1b;
+  border: 1px solid #3f3f3f;
+  border-radius: 6px;
+  color: #e6edf3;
+  font: 12px/1.2 var(--mono, ui-monospace, Consolas, monospace);
+  outline: none;
+}
+.block-form input:focus,
+.block-form select:focus {
+  border-color: var(--accent, #777);
+}
+
+.block-form select {
+  flex: 0 0 auto;
+  width: auto;
+  cursor: pointer;
+}
+
+.bf-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.bf-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #3f3f3f;
+  font: 600 12px/1 var(--sans, system-ui, sans-serif);
+  cursor: pointer;
+}
+.bf-cancel {
+  background: transparent;
+  color: #9ca3af;
+}
+.bf-cancel:hover {
+  background: #2b2b2b;
+  color: #c9d1d9;
+}
+.bf-submit {
+  background: var(--accent, #c8c8c8);
+  border-color: var(--accent, #c8c8c8);
+  color: #0d0d0d;
+}
+.bf-submit:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.bf-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* --- Syntax highlighting (GitHub Dark palette) --- */
 .tok-ws      { white-space: pre; }
 .tok-keyword { color: #ff7b72; }

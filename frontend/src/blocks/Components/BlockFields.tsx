@@ -155,9 +155,11 @@ interface Props {
   autoFocus?: boolean;
   /** Point d'ancrage pour la portée (cible d'affectation in-scope). */
   scopeAnchor?: ScopeAnchor;
+  /** Message d'erreur de type à afficher sous le champ valeur (affectation). */
+  valueError?: string | null;
 }
 
-export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor }: Props) {
+export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor, valueError }: Props) {
   const graph = useAstStore((s) => s.graph);
   const ast = useAstStore((s) => s.ast);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
@@ -295,6 +297,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ valueText: e.target.value })}
               placeholder="ex. a + 1"
             />
+            {valueError && <span className="bf-error">{valueError}</span>}
           </label>
         </>
       )}

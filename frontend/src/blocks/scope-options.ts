@@ -12,6 +12,7 @@ import _traverse, { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import type { File } from "@babel/types";
 import type { GraphModel, InsertTarget } from "../shared";
+import { isLooping } from "./block-meta";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { FunctionDeclaration } from "./types/function";
 import type { Statement } from "./types/globalType";
@@ -61,6 +62,48 @@ export function callableNamesFromAst(ast: File | null): string[] {
     },
   });
   return [...names].sort();
+}
+
+/** Collecte récursivement les noms liés par un pattern (id, destructuration, défaut, rest). */
+function collectBindingNames(node: t.Node | null | undefined, out: Set<string>): void {
+  if (!node) return;
+  if (t.isIdentifier(node)) out.add(node.name);
+  else if (t.isObjectPattern(node)) {
+    for (const p of node.properties) {
+      if (t.isObjectProperty(p)) collectBindingNames(p.value as t.Node, out);
+      else collectBindingNames(p.argument, out); // RestElement
+    }
+  } else if (t.isArrayPattern(node)) {
+    for (const el of node.elements) collectBindingNames(el, out);
+  } else if (t.isAssignmentPattern(node)) collectBindingNames(node.left, out);
+  else if (t.isRestElement(node)) collectBindingNames(node.argument, out);
+  else if (t.isTSParameterProperty(node)) collectBindingNames(node.parameter, out);
+}
+
+/**
+ * Tous les noms LIÉS (déclarés) dans le code, depuis l'AST : fonctions, variables
+ * (tous patterns), paramètres, catch. Sert à vérifier qu'une référence existe —
+ * une valeur identifiant nu non déclarée est probablement une chaîne sans
+ * guillemets.
+ */
+export function allBindingNamesFromAst(ast: File | null): Set<string> {
+  const names = new Set<string>();
+  if (!ast) return names;
+  traverse(ast, {
+    FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
+      if (path.node.id) names.add(path.node.id.name);
+    },
+    VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
+      collectBindingNames(path.node.id, names);
+    },
+    Function(path: NodePath<t.Function>) {
+      for (const param of path.node.params) collectBindingNames(param, names);
+    },
+    CatchClause(path: NodePath<t.CatchClause>) {
+      collectBindingNames(path.node.param, names);
+    },
+  });
+  return names;
 }
 
 /**

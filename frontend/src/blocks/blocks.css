@@ -544,6 +544,11 @@
   margin: 0;
 }
 
+.bf-error {
+  font: 11px/1.3 var(--sans, system-ui, sans-serif);
+  color: #f87171;
+}
+
 /* --- Block edit sidebar (overlay, right of canvas) --- */
 .block-sidebar {
   position: absolute;

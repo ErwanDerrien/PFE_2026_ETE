@@ -141,7 +141,7 @@ export function nextNodeId(): string {
 const rawValue = (text: string): Value => ({ kind: "variable", name: text });
 
 /** Texte → `Value` structuré (parse Babel + conversion), repli verbatim. */
-function parseValue(text: string): Value {
+export function parseValue(text: string): Value {
   const trimmed = text.trim();
   if (!trimmed) return rawValue("");
   try {

@@ -6,8 +6,10 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 import type { InsertTarget } from "../../shared";
+import { useAstStore } from "../../sync";
 import { blockMeta } from "../block-meta";
 import { astTypeForKind, type BlockSpec } from "../node-create";
+import { assignmentTypeError } from "../type-check";
 import BlockFields, {
   EMPTY_VALUES,
   buildSpec,
@@ -35,8 +37,14 @@ export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Pr
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
+  const graph = useAstStore((s) => s.graph);
+  const ast = useAstStore((s) => s.ast);
   const meta = blockMeta(astTypeForKind(kind), "statement");
-  const invalid = isInvalid(kind, values);
+  const valueError =
+    kind === "assignment"
+      ? assignmentTypeError(graph, ast, values.operator, values.targetText, values.valueText)
+      : null;
+  const invalid = isInvalid(kind, values) || !!valueError;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +70,7 @@ export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Pr
           onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
           autoFocus
           scopeAnchor={{ kind: "insert", target }}
+          valueError={valueError}
         />
 
         <div className="bf-actions">

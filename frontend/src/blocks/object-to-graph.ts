@@ -224,15 +224,15 @@ const describeParams = (params: Parameter[]): string =>
 
 function describeType(t: TypeAnnotation): string {
   switch (t.kind) {
-    case "primitive":     return t.name;
-    case "literal-type":  return String(t.value);
-    case "union":         return t.members.map(describeType).join(" | ");
-    case "intersection":  return t.members.map(describeType).join(" & ");
-    case "array":         return `${describeType(t.element)}[]`;
-    case "tuple":         return `[${t.elements.map(describeType).join(", ")}]`;
-    case "object":        return `{ ${t.properties.map((p) => `${p.key}${p.optional ? "?" : ""}: ${describeType(p.value)}`).join("; ")} }`;
-    case "function":      return `(${t.params.map((p) => `${p.name}: ${describeType(p.type)}`).join(", ")}) => ${describeType(t.returns)}`;
-    case "generic":       return `${describeType(t.base)}<${t.args.map(describeType).join(", ")}>`;
+    case "primitive": return t.name;
+    case "literal-type": return String(t.value);
+    case "union": return t.members.map(describeType).join(" | ");
+    case "intersection": return t.members.map(describeType).join(" & ");
+    case "array": return `${describeType(t.element)}[]`;
+    case "tuple": return `[${t.elements.map(describeType).join(", ")}]`;
+    case "object": return `{ ${t.properties.map((p) => `${p.key}${p.optional ? "?" : ""}: ${describeType(p.value)}`).join("; ")} }`;
+    case "function": return `(${t.params.map((p) => `${p.name}: ${describeType(p.type)}`).join(", ")}) => ${describeType(t.returns)}`;
+    case "generic": return `${describeType(t.base)}<${t.args.map(describeType).join(", ")}>`;
     case "type-reference": return t.name;
   }
 }
@@ -241,14 +241,14 @@ function describeType(t: TypeAnnotation): string {
 function typeRefNames(t: TypeAnnotation): string[] {
   switch (t.kind) {
     case "type-reference": return [t.name];
-    case "union":          return t.members.flatMap(typeRefNames);
-    case "intersection":   return t.members.flatMap(typeRefNames);
-    case "array":          return typeRefNames(t.element);
-    case "tuple":          return t.elements.flatMap(typeRefNames);
-    case "generic":        return [...typeRefNames(t.base), ...t.args.flatMap(typeRefNames)];
-    case "object":         return t.properties.flatMap((p) => typeRefNames(p.value));
-    case "function":       return [...t.params.flatMap((p) => typeRefNames(p.type)), ...typeRefNames(t.returns)];
-    default:               return [];
+    case "union": return t.members.flatMap(typeRefNames);
+    case "intersection": return t.members.flatMap(typeRefNames);
+    case "array": return typeRefNames(t.element);
+    case "tuple": return t.elements.flatMap(typeRefNames);
+    case "generic": return [...typeRefNames(t.base), ...t.args.flatMap(typeRefNames)];
+    case "object": return t.properties.flatMap((p) => typeRefNames(p.value));
+    case "function": return [...t.params.flatMap((p) => typeRefNames(p.type)), ...typeRefNames(t.returns)];
+    default: return [];
   }
 }
 
@@ -397,8 +397,8 @@ function sourceForStatement(stmt: Statement): string | undefined {
       const init = stmt.init
         ? stmt.init.kind === "variable-declaration"
           ? `${stmt.init.declarationKind} ${stmt.init.declarations
-              .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
-              .join(", ")}`
+            .map((d) => `${describeBinding(d.target)}${d.init ? ` = ${describe(d.init)}` : ""}`)
+            .join(", ")}`
           : describe(stmt.init)
         : "";
       const test = stmt.test ? describe(stmt.test) : "";
@@ -411,8 +411,8 @@ function sourceForStatement(stmt: Statement): string | undefined {
       const left =
         stmt.left.kind === "variable-declaration"
           ? `${stmt.left.declarationKind} ${stmt.left.declarations
-              .map((d) => describeBinding(d.target))
-              .join(", ")}`
+            .map((d) => describeBinding(d.target))
+            .join(", ")}`
           : describeTarget(stmt.left);
       return truncate(`for (${left} ${op} ${describe(stmt.right)}) {`, 80);
     }
@@ -931,8 +931,7 @@ export function objectToGraph(
   mapping: FunctionDeclaration | FunctionValue,
   options: GraphOptions = {},
 ): TypedGraphModel {
-  const entries = Object.values(mapping);
-  const root = entries.find((f) => f.name === "<global>") ?? entries[0];
+  const root = mapping
   if (!root?.body || !("kind" in root.body) || root.body.kind !== "block") {
     return { nodes: [], edges: [] };
   }

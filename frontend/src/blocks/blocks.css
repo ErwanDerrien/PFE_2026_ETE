@@ -156,6 +156,10 @@
 .bn-foot-expand   .bn-foot-label { color: #c084fc; letter-spacing: 0.1em; } /* collapsed fn — violet */
 .bn-foot-collapse .bn-foot-label { color: #a855f7; letter-spacing: 0.1em; } /* expanded fn — deeper violet */
 
+/* Footer expand/collapse — seul élément cliquable pour (dé)plier le node */
+.bn-foot-toggle { cursor: pointer; }
+.bn-foot-toggle:hover { background: rgba(168, 85, 247, 0.12); }
+
 /* Interface member rows — inline property list on the node card */
 .bn-members {
   border-top: 1px solid #3f3f3f;

@@ -102,10 +102,24 @@ export interface AstStoreState {
   setSource: (source: string, origin: EditOrigin) => void;
   /** Équipe A (blocs) : édition du graphe -> graphToAst -> ast -> code. */
   applyGraphEdit: (graph: GraphModel, origin: EditOrigin) => void;
+  /**
+   * Suppression visuelle d'un node (cascade sur son contenu, rebranchement de la
+   * spine). Phase 1 : édite uniquement la projection `graph`, n'écrit PAS vers
+   * l'AST (les transforms sont encore en stub).
+   */
+  deleteNode: (nodeId: string) => void;
   /** Change le langage de parsing (re-parse le code courant). */
   setLanguage: (language: SupportedLanguage) => void;
   /** Réinitialise tout l'état. */
   reset: () => void;
+
+  // --- suppressions visuelles persistées (phase 1, sans round-trip AST) ---
+  /**
+   * IDs des nœuds supprimés visuellement. Ré-appliqués après chaque re-dérivation
+   * du graphe (collapse/expand) pour que la suppression « tienne ». Réinitialisé
+   * quand le code source change (les ids path-based peuvent alors se décaler).
+   */
+  deletedNodes: Set<string>;
 
   // --- expansion des définitions de fonction ---
   /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */

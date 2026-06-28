@@ -5,7 +5,7 @@
  * Interactif : drag, sélection, pan, zoom. (Connexion/édition = plus tard.)
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -13,6 +13,7 @@ import {
   type Edge,
   MiniMap,
   type Node,
+  type OnSelectionChangeParams,
   Panel,
   ReactFlow,
   useEdgesState,
@@ -22,14 +23,14 @@ import "@xyflow/react/dist/style.css";
 import { useAstStore } from "../../sync";
 import { graphToFlow } from "../graph-to-flow";
 import { nodeTypes } from "../nodes";
-import type { BlockFlowNode } from "../nodes/BlockNode";
 import type { TypedGraphModel } from "../typed-nodes";
 
 export default function BlocksCanvas() {
   const graph = useAstStore((s) => s.graph);
-  const toggleFunctionNode = useAstStore((s) => s.toggleFunctionNode);
+  const deleteNode = useAstStore((s) => s.deleteNode);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (graph.nodes.length === 0) return;
@@ -38,16 +39,28 @@ export default function BlocksCanvas() {
     setEdges(flow.edges);
   }, [graph, setNodes, setEdges]);
 
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      const blockNode = node as BlockFlowNode;
-      const gNode = blockNode.data?.node;
-      if (gNode?.astType === "FunctionDeclaration") {
-        toggleFunctionNode(gNode.id);
-      }
-    },
-    [toggleFunctionNode],
-  );
+  const onSelectionChange = useCallback((params: OnSelectionChangeParams) => {
+    setSelectedId(params.nodes[0]?.id ?? null);
+  }, []);
+
+  // Suppression au clavier : Backspace/Delete sur le node sélectionné.
+  // On pilote depuis le store (deleteKeyCode={null} désactive la suppression
+  // intégrée de React Flow) pour garder `graph` comme source unique du canvas.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Backspace" && e.key !== "Delete") return;
+      if (!selectedId) return;
+      // Ne pas voler le Backspace d'un champ de saisie (ex. l'éditeur de code).
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+      e.preventDefault();
+      deleteNode(selectedId);
+      setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, deleteNode]);
 
   return (
     <ReactFlow
@@ -55,7 +68,8 @@ export default function BlocksCanvas() {
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onNodeClick={onNodeClick}
+      onSelectionChange={onSelectionChange}
+      deleteKeyCode={null}
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: 0.2 }}

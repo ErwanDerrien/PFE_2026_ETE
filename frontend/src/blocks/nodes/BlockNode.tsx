@@ -1,8 +1,9 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { blockMeta, isBranching, isLooping } from "../block-meta";
 import { highlight } from "../highlight";
 import type { TypedGraphNode } from "../typed-nodes";
+import { useAstStore } from "../../sync";
 
 export type BlockData = { node: TypedGraphNode };
 export type BlockFlowNode = Node<BlockData, "block">;
@@ -13,6 +14,14 @@ const BODY_H   = 44;
 
 export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) {
   const node = data.node;
+  const toggleFunctionNode = useAstStore((s) => s.toggleFunctionNode);
+
+  // Expand/collapse se déclenche uniquement via ce footer (pas le clic sur tout
+  // le node). stopPropagation pour ne pas interférer avec la sélection/drag.
+  const onToggle = (e: MouseEvent) => {
+    e.stopPropagation();
+    toggleFunctionNode(node.id);
+  };
   const meta = blockMeta(node.astType, node.role);
   const branching = isBranching(node.astType);
   const looping   = isLooping(node.astType);
@@ -73,7 +82,10 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
 
       {node.role === "boundary" && (
         <footer className="bn-foot">
-          <div className={`bn-foot-cell ${collapsed ? "bn-foot-expand" : "bn-foot-collapse"}`}>
+          <div
+            className={`bn-foot-cell bn-foot-toggle nodrag ${collapsed ? "bn-foot-expand" : "bn-foot-collapse"}`}
+            onClick={onToggle}
+          >
             <span className="bn-foot-label">{collapsed ? "▶ EXPAND" : "▼ COLLAPSE"}</span>
           </div>
         </footer>

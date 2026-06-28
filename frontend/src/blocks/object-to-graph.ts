@@ -928,7 +928,7 @@ class GraphBuilder {
 // ---------------------------------------------------------------------------
 
 export function objectToGraph(
-  mapping: Record<number, FunctionDeclaration | FunctionValue>,
+  mapping: FunctionDeclaration | FunctionValue,
   options: GraphOptions = {},
 ): TypedGraphModel {
   const entries = Object.values(mapping);

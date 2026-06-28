@@ -1,121 +1,261 @@
-import { useState } from 'react'
-import reactLogo from '../assets/react.svg'
-import viteLogo from '../assets/vite.svg'
-import heroImg from '../assets/hero.png'
-import './App.css'
+import { useState } from "react"
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
+import CodeEditor from "../editor/editor"
+import Console from "../console/Console"
+import BlocksView from "../blocks/BlocksView"
+import NaturalLangView from "../natural-lang/NaturalLangView"
+import "./App.css"
 
-function App() {
-  const [count, setCount] = useState(0)
+
+
+
+export const DEFAULT_CODE : string = `// Mini-démo - Éditeur de code + Console d'exécution
+                      // Ce code de démonstration peut être facilement modifié ou supprimé
+
+                      console.log("=== Démonstration de l'exécution sandbox ===");
+
+                      // Exemple 1: Fonctions de base (JavaScript pur)
+                      function saluer(nom) {
+                        return \`Bonjour \${nom}!\`;
+                      }
+
+                      console.log(saluer("Étudiant"));
+                      console.log("");
+
+                      // Exemple 2: Opérations mathématiques
+                      function calculerSurface(rayon) {
+                        return Math.PI * rayon * rayon;
+                      }
+
+                      const rayon = 5;
+                      const surface = calculerSurface(rayon);
+                      console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
+                      console.log("");
+
+                      // Exemple 3: Tableaux et boucles
+                      const nombres = [1, 2, 3, 4, 5];
+                      console.log("Nombres:", nombres);
+
+                      let somme = 0;
+                      for (const n of nombres) {
+                        somme += n;
+                      }
+                      console.log(\`Somme des nombres = \${somme}\`);
+                      console.log("");
+
+                      // Exemple 4: Conditions
+                      const age = 20;
+                      if (age >= 18) {
+                        console.log(\`Âge: \${age} - Majeur\`);
+                      } else {
+                        console.log(\`Âge: \${age} - Mineur\`);
+                      }
+
+                      console.log("=== Fin de la démonstration ===");
+                      console.log("Modifiez ce code et cliquez sur 'Exécuter le code' pour tester!");`;
+
+// Composant pour le layout principal avec onglets
+function MainLayout() {
+
+
+  const location = useLocation()
+  const [code, setCode] = useState<string>(DEFAULT_CODE)
+
+  const handleEditorChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCode(value)
+    }
+  }
+
+  const handleExecute = () => {
+    console.log("Code exécuté:", code.substring(0, 100) + "...")
+  }
+
+  const handleClearConsole = () => {
+    console.log("Console vidée")
+  }
+
+  // Détermine quelle vue est active pour l'affichage des 4 onglets
+  const activeView = location.pathname.substring(1) || "full"
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-container">
+      {/* Barre de navigation */}
+      <nav className="app-nav">
+        <div className="nav-title">
+          <h1>PFE 2026 - Éditeur Multi-vues</h1>
+          <div className="nav-subtitle">
+            <span>Sous-équipe B: Éditeur & Console</span>
+            <span>Sous-équipe A: Blocs Visuels</span>
+            <span>Transversal: Langage Naturel</span>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+        
+        <div className="nav-tabs">
+          <Link 
+            to="/full" 
+            className={`nav-tab ${activeView === 'full' ? 'active' : ''}`}
+          >
+            📊 Vue Complète (4 onglets)
+          </Link>
+          <Link 
+            to="/code" 
+            className={`nav-tab ${activeView === 'code' ? 'active' : ''}`}
+          >
+            💻 Éditeur de Code
+          </Link>
+          <Link 
+            to="/blocks" 
+            className={`nav-tab ${activeView === 'blocks' ? 'active' : ''}`}
+          >
+            🟦 Blocs Visuels
+          </Link>
+          <Link 
+            to="/text" 
+            className={`nav-tab ${activeView === 'text' ? 'active' : ''}`}
+          >
+            📝 Langage Naturel
+          </Link>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </nav>
 
-      <div className="ticks"></div>
+      {/* Contenu principal basé sur la route */}
+      <div className="main-content">
+        {activeView === 'full' && (
+          <div className="four-panel-view">
+            <div className="panel panel-code">
+              <div className="panel-header">
+                <h3>💻 Éditeur de Code</h3>
+                <span className="panel-team">Équipe B: Justin & Erwan</span>
+              </div>
+              <div className="panel-content">
+                <CodeEditor onChange={handleEditorChange} />
+              </div>
+            </div>
+            
+            <div className="panel panel-blocks">
+              <div className="panel-header">
+                <h3>🟦 Blocs Visuels</h3>
+                <span className="panel-team">Équipe A: Adel & Junior</span>
+              </div>
+              <div className="panel-content">
+                <BlocksView />
+              </div>
+            </div>
+            
+            <div className="panel panel-text">
+              <div className="panel-header">
+                <h3>📝 Langage Naturel</h3>
+                <span className="panel-team">Émie (Transversal)</span>
+              </div>
+              <div className="panel-content">
+                <NaturalLangView />
+              </div>
+            </div>
+            
+            <div className="panel panel-console">
+              <div className="panel-header">
+                <h3>📟 Console d'Exécution</h3>
+                <span className="panel-team">Équipe B: Justin & Erwan</span>
+              </div>
+              <div className="panel-content">
+                <Console 
+                  code={code}
+                  onExecute={handleExecute}
+                  onClear={handleClearConsole}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {activeView === 'code' && (
+          <div className="single-view">
+            <div className="single-view-header">
+              <h2>💻 Éditeur de Code</h2>
+              <p>Interface de développement principale avec Monaco Editor</p>
+            </div>
+            <div className="single-view-content">
+              <CodeEditor onChange={handleEditorChange} />
+            </div>
+            <div className="single-view-console">
+              <Console 
+                code={code}
+                onExecute={handleExecute}
+                onClear={handleClearConsole}
+              />
+            </div>
+          </div>
+        )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        {activeView === 'blocks' && (
+          <div className="single-view">
+            <div className="single-view-header">
+              <h2>🟦 Blocs Visuels</h2>
+              <p>Représentation graphique de la structure du code</p>
+            </div>
+            <div className="single-view-content">
+              <BlocksView />
+            </div>
+            <div className="single-view-console">
+              <Console 
+                code={code}
+                onExecute={handleExecute}
+                onClear={handleClearConsole}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeView === 'text' && (
+          <div className="single-view">
+            <div className="single-view-header">
+              <h2>📝 Langage Naturel</h2>
+              <p>Conversion code ↔ description textuelle via API Claude</p>
+            </div>
+            <div className="single-view-content">
+              <NaturalLangView />
+            </div>
+            <div className="single-view-console">
+              <Console 
+                code={code}
+                onExecute={handleExecute}
+                onClear={handleClearConsole}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pied de page */}
+      <footer className="app-footer">
+        <div className="footer-content">
+          <p>Projet de fin d'études - Département de génie logiciel et des TI - ÉTS 2026</p>
+          <div className="footer-links">
+            <span>Mode: {activeView === 'full' ? '4 onglets' : 'vue unique'}</span>
+            <span>•</span>
+            <span>Code source: {code.length > 0 ? `${code.length} caractères` : 'vide'}</span>
+            <span>•</span>
+            <span>Serveur: <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer">localhost:5173</a></span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+// Composant App principal avec Router
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<MainLayout />} />
+        <Route path="/full" element={<MainLayout />} />
+        <Route path="/code" element={<MainLayout />} />
+        <Route path="/blocks" element={<MainLayout />} />
+        <Route path="/text" element={<MainLayout />} />
+      </Routes>
+    </Router>
   )
 }
 

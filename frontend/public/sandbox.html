@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+<script>
+  const send = (level, args) => {
+    window.parent.postMessage({
+      type: 'console',
+      level,
+      args: args.map(a => {
+        try { return typeof a === 'string' ? a : JSON.stringify(a, null, 2); }
+        catch { return String(a); }
+      })
+    }, '*');
+  };
+
+  ['log', 'warn', 'error', 'info'].forEach(level => {
+    console[level] = (...args) => send(level, args);
+  });
+
+  window.onerror = (msg, _src, line, col) => {
+    send('error', [`${msg} (line ${line}:${col})`]);
+    return true;
+  };
+
+  window.addEventListener('message', ({ data }) => {
+    if (data?.type === 'run') {
+      try {
+        new Function(data.code)();
+      } catch (e) {
+        send('error', [e.toString()]);
+      }
+    }
+  });
+</script>
+</body>
+</html>

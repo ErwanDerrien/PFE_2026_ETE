@@ -127,11 +127,21 @@ export interface GraphModel {
 export const EMPTY_GRAPH: GraphModel = { nodes: [], edges: [] };
 
 /**
+ * Port « ouvert » d'un node sur lequel on peut accrocher un nouveau node :
+ * - exec-out : continuation après le node (fin de spine).
+ * - true / false : branche vraie/fausse vide d'un `if`.
+ * - body : corps vide d'une boucle (ajoute aussi l'arête `loop-back`).
+ */
+export type InsertPort = "exec-out" | "true" | "false" | "body";
+
+/**
  * Cible d'une insertion de node (création de blocs, phase visuelle).
  * - `edge` : scinder une arête de flux existante (le `+` au survol d'une arête).
- *   (Les cibles « port » — fin de spine, corps vide — arrivent en milestone 2.)
+ * - `port` : accrocher à un port ouvert d'un node (fin de spine, branche/corps vide).
  */
-export type InsertTarget = { kind: "edge"; edgeId: string };
+export type InsertTarget =
+  | { kind: "edge"; edgeId: string }
+  | { kind: "port"; nodeId: string; port: InsertPort };
 
 /**
  * Une insertion persistée : le node construit + sa cible. Mémorisée par le store

@@ -4,8 +4,10 @@ import { blockMeta, isBranching, isLooping } from "../block-meta";
 import { highlight } from "../highlight";
 import type { TypedGraphNode } from "../typed-nodes";
 import { useAstStore } from "../../sync";
+import type { InsertPort } from "../../shared";
+import { useRequestInsert } from "../edges/insertion-context";
 
-export type BlockData = { node: TypedGraphNode };
+export type BlockData = { node: TypedGraphNode; openSlots?: InsertPort[] };
 export type BlockFlowNode = Node<BlockData, "block">;
 
 // Fixed layout constants — must match blocks.css and node-size.ts.
@@ -14,7 +16,27 @@ const BODY_H   = 44;
 
 export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) {
   const node = data.node;
+  const openSlots = data.openSlots ?? [];
   const toggleFunctionNode = useAstStore((s) => s.toggleFunctionNode);
+  const requestInsert = useRequestInsert();
+
+  // Bouton « + » accroché à un port ouvert (fin de spine, branche/corps vide).
+  const addBtn = (port: InsertPort, className: string) => (
+    <button
+      type="button"
+      className={`bn-add-btn ${className} nodrag nopan`}
+      title="Ajouter un bloc"
+      onClick={(e: MouseEvent) => {
+        e.stopPropagation();
+        requestInsert(
+          { kind: "port", nodeId: node.id, port },
+          { x: e.clientX, y: e.clientY },
+        );
+      }}
+    >
+      +
+    </button>
+  );
 
   // Expand/collapse se déclenche uniquement via ce footer (pas le clic sur tout
   // le node). stopPropagation pour ne pas interférer avec la sélection/drag.
@@ -69,6 +91,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
         className="bn-exec-handle"
         style={{ top: HEADER_H / 2 }}
       />
+      {openSlots.includes("exec-out") && addBtn("exec-out", "bn-add-after")}
 
       {members && members.length > 0 && (
         <div className="bn-members">
@@ -96,6 +119,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
           {looping ? (
             <div className="bn-foot-cell bn-foot-body">
               <span className="bn-foot-label">BODY</span>
+              {openSlots.includes("body") && addBtn("body", "bn-add-port")}
               <Handle
                 id="true"
                 type="source"
@@ -108,6 +132,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
             <>
               <div className="bn-foot-cell bn-foot-true">
                 <span className="bn-foot-label">TRUE</span>
+                {openSlots.includes("true") && addBtn("true", "bn-add-port")}
                 <Handle
                   id="true"
                   type="source"
@@ -117,6 +142,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
               </div>
               <div className="bn-foot-cell bn-foot-false">
                 <span className="bn-foot-label">FALSE</span>
+                {openSlots.includes("false") && addBtn("false", "bn-add-port")}
                 <Handle
                   id="false"
                   type="source"

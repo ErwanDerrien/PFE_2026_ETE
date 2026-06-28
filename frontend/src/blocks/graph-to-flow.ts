@@ -14,9 +14,10 @@
 
 import dagre from "@dagrejs/dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { EdgeKind } from "../shared";
+import type { EdgeKind, InsertPort } from "../shared";
+import { isLooping } from "./block-meta";
 import { nodeSize } from "./node-size";
-import type { TypedGraphModel } from "./typed-nodes";
+import type { TypedGraphModel, TypedGraphNode } from "./typed-nodes";
 
 export interface FlowModel {
   nodes: Node[];
@@ -42,6 +43,26 @@ function sourceHandleFor(kind: EdgeKind): string | undefined {
 
 const edgeWeight = (kind: EdgeKind): number => (kind === "expression" ? 1 : 3);
 
+/**
+ * Ports « ouverts » d'un node spine (sans arête sortante du kind attendu) où l'on
+ * peut accrocher un nouveau node. Sert à afficher les boutons « + » de port.
+ */
+function openSlotsFor(node: TypedGraphNode, outKinds: Set<EdgeKind> | undefined): InsertPort[] {
+  if (node.track !== "spine" || node.role === "boundary") return [];
+  const has = (k: EdgeKind): boolean => outKinds?.has(k) ?? false;
+  const slots: InsertPort[] = [];
+  if (isLooping(node.astType)) {
+    if (!has("branch-true")) slots.push("body"); // corps de boucle vide
+    if (!has("exec")) slots.push("exec-out"); // continuation après la boucle
+  } else if (node.astType === "IfStatement") {
+    if (!has("branch-true")) slots.push("true"); // then vide
+    if (!has("branch-false")) slots.push("false"); // else vide / continuation
+  } else {
+    if (!has("exec")) slots.push("exec-out"); // fin de spine
+  }
+  return slots;
+}
+
 export function graphToFlow(graph: TypedGraphModel): FlowModel {
   const sizes = new Map(graph.nodes.map((n) => [n.id, nodeSize(n)] as const));
 
@@ -60,14 +81,23 @@ export function graphToFlow(graph: TypedGraphModel): FlowModel {
 
   dagre.layout(layout);
 
+  // Kinds d'arêtes sortantes par node (pour déduire les ports ouverts).
+  const outKinds = new Map<string, Set<EdgeKind>>();
+  for (const edge of graph.edges) {
+    let set = outKinds.get(edge.source);
+    if (!set) outKinds.set(edge.source, (set = new Set()));
+    set.add(edge.kind);
+  }
+
   const nodes: Node[] = graph.nodes.map((node) => {
     const s = sizes.get(node.id)!;
     const p = layout.node(node.id);
+    const isBlock = node.track !== "expression";
     return {
       id: node.id,
-      type: node.track === "expression" ? "expr" : "block",
+      type: isBlock ? "block" : "expr",
       position: { x: p.x - s.width / 2, y: p.y - s.height / 2 },
-      data: { node },
+      data: isBlock ? { node, openSlots: openSlotsFor(node, outKinds.get(node.id)) } : { node },
     };
   });
 

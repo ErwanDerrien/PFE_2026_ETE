@@ -6,7 +6,7 @@
  * des stubs — voir ../sync/transforms.ts). Fonctions pures et testables.
  */
 
-import type { GraphEdge, GraphModel, GraphNode, InsertOp } from "../shared";
+import type { GraphEdge, GraphModel, GraphNode, InsertOp, InsertPort } from "../shared";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { Statement } from "./types/globalType";
 import { declaredNames, referencedNames } from "./var-refs";
@@ -142,6 +142,44 @@ export function insertNodeOnEdge(
 }
 
 /**
+ * Accroche `newNode` à un PORT ouvert de `nodeId` (fin de spine, branche/corps
+ * vide). Crée l'arête correspondant au port ; pour un corps de boucle (`body`),
+ * ajoute aussi l'arête `loop-back` du nouveau node vers la boucle (cohérent avec
+ * `connectLoopBlock` d'object-to-graph). No-op défensif si le node est absent ou
+ * si le node créé existe déjà.
+ */
+export function insertNodeAtPort(
+  graph: GraphModel,
+  nodeId: string,
+  port: InsertPort,
+  newNode: GraphNode,
+): GraphModel {
+  if (!graph.nodes.some((n) => n.id === nodeId)) return graph;
+  if (graph.nodes.some((n) => n.id === newNode.id)) return graph;
+
+  const id = `ins-${newNode.id}-port`;
+  const newEdges: GraphEdge[] = [];
+
+  switch (port) {
+    case "exec-out":
+      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "exec", sourceHandle: "exec-out", targetHandle: "exec-in" });
+      break;
+    case "true":
+      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "true" });
+      break;
+    case "false":
+      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-false", sourceHandle: "branch-false", targetHandle: "exec-in", label: "false" });
+      break;
+    case "body":
+      newEdges.push({ id, source: nodeId, target: newNode.id, kind: "branch-true", sourceHandle: "branch-true", targetHandle: "exec-in", label: "body" });
+      newEdges.push({ id: `ins-${newNode.id}-loopback`, source: newNode.id, target: nodeId, kind: "loop-back", sourceHandle: "exec-out", targetHandle: "exec-in", label: "↩" });
+      break;
+  }
+
+  return { nodes: [...graph.nodes, newNode], edges: [...graph.edges, ...newEdges] };
+}
+
+/**
  * Calcule l'ensemble des ids à supprimer quand on supprime `nodeId`.
  *
  * - Si le node n'est pas une déclaration de variable → `[nodeId]` (suppression
@@ -211,6 +249,8 @@ export function applyInsertions(
   for (const op of ops) {
     if (op.target.kind === "edge") {
       result = insertNodeOnEdge(result, op.target.edgeId, op.node);
+    } else if (op.target.kind === "port") {
+      result = insertNodeAtPort(result, op.target.nodeId, op.target.port, op.node);
     }
   }
   return result;

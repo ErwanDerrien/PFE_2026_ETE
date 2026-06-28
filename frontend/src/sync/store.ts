@@ -24,7 +24,7 @@ import { create } from 'zustand';
 import type { AstStoreState, SyncError, SyncPhase } from '../shared';
 import { DEFAULT_LANGUAGE, EMPTY_GRAPH } from '../shared';
 import { astToGraph, generate, graphToAst, parse } from './transforms';
-import { applyDeletions, applyInsertions, collectVariableDeletionIds, insertNodeOnEdge } from '../blocks/graph-edit';
+import { applyDeletions, applyInsertions, collectVariableDeletionIds, insertNodeAtPort, insertNodeOnEdge } from '../blocks/graph-edit';
 
 /** Normalise n'importe quelle exception en `SyncError` taggée par phase. */
 function toSyncError(phase: SyncPhase, e: unknown): SyncError {
@@ -124,6 +124,7 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
     const { graph, insertions } = get();
     let next = graph;
     if (target.kind === 'edge') next = insertNodeOnEdge(graph, target.edgeId, node);
+    else if (target.kind === 'port') next = insertNodeAtPort(graph, target.nodeId, target.port, node);
     if (next === graph) return; // cible introuvable : no-op
     set({ graph: next, insertions: [...insertions, { target, node }], lastOrigin: 'blocks' });
   },

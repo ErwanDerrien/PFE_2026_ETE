@@ -263,3 +263,59 @@ export function reassignableInScope(graph: GraphModel, anchor: ScopeAnchor): str
 
   return [...names].sort();
 }
+
+/** Un bloc `Pf = B/k` est-il dans un bloc ancêtre de `Pa` (ordre ignoré) ? */
+function inAncestorBlock(Pf: string, Pa: string): boolean {
+  const ls = Pf.lastIndexOf("/");
+  if (ls < 0) return false;
+  const block = Pf.slice(0, ls);
+  return Pa === Pf || Pa.startsWith(`${block}/`);
+}
+
+/**
+ * TOUS les noms visibles ET déclarés avant le point d'ancrage : variables (tous
+ * `kind`), paramètres des fonctions englobantes, fonctions déclarées dans un bloc
+ * ancêtre (hoistées → ordre ignoré), et variables des boucles englobantes
+ * (`for`/`for-of`/`for-in`). Sert à valider les références d'une expression.
+ * Retourne `null` si l'ancrage est introuvable (le caller retombe sur l'existence
+ * globale).
+ */
+export function namesInScope(graph: GraphModel, anchor: ScopeAnchor): Set<string> | null {
+  const resolved = resolveAnchor(graph, anchor);
+  if (!resolved) return null;
+  const { path: Pa, inclusive } = resolved;
+  const names = new Set<string>();
+
+  for (const node of graph.nodes as TypedGraphNode[]) {
+    const stmt = node.stmt as Statement | undefined;
+    if (!stmt) continue;
+    const Pf = node.id;
+
+    if (stmt.kind === "variable-declaration") {
+      if (inScopeBefore(Pf, Pa, inclusive)) {
+        for (const n of declaredNames(stmt)) names.add(n);
+      }
+    } else if (stmt.kind === "function-declaration") {
+      // Hoistée : visible dans tout bloc ancêtre, quel que soit l'ordre.
+      if (inAncestorBlock(Pf, Pa)) names.add((stmt as FunctionDeclaration).name);
+      // Paramètres d'une fonction englobante.
+      if (Pa.startsWith(`${Pf}/body/`)) {
+        for (const p of (stmt as FunctionDeclaration).params) {
+          const pn = simpleParamName(p);
+          if (pn) names.add(pn);
+        }
+      }
+    } else if (stmt.kind === "for" || stmt.kind === "for-of" || stmt.kind === "for-in") {
+      // Variable de boucle visible dans le corps de la boucle.
+      const body = `${Pf}/body`;
+      if (Pa === body || Pa.startsWith(`${body}/`)) {
+        const decl = stmt.kind === "for" ? stmt.init : stmt.left;
+        if (decl && decl.kind === "variable-declaration") {
+          for (const n of declaredNames(decl)) names.add(n);
+        }
+      }
+    }
+  }
+
+  return names;
+}

@@ -29,7 +29,7 @@ const elementVars = (e: Value | Spread | null): string[] =>
   e == null ? [] : e.kind === "spread" ? valueVars(e.value) : valueVars(e);
 
 /** Tous les noms de variables référencées (lues) dans une `Value`. */
-function valueVars(v: Value): string[] {
+export function valueVars(v: Value): string[] {
   switch (v.kind) {
     case "variable":
       return [v.name];

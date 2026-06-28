@@ -188,11 +188,11 @@ interface Props {
   autoFocus?: boolean;
   /** Point d'ancrage pour la portée (cible d'affectation in-scope). */
   scopeAnchor?: ScopeAnchor;
-  /** Message d'erreur de type à afficher sous le champ valeur (affectation). */
-  valueError?: string | null;
+  /** Messages d'erreur de validation par champ (clé = nom du champ). */
+  errors?: Partial<Record<keyof FormValues, string>>;
 }
 
-export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor, valueError }: Props) {
+export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor, errors }: Props) {
   const graph = useAstStore((s) => s.graph);
   const ast = useAstStore((s) => s.ast);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
@@ -330,7 +330,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ valueText: e.target.value })}
               placeholder="ex. a + 1"
             />
-            {valueError && <span className="bf-error">{valueError}</span>}
+            {errors?.valueText && <span className="bf-error">{errors.valueText}</span>}
           </label>
         </>
       )}
@@ -388,6 +388,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
             onChange={(e) => onChange({ conditionText: e.target.value })}
             placeholder="ex. score >= 90"
           />
+          {errors?.conditionText && <span className="bf-error">{errors.conditionText}</span>}
         </label>
       )}
 
@@ -417,6 +418,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ iterableText: e.target.value })}
               placeholder={kind === "for-of" ? "ex. items" : "ex. obj"}
             />
+            {errors?.iterableText && <span className="bf-error">{errors.iterableText}</span>}
           </label>
         </>
       )}
@@ -446,6 +448,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               placeholder="= 0"
             />
           </div>
+          {errors?.initText && <span className="bf-error">{errors.initText}</span>}
           <label className="bf-field">
             <span>condition (test)</span>
             <input
@@ -453,6 +456,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ testText: e.target.value })}
               placeholder="ex. i < n"
             />
+            {errors?.testText && <span className="bf-error">{errors.testText}</span>}
           </label>
           <label className="bf-field">
             <span>incrément (update)</span>
@@ -461,6 +465,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ updateText: e.target.value })}
               placeholder="ex. i++"
             />
+            {errors?.updateText && <span className="bf-error">{errors.updateText}</span>}
           </label>
         </>
       )}
@@ -475,6 +480,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ discriminantText: e.target.value })}
               placeholder="ex. code"
             />
+            {errors?.discriminantText && <span className="bf-error">{errors.discriminantText}</span>}
           </label>
           <label className="bf-field">
             <span>cas (séparés par , — « default » accepté)</span>
@@ -483,6 +489,7 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ casesText: e.target.value })}
               placeholder="ex. 200, 404, default"
             />
+            {errors?.casesText && <span className="bf-error">{errors.casesText}</span>}
           </label>
         </>
       )}

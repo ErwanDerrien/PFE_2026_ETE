@@ -11,7 +11,7 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { useAstStore } from "../../sync";
 import { blockMeta } from "../block-meta";
 import { buildStatementNode, specFromNode } from "../node-create";
-import { assignmentTypeError } from "../type-check";
+import { blockErrors } from "../type-check";
 import type { TypedGraphNode } from "../typed-nodes";
 import BlockFields, {
   EMPTY_VALUES,
@@ -44,11 +44,10 @@ export default function BlockSidebar({ node, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id]);
 
-  const valueError =
-    spec?.kind === "assignment"
-      ? assignmentTypeError(graph, ast, values.operator, values.targetText, values.valueText)
-      : null;
-  const invalid = spec ? isInvalid(spec.kind, values) || !!valueError : true;
+  const errors = spec
+    ? blockErrors(graph, ast, spec.kind, values, { kind: "node", nodeId: node.id })
+    : {};
+  const invalid = spec ? isInvalid(spec.kind, values) || Object.keys(errors).length > 0 : true;
 
   const apply = () => {
     if (!spec || invalid) return;
@@ -72,7 +71,7 @@ export default function BlockSidebar({ node, onClose }: Props) {
             values={values}
             onChange={(patch) => setValues((v) => ({ ...v, ...patch }))}
             scopeAnchor={{ kind: "node", nodeId: node.id }}
-            valueError={valueError}
+            errors={errors}
           />
           <div className="bf-actions">
             <button

@@ -143,6 +143,16 @@ export default function BlocksCanvas() {
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
         <Controls showInteractive={false} />
         <MiniMap pannable zoomable />
+        <Panel position="top-left">
+          <button
+            type="button"
+            className="add-free-btn"
+            title="Créer un bloc libre (non relié)"
+            onClick={(e) => requestInsert({ kind: "floating" }, { x: e.clientX, y: e.clientY })}
+          >
+            + Bloc libre
+          </button>
+        </Panel>
         <Panel position="top-right" className="legend">
           <div className="legend-title">LEGEND</div>
           <div className="legend-row">

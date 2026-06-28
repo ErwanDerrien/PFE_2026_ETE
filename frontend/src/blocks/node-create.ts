@@ -20,6 +20,7 @@ import {
   STATEMENT_AST_TYPE,
   describe,
   describeBinding,
+  describeParams,
   describeTarget,
   describeType,
   labelForStatement,
@@ -28,6 +29,7 @@ import {
   sourceForStatement,
 } from "./object-to-graph";
 import type { FunctionDeclaration } from "./types/function";
+import type { Parameter } from "./types/parameter";
 import { assignmentTargetFromNode, valueFromNode } from "./node-utils";
 import { parseTypeText } from "./type-options";
 import type { Statement, Value } from "./types/globalType";
@@ -76,10 +78,12 @@ export type BlockSpec =
     }
   | { kind: "for-of"; declarationKind: DeclarationKind; varName: string; iterableText: string }
   | { kind: "for-in"; declarationKind: DeclarationKind; varName: string; iterableText: string }
-  | { kind: "switch"; discriminantText: string; casesText: string };
+  | { kind: "switch"; discriminantText: string; casesText: string }
+  | { kind: "function"; name: string; paramsText: string; returnTypeText?: string };
 
 /** Les types de blocs proposés par la palette (ordre d'affichage). */
 export const PALETTE_KINDS: BlockSpec["kind"][] = [
+  "function",
   "variable",
   "assignment",
   "call",
@@ -110,6 +114,7 @@ const FORM_KINDS = new Set<BlockSpec["kind"]>([
   "for-of",
   "for-in",
   "switch",
+  "function",
 ]);
 
 export const needsForm = (kind: BlockSpec["kind"]): boolean => FORM_KINDS.has(kind);
@@ -131,6 +136,7 @@ const KIND_AST_TYPE: Record<BlockSpec["kind"], string> = {
   "for-of": "ForOfStatement",
   "for-in": "ForInStatement",
   switch: "SwitchStatement",
+  function: "FunctionDeclaration",
 };
 
 /** astType associé à un type de bloc de la palette (pour block-meta). */
@@ -191,6 +197,19 @@ function parseTarget(text: string): AssignmentTarget {
 /** Découpe « a, b, c » en arguments (split naïf au 1er niveau — limite connue). */
 const splitArgs = (text: string): string[] =>
   text.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+
+/** Découpe « a: number, b » en paramètres simples (nom + type optionnel). */
+const parseParams = (text: string): Parameter[] =>
+  text
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [namePart, typePart] = part.split(":");
+      const name = namePart.trim();
+      const type = typePart?.trim() ? parseTypeText(typePart) : undefined;
+      return type ? { kind: "param" as const, name, type } : { kind: "param" as const, name };
+    });
 
 /** Déclaration de variable de boucle (for-of/for-in : `const x`). */
 const loopBinding = (declarationKind: DeclarationKind, name: string) => ({
@@ -307,6 +326,22 @@ function buildStmt(spec: BlockSpec): Statement {
       );
       return { kind: "switch", discriminant: parseValue(spec.discriminantText), cases };
     }
+    case "function": {
+      // Corps initialisé à `return;` (sinon, déplié mais vide → boundary élaguée
+      // par object-to-graph). On remplit le corps en insérant sur l'arête
+      // `function-body`, puis on peut supprimer/garder le return.
+      const returnType = spec.returnTypeText?.trim() ? parseTypeText(spec.returnTypeText) : undefined;
+      return {
+        kind: "function-declaration",
+        name: spec.name.trim() || "fn",
+        typeParams: [],
+        params: parseParams(spec.paramsText),
+        async: false,
+        generator: false,
+        ...(returnType ? { returnType } : {}),
+        body: { kind: "block", content: [{ kind: "return", blockUid: 0 }] },
+      };
+    }
   }
 }
 
@@ -357,6 +392,13 @@ export function specFromNode(node: TypedGraphNode): BlockSpec | null {
       };
     case "throw":
       return { kind: "throw", valueText: describe(stmt.value) };
+    case "function-declaration":
+      return {
+        kind: "function",
+        name: stmt.name,
+        paramsText: describeParams(stmt.params),
+        returnTypeText: stmt.returnType ? describeType(stmt.returnType) : "",
+      };
     case "switch":
       return {
         kind: "switch",
@@ -423,6 +465,7 @@ export function buildStatementNode(spec: BlockSpec, id: string): TypedGraphNode 
     astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
     stmt,
     ...(source !== undefined ? { source } : {}),
+    ...(role === "boundary" ? { collapsed: false } : {}),
   } as TypedGraphNode;
 }
 
@@ -433,7 +476,8 @@ export function buildStatementNode(spec: BlockSpec, id: string): TypedGraphNode 
  * stables pour la persistance des insertions).
  */
 export function buildCreatedGraph(spec: BlockSpec, baseId: string): CreatedSubgraph {
-  if (spec.kind !== "switch") {
+  // Seuls les blocs à sous-structure rendue sont projetés ; les autres = un node.
+  if (spec.kind !== "switch" && spec.kind !== "function") {
     return { node: buildStatementNode(spec, baseId), nodes: [], edges: [] };
   }
 
@@ -447,7 +491,11 @@ export function buildCreatedGraph(spec: BlockSpec, baseId: string): CreatedSubgr
     generator: false,
     body: { kind: "block", content: [stmt] },
   };
-  const model = objectToGraph(root); // ids sous « s/0 »
+  // Une fonction doit être dépliée pour que son corps (et donc le node boundary)
+  // soit émis et non élagué. Le statement créé est à « s/0 ».
+  const options =
+    spec.kind === "function" ? { expandedFunctions: new Set(["s/0"]) } : {};
+  const model = objectToGraph(root, options); // ids sous « s/0 »
   const remap = (id: string): string =>
     id === "s/0" ? baseId : id.startsWith("s/0/") ? baseId + id.slice(3) : id;
   const nodes: TypedGraphNode[] = model.nodes.map((n) => ({

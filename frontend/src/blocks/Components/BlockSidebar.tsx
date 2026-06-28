@@ -29,7 +29,6 @@ interface Props {
 export default function BlockSidebar({ node, onClose }: Props) {
   const updateNode = useAstStore((s) => s.updateNode);
   const graph = useAstStore((s) => s.graph);
-  const ast = useAstStore((s) => s.ast);
   const spec = useMemo(() => specFromNode(node), [node]);
   const meta = blockMeta(node.astType, node.role);
 
@@ -45,7 +44,7 @@ export default function BlockSidebar({ node, onClose }: Props) {
   }, [node.id]);
 
   const errors = spec
-    ? blockErrors(graph, ast, spec.kind, values, { kind: "node", nodeId: node.id })
+    ? blockErrors(graph, spec.kind, values, { kind: "node", nodeId: node.id })
     : {};
   const invalid = spec ? isInvalid(spec.kind, values) || Object.keys(errors).length > 0 : true;
 

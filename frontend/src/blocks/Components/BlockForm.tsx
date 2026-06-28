@@ -38,9 +38,8 @@ export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Pr
   }, [onCancel]);
 
   const graph = useAstStore((s) => s.graph);
-  const ast = useAstStore((s) => s.ast);
   const meta = blockMeta(astTypeForKind(kind), "statement");
-  const errors = blockErrors(graph, ast, kind, values, { kind: "insert", target });
+  const errors = blockErrors(graph, kind, values, { kind: "insert", target });
   const invalid = isInvalid(kind, values) || Object.keys(errors).length > 0;
 
   const submit = (e: React.FormEvent) => {

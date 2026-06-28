@@ -9,11 +9,10 @@
  * plus tard.
  */
 
-import type { File } from "@babel/types";
 import type { GraphModel } from "../shared";
 import type { FormValues } from "./Components/BlockFields";
 import { parseValue } from "./node-create";
-import { allBindingNamesFromAst, namesInScope, type ScopeAnchor } from "./scope-options";
+import { allBindingNames, namesInScope, type ScopeAnchor } from "./scope-options";
 import type { BlockSpec } from "./node-create";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { Value } from "./types/globalType";
@@ -146,7 +145,7 @@ const LABEL: Record<Tag, string> = {
  */
 export function assignmentTypeError(
   graph: GraphModel,
-  ast: File | null,
+  known: Set<string>,
   operator: string,
   targetText: string,
   valueText: string,
@@ -160,7 +159,7 @@ export function assignmentTypeError(
   // 1. Référence nue inexistante → très probablement une chaîne oubliée.
   if (parsed.kind === "variable") {
     const name = parsed.name;
-    if (!GLOBAL_VALUES.has(name) && !allBindingNamesFromAst(ast).has(name)) {
+    if (!GLOBAL_VALUES.has(name) && !known.has(name)) {
       return `« ${name} » n'est pas défini. Pour une chaîne de caractères, utilisez des guillemets : "${name}".`;
     }
   }
@@ -212,21 +211,20 @@ function casesError(text: string, known: Set<string>): string | null {
  */
 export function blockErrors(
   graph: GraphModel,
-  ast: File | null,
   kind: BlockSpec["kind"],
   v: FormValues,
   anchor?: ScopeAnchor,
 ): Partial<Record<keyof FormValues, string>> {
   const errs: Partial<Record<keyof FormValues, string>> = {};
   // Portée stricte (déclaré avant + visible) si on a un point d'ancrage,
-  // sinon existence globale (repli).
+  // sinon existence globale (repli) — tout depuis l'objet structuré.
   const known =
-    (anchor && namesInScope(graph, anchor)) || allBindingNamesFromAst(ast);
+    (anchor && namesInScope(graph, anchor)) || allBindingNames(graph);
   const ref = (text: string) => referenceError(text, known);
 
   switch (kind) {
     case "assignment": {
-      const e = assignmentTypeError(graph, ast, v.operator, v.targetText, v.valueText);
+      const e = assignmentTypeError(graph, known, v.operator, v.targetText, v.valueText);
       if (e) errs.valueText = e;
       break;
     }

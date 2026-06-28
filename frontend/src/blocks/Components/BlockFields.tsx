@@ -13,7 +13,7 @@ import { useAstStore } from "../../sync";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import { PRIMITIVE_TYPE_NAMES, namedTypesFromGraph } from "../type-options";
 import {
-  callableNamesFromAst,
+  callableNames,
   reassignableInScope,
   reassignableNames,
   type ScopeAnchor,
@@ -42,6 +42,8 @@ export interface FormValues {
   iterableText: string;
   discriminantText: string;
   casesText: string;
+  paramsText: string;
+  returnTypeText: string;
 }
 
 export const EMPTY_VALUES: FormValues = {
@@ -61,6 +63,8 @@ export const EMPTY_VALUES: FormValues = {
   iterableText: "",
   discriminantText: "",
   casesText: "",
+  paramsText: "",
+  returnTypeText: "",
 };
 
 const DECLARATION_KINDS: DeclarationKind[] = ["const", "let", "var"];
@@ -114,6 +118,8 @@ export function buildSpec(kind: BlockSpec["kind"], v: FormValues): BlockSpec {
       return { kind: "for-in", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
     case "switch":
       return { kind: "switch", discriminantText: v.discriminantText, casesText: v.casesText };
+    case "function":
+      return { kind: "function", name: v.name, paramsText: v.paramsText, returnTypeText: v.returnTypeText };
   }
 }
 
@@ -164,6 +170,11 @@ export function valuesFromSpec(spec: BlockSpec): FormValues {
       v.discriminantText = spec.discriminantText;
       v.casesText = spec.casesText;
       break;
+    case "function":
+      v.name = spec.name;
+      v.paramsText = spec.paramsText;
+      v.returnTypeText = spec.returnTypeText ?? "";
+      break;
   }
   return v;
 }
@@ -177,7 +188,8 @@ export function isInvalid(kind: BlockSpec["kind"], v: FormValues): boolean {
     (kind === "throw" && !v.valueText.trim()) ||
     ((kind === "if" || kind === "while" || kind === "do-while") && !v.conditionText.trim()) ||
     ((kind === "for-of" || kind === "for-in") && (!v.name.trim() || !v.iterableText.trim())) ||
-    (kind === "switch" && !v.discriminantText.trim())
+    (kind === "switch" && !v.discriminantText.trim()) ||
+    (kind === "function" && !v.name.trim())
   );
 }
 
@@ -194,7 +206,6 @@ interface Props {
 
 export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor, errors }: Props) {
   const graph = useAstStore((s) => s.graph);
-  const ast = useAstStore((s) => s.ast);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
   // Cible d'affectation : variables réassignables EN PORTÉE au point d'ancrage
   // (repli global si pas d'ancrage).
@@ -204,8 +215,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [graph, anchorKey],
   );
-  // Fonctions appelables depuis l'AST (toutes, indépendamment du repli des nodes).
-  const callables = useMemo(() => callableNamesFromAst(ast), [ast]);
+  // Fonctions appelables depuis l'objet structuré (toutes : repliées, imbriquées,
+  // et créées) — indépendant de l'AST.
+  const callables = useMemo(() => callableNames(graph), [graph]);
   const curCallee = v.calleeText.trim();
   const extraCallee = curCallee && !callables.includes(curCallee) ? curCallee : null;
   // Conserve le type courant comme option s'il n'est ni primitif ni déclaré
@@ -490,6 +502,36 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               placeholder="ex. 200, 404, default"
             />
             {errors?.casesText && <span className="bf-error">{errors.casesText}</span>}
+          </label>
+        </>
+      )}
+
+      {kind === "function" && (
+        <>
+          <label className="bf-field">
+            <span>nom</span>
+            <input
+              autoFocus={autoFocus}
+              value={v.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="ex. compute"
+            />
+          </label>
+          <label className="bf-field">
+            <span>paramètres (ex. a: number, b)</span>
+            <input
+              value={v.paramsText}
+              onChange={(e) => onChange({ paramsText: e.target.value })}
+              placeholder="a: number, b"
+            />
+          </label>
+          <label className="bf-field">
+            <span>type de retour (optionnel)</span>
+            <input
+              value={v.returnTypeText}
+              onChange={(e) => onChange({ returnTypeText: e.target.value })}
+              placeholder="ex. number"
+            />
           </label>
         </>
       )}

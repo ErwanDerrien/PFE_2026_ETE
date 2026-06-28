@@ -151,6 +151,11 @@ export interface AstStoreState {
   // --- expansion des définitions de fonction ---
   /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */
   expandedFunctions: Set<string>;
+  /**
+   * IDs des fonctions CRÉÉES (non issues de l'AST) actuellement repliées. Leur
+   * repli est purement visuel (masquage des descendants), géré hors `astToGraph`.
+   */
+  collapsedCreated: Set<string>;
   /** Bascule l'état déplié/replié d'un nœud de définition de fonction. */
   toggleFunctionNode: (nodeId: string) => void;
 }

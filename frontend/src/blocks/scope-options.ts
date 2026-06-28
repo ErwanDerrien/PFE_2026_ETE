@@ -8,20 +8,13 @@
  * calcul de scope plus tard.
  */
 
-import _traverse, { type NodePath } from "@babel/traverse";
-import * as t from "@babel/types";
-import type { File } from "@babel/types";
 import type { GraphModel, InsertTarget } from "../shared";
 import { isLooping } from "./block-meta";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { FunctionDeclaration } from "./types/function";
 import type { Statement } from "./types/globalType";
 import type { Parameter } from "./types/parameter";
-import { declaredNames } from "./var-refs";
-
-// Interop ESM/CJS de @babel/traverse (cf. ast-mapping.ts).
-const traverse =
-  typeof _traverse === "function" ? _traverse : (_traverse as { default: typeof _traverse }).default;
+import { declaredNames, patternNames } from "./var-refs";
 
 /** Nom d'un paramètre simple (ignore la déstructuration pour l'instant). */
 function simpleParamName(p: Parameter): string | null {
@@ -35,73 +28,123 @@ function simpleParamName(p: Parameter): string | null {
   }
 }
 
-/**
- * Noms APPELABLES déclarés dans le code, collectés depuis l'AST (source de
- * vérité) — donc indépendant de l'état replié/déplié des nodes : toute fonction
- * du code apparaît, qu'elle soit visible comme node ou non.
- *
- * Couvre les déclarations de fonction (`function foo() {}`) et les variables liées
- * à une fonction (`const f = () => …`, `const g = function () {}`). Collecte
- * globale (toutes portées) ; un raffinement par portée pourra suivre.
- */
-export function callableNamesFromAst(ast: File | null): string[] {
-  if (!ast) return [];
-  const names = new Set<string>();
-  traverse(ast, {
-    FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
-      if (path.node.id) names.add(path.node.id.name);
-    },
-    VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
-      const init = path.node.init;
-      if (
-        (t.isArrowFunctionExpression(init) || t.isFunctionExpression(init)) &&
-        t.isIdentifier(path.node.id)
-      ) {
-        names.add(path.node.id.name);
+/** Tous les noms liés par une liste de paramètres (gère la déstructuration). */
+function paramNames(params: Parameter[]): string[] {
+  return params.flatMap((p) =>
+    p.kind === "destructured-param" ? patternNames(p.target) : [p.name],
+  );
+}
+
+// --- Parcours récursif de l'OBJET STRUCTURÉ (jamais l'AST) -------------------
+// Chaque node porte son `stmt` = le sous-arbre structuré COMPLET (même si le node
+// est replié). On lit donc tout le code via les `stmt`, sans toucher à l'AST.
+
+/** Descend dans les sous-blocs d'un statement structuré. */
+function descend(stmt: Statement, walk: (stmts: Statement[]) => void): void {
+  switch (stmt.kind) {
+    case "function-declaration":
+      walk(stmt.body.content);
+      break;
+    case "variable-declaration":
+      for (const d of stmt.declarations) {
+        if (d.init?.kind === "function" && "kind" in d.init.body && d.init.body.kind === "block") {
+          walk(d.init.body.content); // corps d'une fonction fléchée/expression
+        }
       }
-    },
+      break;
+    case "if":
+      walk(stmt.then.content);
+      if (stmt.else) walk(stmt.else.kind === "if" ? [stmt.else] : stmt.else.content);
+      break;
+    case "while":
+    case "do-while":
+    case "for":
+    case "for-in":
+    case "for-of":
+      walk(stmt.body.content);
+      break;
+    case "try":
+      walk(stmt.block.content);
+      if (stmt.handler) walk(stmt.handler.body.content);
+      if (stmt.finalizer) walk(stmt.finalizer.content);
+      break;
+    case "switch":
+      for (const c of stmt.cases) walk(c.body);
+      break;
+  }
+}
+
+/** Visite tous les statements atteignables depuis les `stmt` des nodes (récursif). */
+function visitAllStatements(graph: GraphModel, visit: (stmt: Statement) => void): void {
+  const seen = new Set<Statement>();
+  const walk = (stmts: Statement[]): void => {
+    for (const s of stmts) {
+      if (seen.has(s)) continue; // sous-arbre partagé déjà parcouru
+      seen.add(s);
+      visit(s);
+      descend(s, walk);
+    }
+  };
+  for (const node of graph.nodes as TypedGraphNode[]) {
+    const s = node.stmt as Statement | undefined;
+    if (s) walk([s]);
+  }
+}
+
+/**
+ * Fonctions appelables, depuis l'objet structuré : déclarations de fonction et
+ * variables liées à une fonction. Le parcours récursif des `stmt` couvre les
+ * fonctions imbriquées (même node parent replié) ET les fonctions CRÉÉES
+ * (présentes dans le graphe mais pas dans l'AST).
+ */
+export function callableNames(graph: GraphModel): string[] {
+  const names = new Set<string>();
+  visitAllStatements(graph, (stmt) => {
+    if (stmt.kind === "function-declaration") {
+      if (stmt.name && stmt.name !== "<global>") names.add(stmt.name);
+    } else if (stmt.kind === "variable-declaration") {
+      for (const d of stmt.declarations) {
+        if (d.init?.kind === "function" && d.target.kind === "variable") {
+          names.add(d.target.name);
+        }
+      }
+    }
   });
   return [...names].sort();
 }
 
-/** Collecte récursivement les noms liés par un pattern (id, destructuration, défaut, rest). */
-function collectBindingNames(node: t.Node | null | undefined, out: Set<string>): void {
-  if (!node) return;
-  if (t.isIdentifier(node)) out.add(node.name);
-  else if (t.isObjectPattern(node)) {
-    for (const p of node.properties) {
-      if (t.isObjectProperty(p)) collectBindingNames(p.value as t.Node, out);
-      else collectBindingNames(p.argument, out); // RestElement
-    }
-  } else if (t.isArrayPattern(node)) {
-    for (const el of node.elements) collectBindingNames(el, out);
-  } else if (t.isAssignmentPattern(node)) collectBindingNames(node.left, out);
-  else if (t.isRestElement(node)) collectBindingNames(node.argument, out);
-  else if (t.isTSParameterProperty(node)) collectBindingNames(node.parameter, out);
-}
-
 /**
- * Tous les noms LIÉS (déclarés) dans le code, depuis l'AST : fonctions, variables
- * (tous patterns), paramètres, catch. Sert à vérifier qu'une référence existe —
- * une valeur identifiant nu non déclarée est probablement une chaîne sans
- * guillemets.
+ * Tous les noms LIÉS dans le code, depuis l'objet structuré : variables (tous
+ * patterns), noms + paramètres de fonctions, variables de boucle, param de catch.
+ * Sert à vérifier qu'une référence existe.
  */
-export function allBindingNamesFromAst(ast: File | null): Set<string> {
+export function allBindingNames(graph: GraphModel): Set<string> {
   const names = new Set<string>();
-  if (!ast) return names;
-  traverse(ast, {
-    FunctionDeclaration(path: NodePath<t.FunctionDeclaration>) {
-      if (path.node.id) names.add(path.node.id.name);
-    },
-    VariableDeclarator(path: NodePath<t.VariableDeclarator>) {
-      collectBindingNames(path.node.id, names);
-    },
-    Function(path: NodePath<t.Function>) {
-      for (const param of path.node.params) collectBindingNames(param, names);
-    },
-    CatchClause(path: NodePath<t.CatchClause>) {
-      collectBindingNames(path.node.param, names);
-    },
+  visitAllStatements(graph, (stmt) => {
+    switch (stmt.kind) {
+      case "variable-declaration":
+        for (const n of declaredNames(stmt)) names.add(n);
+        for (const d of stmt.declarations) {
+          if (d.init?.kind === "function") for (const n of paramNames(d.init.params)) names.add(n);
+        }
+        break;
+      case "function-declaration":
+        if (stmt.name) names.add(stmt.name);
+        for (const n of paramNames(stmt.params)) names.add(n);
+        break;
+      case "for":
+        if (stmt.init?.kind === "variable-declaration")
+          for (const n of declaredNames(stmt.init)) names.add(n);
+        break;
+      case "for-of":
+      case "for-in":
+        if (stmt.left.kind === "variable-declaration")
+          for (const n of declaredNames(stmt.left)) names.add(n);
+        break;
+      case "try":
+        if (stmt.handler?.param) for (const n of patternNames(stmt.handler.param)) names.add(n);
+        break;
+    }
   });
   return names;
 }
@@ -168,9 +211,12 @@ function resolveAnchor(
   if (anchor.kind === "node") return { path: anchor.nodeId, inclusive: false };
   const t = anchor.target;
   if (t.kind === "port") return { path: t.nodeId, inclusive: true };
-  // edge : le nouveau node se place après la source de l'arête.
-  const edge = graph.edges.find((e) => e.id === t.edgeId);
-  return edge ? { path: edge.source, inclusive: true } : null;
+  if (t.kind === "edge") {
+    // edge : le nouveau node se place après la source de l'arête.
+    const edge = graph.edges.find((e) => e.id === t.edgeId);
+    return edge ? { path: edge.source, inclusive: true } : null;
+  }
+  return null; // floating : aucune portée d'ancrage
 }
 
 /**
@@ -182,6 +228,8 @@ export function breakContinueAllowed(
   graph: GraphModel,
   target: InsertTarget,
 ): { break: boolean; continue: boolean } {
+  if (target.kind === "floating") return { break: false, continue: false };
+
   const byId = new Map((graph.nodes as TypedGraphNode[]).map((n) => [n.id, n]));
 
   let startId: string;

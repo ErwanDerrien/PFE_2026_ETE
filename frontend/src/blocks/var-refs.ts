@@ -92,7 +92,7 @@ function targetVars(t: AssignmentTarget): string[] {
 // --- Déclarations → noms liés (gère la déstructuration) ---------------------
 
 /** Noms liés par un pattern de binding/déstructuration. */
-function patternNames(t: BindingTarget | AssignmentTarget): string[] {
+export function patternNames(t: BindingTarget | AssignmentTarget): string[] {
   switch (t.kind) {
     case "variable":
       return [t.name];

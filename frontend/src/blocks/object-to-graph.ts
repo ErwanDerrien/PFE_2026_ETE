@@ -110,7 +110,7 @@ const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
 // - foo(...)          → "foo"
 // - obj.method(...)   → "obj"  (on lie l'appel à la variable contenant l'objet)
 // - null si on ne peut pas résoudre statiquement
-function directCalleeName(value: Value | undefined): string | null {
+export function directCalleeName(value: Value | undefined): string | null {
   if (!value || value.kind !== "call") return null;
   if (value.callee.kind === "variable") return value.callee.name;
   if (
@@ -230,7 +230,7 @@ function describeParam(p: Parameter): string {
   }
 }
 
-const describeParams = (params: Parameter[]): string =>
+export const describeParams = (params: Parameter[]): string =>
   params.map(describeParam).join(", ");
 
 export function describeType(t: TypeAnnotation): string {

@@ -7,8 +7,9 @@
  */
 
 import type { CreatedSubgraph, GraphEdge, GraphModel, GraphNode, InsertOp, InsertPort } from "../shared";
+import { directCalleeName } from "./object-to-graph";
 import type { TypedGraphNode } from "./typed-nodes";
-import type { Statement } from "./types/globalType";
+import type { Statement, Value } from "./types/globalType";
 import { declaredNames, referencedNames } from "./var-refs";
 
 /**
@@ -143,6 +144,22 @@ export function insertNodeOnEdge(
 }
 
 /**
+ * Ajoute un node « libre » (non relié au flow) : on insère le sous-graphe sans
+ * créer d'arête de liaison vers la spine. dagre le place comme composant détaché.
+ */
+export function insertNodeFloating(
+  graph: GraphModel,
+  created: CreatedSubgraph,
+): GraphModel {
+  const entry = created.node;
+  if (graph.nodes.some((n) => n.id === entry.id)) return graph;
+  return {
+    nodes: [...graph.nodes, entry, ...created.nodes],
+    edges: [...graph.edges, ...created.edges],
+  };
+}
+
+/**
  * Accroche `newNode` à un PORT ouvert de `nodeId` (fin de spine, branche/corps
  * vide). Crée l'arête correspondant au port ; pour un corps de boucle (`body`),
  * ajoute aussi l'arête `loop-back` du nouveau node vers la boucle (cohérent avec
@@ -256,9 +273,111 @@ export function applyInsertions(
       result = insertNodeOnEdge(result, op.target.edgeId, op.created);
     } else if (op.target.kind === "port") {
       result = insertNodeAtPort(result, op.target.nodeId, op.target.port, op.created);
+    } else if (op.target.kind === "floating") {
+      result = insertNodeFloating(result, op.created);
     }
   }
   return result;
+}
+
+/** Noms de fonctions appelées par un statement (depuis l'objet structuré). */
+function calledNamesOf(stmt: Statement): string[] {
+  const out: string[] = [];
+  const add = (v: Value | undefined): void => {
+    const n = directCalleeName(v);
+    if (n) out.push(n);
+  };
+  switch (stmt.kind) {
+    case "expression-statement":
+    case "throw":
+      add(stmt.value);
+      break;
+    case "return":
+      if (stmt.value) add(stmt.value);
+      break;
+    case "assignment":
+      add(stmt.assignmentTargetValue);
+      break;
+    case "variable-declaration":
+      for (const d of stmt.declarations) if (d.init) add(d.init);
+      break;
+  }
+  return out;
+}
+
+/**
+ * Trace les arêtes `calls` (pointillés) entre un site d'appel et la définition de
+ * fonction qu'il appelle, DÈS QU'UN CÔTÉ est un node CRÉÉ (les paires 100 % AST
+ * sont déjà reliées par object-to-graph). Purement dérivé du `graph` (objet
+ * structuré) ; à ré-exécuter après chaque mutation. Idempotent (déduplique).
+ */
+export function linkCreatedCalls(graph: GraphModel): GraphModel {
+  const fnByName = new Map<string, string>();
+  for (const node of graph.nodes as TypedGraphNode[]) {
+    const stmt = node.stmt as Statement | undefined;
+    if (!stmt) continue;
+    if (stmt.kind === "function-declaration") {
+      fnByName.set(stmt.name, node.id);
+    } else if (stmt.kind === "variable-declaration") {
+      for (const d of stmt.declarations) {
+        if (d.init?.kind === "function" && d.target.kind === "variable") {
+          fnByName.set(d.target.name, node.id);
+        }
+      }
+    }
+  }
+  if (fnByName.size === 0) return graph;
+
+  const isCreated = (id: string): boolean => id.startsWith("new/");
+  const existing = new Set(
+    graph.edges.filter((e) => e.kind === "calls").map((e) => `${e.source}->${e.target}`),
+  );
+  const newEdges: GraphEdge[] = [];
+  for (const node of graph.nodes as TypedGraphNode[]) {
+    const stmt = node.stmt as Statement | undefined;
+    if (!stmt) continue;
+    for (const name of calledNamesOf(stmt)) {
+      const target = fnByName.get(name);
+      if (!target || target === node.id) continue;
+      if (!isCreated(node.id) && !isCreated(target)) continue; // au moins un côté créé
+      const key = `${node.id}->${target}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      newEdges.push({
+        id: `calls-${node.id}->${target}`,
+        source: node.id,
+        target,
+        kind: "calls",
+        sourceHandle: "args",
+        targetHandle: "exec-in",
+        label: "calls",
+      });
+    }
+  }
+  return newEdges.length === 0 ? graph : { nodes: graph.nodes, edges: [...graph.edges, ...newEdges] };
+}
+
+/**
+ * Replie visuellement les fonctions CRÉÉES listées dans `collapsed` : masque tous
+ * leurs descendants (ids préfixés par `fnId/`), retire les arêtes pendantes, et
+ * marque le node boundary `collapsed: true`. Les fonctions créées n'existant pas
+ * dans l'AST, leur repli ne peut pas passer par `astToGraph` — d'où ce filtre.
+ */
+export function applyCreatedCollapse(
+  graph: GraphModel,
+  collapsed: Set<string>,
+): GraphModel {
+  if (collapsed.size === 0) return graph;
+  const ids = [...collapsed];
+  const isHidden = (id: string): boolean =>
+    ids.some((fn) => id !== fn && id.startsWith(`${fn}/`));
+
+  const nodes = graph.nodes
+    .filter((n) => !isHidden(n.id))
+    .map((n) => (collapsed.has(n.id) ? ({ ...n, collapsed: true } as GraphNode) : n));
+  const keep = new Set(nodes.map((n) => n.id));
+  const edges = graph.edges.filter((e) => keep.has(e.source) && keep.has(e.target));
+  return { nodes, edges };
 }
 
 /**

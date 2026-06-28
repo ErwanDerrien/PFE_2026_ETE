@@ -138,10 +138,12 @@ export type InsertPort = "exec-out" | "true" | "false" | "body";
  * Cible d'une insertion de node (création de blocs, phase visuelle).
  * - `edge` : scinder une arête de flux existante (le `+` au survol d'une arête).
  * - `port` : accrocher à un port ouvert d'un node (fin de spine, branche/corps vide).
+ * - `floating` : node « libre », non relié au flow (ex. une fonction à côté).
  */
 export type InsertTarget =
   | { kind: "edge"; edgeId: string }
-  | { kind: "port"; nodeId: string; port: InsertPort };
+  | { kind: "port"; nodeId: string; port: InsertPort }
+  | { kind: "floating" };
 
 /**
  * Sous-graphe créé pour un nouveau bloc. La plupart des blocs = un seul `node`

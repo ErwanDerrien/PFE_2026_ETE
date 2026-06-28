@@ -355,6 +355,24 @@
   margin-right: 8px;
 }
 
+/* --- "Bloc libre" button (floating node creation) --- */
+.add-free-btn {
+  padding: 7px 12px;
+  font: 700 11px/1 var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.04em;
+  color: #0d0d0d;
+  background: #c8c8c8;
+  border: 1px solid #1e1e1e;
+  border-radius: 7px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: background 0.1s ease, transform 0.1s ease;
+}
+.add-free-btn:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
 /* --- Block palette popup --- */
 .palette-backdrop {
   position: fixed;

@@ -467,6 +467,7 @@ class GraphBuilder {
     this.walkBlock(statements, "s");
     this.resolvePendingCalls();
     this.resolvePendingTypeRefs();
+    this.pruneUnlinkedBoundaries();
     return { nodes: this.nodes, edges: this.edges };
   }
 
@@ -597,7 +598,7 @@ class GraphBuilder {
     kind: GraphEdge["kind"],
     label?: string,
   ): void {
-    const containerFromId = kind === "calls" ? fromId : undefined;
+    const containerFromId = (kind === "calls" || kind === "function-body") ? fromId : undefined;
     const ends = this.walkBlock(block.content, path, containerFromId);
     if (!ends) return;
     this.addEdge(fromId, ends.headId, kind, {
@@ -903,6 +904,20 @@ class GraphBuilder {
           targetHandle: "exec-in",
           label: "type",
         });
+      }
+    }
+  }
+
+  private pruneUnlinkedBoundaries(): void {
+    const connected = new Set<string>();
+    for (const edge of this.edges) {
+      connected.add(edge.source);
+      connected.add(edge.target);
+    }
+    for (let i = this.nodes.length - 1; i >= 0; i--) {
+      const n = this.nodes[i];
+      if (n.role === "boundary" && !connected.has(n.id)) {
+        this.nodes.splice(i, 1);
       }
     }
   }

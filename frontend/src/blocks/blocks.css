@@ -121,6 +121,81 @@
   text-overflow: ellipsis;
 }
 
+/* Body variant — flexible height for nodes with structured breakdown */
+.bn-body-breakdown {
+  height: auto;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 10px;
+  overflow: visible;
+}
+
+.bn-body-label {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+/* Structured breakdown rows (destructuring, member chains, object props) */
+.bn-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bn-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 0;
+  min-height: 20px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.bn-row-key {
+  color: #7dd3fc;
+  font-weight: 600;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.bn-row-detail {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.bn-row-type {
+  color: #6b7280;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.bn-row-value {
+  color: #a5d6a7;
+  margin-left: auto;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bn-row-source {
+  margin-top: 2px;
+  padding-top: 3px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.bn-chain-seg {
+  color: #facc15;
+}
+
 /* Branch footer */
 .bn-foot {
   border-top: 1px solid #3f3f3f;
@@ -150,15 +225,31 @@
   letter-spacing: 0.12em;
 }
 
-.bn-foot-true .bn-foot-label  { color: #2dd4bf; }
-.bn-foot-false .bn-foot-label { color: #9ca3af; }
-.bn-foot-body .bn-foot-label  { color: #f59e0b; } /* loop BODY port — amber */
-.bn-foot-expand   .bn-foot-label { color: #c084fc; letter-spacing: 0.1em; } /* collapsed fn — violet */
-.bn-foot-collapse .bn-foot-label { color: #a855f7; letter-spacing: 0.1em; } /* expanded fn — deeper violet */
+.bn-foot-true .bn-foot-label {
+  color: #2dd4bf;
+}
+.bn-foot-false .bn-foot-label {
+  color: #9ca3af;
+}
+.bn-foot-body .bn-foot-label {
+  color: #f59e0b;
+} /* loop BODY port — amber */
+.bn-foot-expand .bn-foot-label {
+  color: #c084fc;
+  letter-spacing: 0.1em;
+} /* collapsed fn — violet */
+.bn-foot-collapse .bn-foot-label {
+  color: #a855f7;
+  letter-spacing: 0.1em;
+} /* expanded fn — deeper violet */
 
 /* Footer expand/collapse — seul élément cliquable pour (dé)plier le node */
-.bn-foot-toggle { cursor: pointer; }
-.bn-foot-toggle:hover { background: rgba(168, 85, 247, 0.12); }
+.bn-foot-toggle {
+  cursor: pointer;
+}
+.bn-foot-toggle:hover {
+  background: rgba(168, 85, 247, 0.12);
+}
 
 /* Interface member rows — inline property list on the node card */
 .bn-members {
@@ -172,8 +263,12 @@
   align-items: center;
   border-top: 1px solid #2d2d2d;
 }
-.bn-member-row:first-child { border-top: none; }
-.bn-member-row:last-child  { border-radius: 0 0 6px 6px; }
+.bn-member-row:first-child {
+  border-top: none;
+}
+.bn-member-row:last-child {
+  border-radius: 0 0 6px 6px;
+}
 .bn-member-row code {
   font-size: 11px;
   color: #9ca3af;
@@ -189,7 +284,9 @@
 }
 .bn.bn-collapsed:hover {
   border-color: #c084fc;
-  box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.3), 0 4px 18px rgba(0, 0, 0, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.3),
+    0 4px 18px rgba(0, 0, 0, 0.65);
 }
 
 /* --- Exec handles — Bolt arrow shape (pentagon pointing right) --- */
@@ -261,8 +358,13 @@
 }
 
 /* --- Edge labels --- */
-.react-flow__edge-text    { fill: #9ca3af; font-size: 10px; }
-.react-flow__edge-textbg  { fill: #1e1e1e; }
+.react-flow__edge-text {
+  fill: #9ca3af;
+  font-size: 10px;
+}
+.react-flow__edge-textbg {
+  fill: #1e1e1e;
+}
 
 /* --- Custom flow-edge label (rendered by InsertableEdge) --- */
 .edge-flow-label {
@@ -305,7 +407,9 @@
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    background 0.1s ease;
 }
 .edge-insert-btn:hover {
   transform: scale(1.18);
@@ -328,7 +432,10 @@
   cursor: pointer;
   opacity: 0;
   z-index: 6;
-  transition: opacity 0.12s ease, transform 0.1s ease, background 0.1s ease;
+  transition:
+    opacity 0.12s ease,
+    transform 0.1s ease,
+    background 0.1s ease;
 }
 .bn:hover .bn-add-btn {
   opacity: 1;
@@ -366,7 +473,9 @@
   border-radius: 7px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-  transition: background 0.1s ease, transform 0.1s ease;
+  transition:
+    background 0.1s ease,
+    transform 0.1s ease;
 }
 .add-free-btn:hover {
   background: #fff;
@@ -418,7 +527,9 @@
   border-radius: 7px;
   color: #c9d1d9;
   cursor: pointer;
-  transition: background 0.1s ease, border-color 0.1s ease;
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
 }
 .palette-item:hover {
   background: #343434;
@@ -677,13 +788,27 @@
 }
 
 /* --- Syntax highlighting (GitHub Dark palette) --- */
-.tok-ws      { white-space: pre; }
-.tok-keyword { color: #ff7b72; }
-.tok-string  { color: #a5d6ff; }
-.tok-number  { color: #79c0ff; }
-.tok-fn      { color: #d2a8ff; }
-.tok-ident   { color: #c9d1d9; }
-.tok-punct   { color: #8b949e; }
+.tok-ws {
+  white-space: pre;
+}
+.tok-keyword {
+  color: #ff7b72;
+}
+.tok-string {
+  color: #a5d6ff;
+}
+.tok-number {
+  color: #79c0ff;
+}
+.tok-fn {
+  color: #d2a8ff;
+}
+.tok-ident {
+  color: #c9d1d9;
+}
+.tok-punct {
+  color: #8b949e;
+}
 
 /* --- Terminus (Start / End) nodes --- */
 .terminus {
@@ -714,8 +839,12 @@
   letter-spacing: 0.16em;
 }
 
-.terminus-start .terminus-label { color: #4ade80; }
-.terminus-end   .terminus-label { color: #f87171; }
+.terminus-start .terminus-label {
+  color: #4ade80;
+}
+.terminus-end .terminus-label {
+  color: #f87171;
+}
 
 .react-flow__handle.terminus-handle {
   width: 0 !important;
@@ -756,6 +885,13 @@
   display: inline-block;
 }
 
-.sw-exec  { border-top-color: #c8c8c8; }
-.sw-true  { border-top-color: #2dd4bf; }
-.sw-call  { border-top-color: #c084fc; border-top-style: dashed; }
+.sw-exec {
+  border-top-color: #c8c8c8;
+}
+.sw-true {
+  border-top-color: #2dd4bf;
+}
+.sw-call {
+  border-top-color: #c084fc;
+  border-top-style: dashed;
+}

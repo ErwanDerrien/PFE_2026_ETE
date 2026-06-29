@@ -30,17 +30,51 @@ const CARD_MAX_W = 760; // ≈ 80 caractères : couvre une ligne tronquée compl
 
 export function nodeSize(node: GraphNode): NodeSize {
   if (node.track === "expression") {
-    return { width: clamp(node.label.length * CHAR_W + 24, 60, CARD_MAX_W), height: 34 };
+    return {
+      width: clamp(node.label.length * CHAR_W + 24, 60, CARD_MAX_W),
+      height: 34,
+    };
   }
   const text = node.source ?? node.label;
-  const width = clamp(text.length * CHAR_W + CARD_PAD_X, CARD_MIN_W, CARD_MAX_W);
+  const width = clamp(
+    text.length * CHAR_W + CARD_PAD_X,
+    CARD_MIN_W,
+    CARD_MAX_W,
+  );
   // Header(32) + Body(44) = 76 base.
   // Function declarations: +1 footer row (26) → 106. Loops: same. Conditions: 2 rows → 132. Plain: 80.
   // Interface nodes grow by one row (24px) per member.
   const isFuncDeclNode = node.collapsed !== undefined;
   const memberCount = node.members?.length ?? 0;
-  const base = (isFuncDeclNode || isLooping(node.astType)) ? 106
-             : isBranching(node.astType) ? 132
-             : 80;
-  return { width, height: base + memberCount * 24 };
+
+  // Estimate breakdown rows for complex variable declarations / assignments.
+  // Heuristic: source text contains destructuring patterns or member chains.
+  let breakdownRows = 0;
+  if (
+    node.astType === "VariableDeclaration" ||
+    node.astType === "AssignmentExpression"
+  ) {
+    const src = node.source ?? "";
+    if (src) {
+      if (src.includes("{") || src.includes("[")) {
+        // Destructuring or object literal — count bindings/props by commas
+        const commas = (src.match(/,/g) ?? []).length;
+        breakdownRows = Math.max(1, commas);
+      }
+      // Deep member assignment chain: count dots
+      const dots = (src.match(/\./g) ?? []).length;
+      if (dots > 1 && node.astType === "AssignmentExpression") {
+        breakdownRows = Math.max(breakdownRows, 1);
+      }
+    }
+  }
+  const breakdownH = breakdownRows * 22; // ~22px per row (including padding)
+
+  const base =
+    isFuncDeclNode || isLooping(node.astType)
+      ? 106
+      : isBranching(node.astType)
+        ? 132
+        : 80;
+  return { width, height: base + memberCount * 24 + breakdownH };
 }

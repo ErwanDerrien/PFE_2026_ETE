@@ -112,7 +112,8 @@ const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
 // variable-declaration whose initialiser is a function/arrow (e.g. `const f = () => {}`).
 // These are treated as function boundaries: boundary role, collapsible, body-expandable.
 function getFuncVarInit(stmt: Statement): FunctionValue | null {
-  if (stmt.kind !== "variable-declaration" || stmt.declarations.length !== 1) return null;
+  if (stmt.kind !== "variable-declaration" || stmt.declarations.length !== 1)
+    return null;
   const init = stmt.declarations[0].init;
   return init?.kind === "function" ? (init as FunctionValue) : null;
 }
@@ -220,9 +221,26 @@ export function describeTarget(t: AssignmentTarget): string {
     case "index":
       return `${describe(t.object)}[${describe(t.index)}]`;
     case "array-destructure":
-      return "[…]";
+      return `[${t.elements
+        .map((el) => {
+          if (!el) return "";
+          if (el.kind === "rest") return `...${describeTarget(el.target)}`;
+          if (el.kind === "defaulted")
+            return `${describeTarget(el.target)} = ${describe(el.default)}`;
+          return describeTarget(el);
+        })
+        .join(", ")}]`;
     case "object-destructure":
-      return "{…}";
+      return `{ ${t.properties
+        .map((p) => {
+          if (p.kind === "rest") return `...${describeTarget(p.target)}`;
+          let s = p.key;
+          if (p.alias) s = `${p.key}: ${p.alias}`;
+          if (p.nested) s = `${p.key}: ${describeTarget(p.nested)}`;
+          if (p.default) s += ` = ${describe(p.default)}`;
+          return s;
+        })
+        .join(", ")} }`;
   }
 }
 
@@ -231,9 +249,26 @@ export function describeBinding(t: BindingTarget): string {
     case "variable":
       return t.name;
     case "array-destructure":
-      return "[…]";
+      return `[${t.elements
+        .map((el) => {
+          if (!el) return "";
+          if (el.kind === "rest") return `...${describeTarget(el.target)}`;
+          if (el.kind === "defaulted")
+            return `${describeTarget(el.target)} = ${describe(el.default)}`;
+          return describeTarget(el);
+        })
+        .join(", ")}]`;
     case "object-destructure":
-      return "{…}";
+      return `{ ${t.properties
+        .map((p) => {
+          if (p.kind === "rest") return `...${describeTarget(p.target)}`;
+          let s = p.key;
+          if (p.alias) s = `${p.key}: ${p.alias}`;
+          if (p.nested) s = `${p.key}: ${describeTarget(p.nested)}`;
+          if (p.default) s += ` = ${describe(p.default)}`;
+          return s;
+        })
+        .join(", ")} }`;
   }
 }
 
@@ -246,7 +281,7 @@ function describeParam(p: Parameter): string {
     case "rest-param":
       return `...${p.name}`;
     case "destructured-param":
-      return p.target.kind === "array-destructure" ? "[…]" : "{…}";
+      return describeTarget(p.target);
   }
 }
 
@@ -593,6 +628,7 @@ class GraphBuilder {
       source?: string;
       collapsed?: boolean;
       members?: string[];
+      data?: Record<string, unknown>;
     },
     stmt: Statement | Value,
   ): string {
@@ -611,6 +647,7 @@ class GraphBuilder {
         ? { collapsed: fields.collapsed }
         : {}),
       ...(fields.members !== undefined ? { members: fields.members } : {}),
+      ...(fields.data !== undefined ? { data: fields.data } : {}),
     } as TypedGraphNode;
     this.nodes.push(node);
     return id;
@@ -768,12 +805,15 @@ class GraphBuilder {
     const isFuncLike = isFuncDecl || funcVarInit !== null;
     const role = isFuncLike ? "boundary" : roleForStatement(stmt.kind);
     const level: NodeLevel = role === "boundary" ? 1 : 2;
-    const isExpanded = isFuncLike && (this.options.expandedFunctions?.has(path) ?? false);
+    const isExpanded =
+      isFuncLike && (this.options.expandedFunctions?.has(path) ?? false);
     const ifaceMembers = isIfaceDecl
       ? (stmt as InterfaceDeclaration).members.map(describeMember)
       : undefined;
     const astType = funcVarInit
-      ? (funcVarInit.arrow ? "ArrowFunctionExpression" : "FunctionExpression")
+      ? funcVarInit.arrow
+        ? "ArrowFunctionExpression"
+        : "FunctionExpression"
       : (STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind);
 
     const id = this.emitNode(
@@ -863,9 +903,7 @@ class GraphBuilder {
 
         if (stmt.finalizer) {
           const finalizer = stmt.finalizer;
-          const tryAbrupt = tryEnds
-            ? endsAbruptly(stmt.block.content)
-            : false;
+          const tryAbrupt = tryEnds ? endsAbruptly(stmt.block.content) : false;
 
           // A `finally` always runs, but where control goes AFTER it depends on
           // how the protected block completed:
@@ -918,7 +956,8 @@ class GraphBuilder {
           });
         } else {
           // No finally: try body tail is the primary continuation; catch tail is open.
-          if (tryEnds && !endsAbruptly(stmt.block.content)) tailId = tryEnds.tailId;
+          if (tryEnds && !endsAbruptly(stmt.block.content))
+            tailId = tryEnds.tailId;
           if (handlerTailId && !endsAbruptly(stmt.handler!.body.content))
             openExecTails = [handlerTailId];
         }
@@ -1024,7 +1063,10 @@ class GraphBuilder {
       if (NON_EXEC.has(stmt.kind) || funcVar !== null) {
         // When inside an expanded function body, connect nested definitions
         // with a `calls` edge so they appear linked rather than floating.
-        if ((stmt.kind === "function-declaration" || funcVar !== null) && containerFromId) {
+        if (
+          (stmt.kind === "function-declaration" || funcVar !== null) &&
+          containerFromId
+        ) {
           this.addEdge(containerFromId, ends.headId, "calls", {
             sourceHandle: "args",
             targetHandle: "exec-in",
@@ -1065,7 +1107,9 @@ class GraphBuilder {
       headId: firstHead,
       tailId: prevTail,
       ...(prevOpenFalse.length > 0 ? { openFalseBranches: prevOpenFalse } : {}),
-      ...(prevOpenExecTails.length > 0 ? { openExecTails: prevOpenExecTails } : {}),
+      ...(prevOpenExecTails.length > 0
+        ? { openExecTails: prevOpenExecTails }
+        : {}),
     };
   }
 
@@ -1098,7 +1142,6 @@ class GraphBuilder {
       }
     }
   }
-
 }
 
 // ---------------------------------------------------------------------------

@@ -31,12 +31,20 @@ classify(85);
 export default function Workspace() {
   const [code, setCode] = useState(SAMPLE);
   const setSource = useAstStore((s) => s.setSource);
+  const source = useAstStore((s) => s.source);
+  const lastOrigin = useAstStore((s) => s.lastOrigin);
   const error = useAstStore((s) => s.error);
 
   // Seed le store au montage avec l'exemple.
   useEffect(() => {
     setSource(SAMPLE, "editor");
   }, [setSource]);
+
+  // Round-trip : quand l'édition vient des BLOCS, on régénère le code et on le
+  // reflète dans l'éditeur (sans écraser la frappe en cours côté éditeur).
+  useEffect(() => {
+    if (lastOrigin === "blocks") setCode(source);
+  }, [source, lastOrigin]);
 
   const onChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value;

@@ -17,7 +17,7 @@
 
 import type { File } from './ast';
 import type { SupportedLanguage } from './ast';
-import type { CreatedSubgraph, GraphModel, GraphNode, InsertOp, InsertTarget, SourceLoc } from './graph';
+import type { GraphModel, GraphNode, InsertTarget, SourceLoc } from './graph';
 
 /** Options de transformation AST -> graphe (réglages de l'équipe A). */
 export interface GraphOptions {
@@ -85,11 +85,18 @@ export interface AstStoreState {
   // --- source de vérité ---
   /** L'AST Babel. `null` tant qu'aucun code valide n'a été parsé. */
   ast: File | null;
+  /**
+   * L'OBJET STRUCTURÉ persistant (`<global>` FunctionDeclaration), source de
+   * vérité des blocs : les éditions de blocs le mutent, puis `graph`/`ast`/`source`
+   * en sont re-dérivés. Typé `unknown` ici pour ne pas faire dépendre /shared de
+   * /blocks ; le store le manipule comme `FunctionDeclaration`.
+   */
+  codeObj: unknown;
 
-  // --- projections dérivées (maintenues à jour depuis `ast`) ---
+  // --- projections dérivées (maintenues à jour depuis `ast`/`codeObj`) ---
   /** Le code source courant (dérivé via generate, ou tel que saisi). */
   source: string;
-  /** Le graphe de blocs courant (dérivé via astToGraph). */
+  /** Le graphe de blocs courant (dérivé via objectToGraph). */
   graph: GraphModel;
   language: SupportedLanguage;
   /** Dernière erreur de sync, ou `null`. */
@@ -102,22 +109,17 @@ export interface AstStoreState {
   setSource: (source: string, origin: EditOrigin) => void;
   /** Équipe A (blocs) : édition du graphe -> graphToAst -> ast -> code. */
   applyGraphEdit: (graph: GraphModel, origin: EditOrigin) => void;
-  /**
-   * Suppression visuelle d'un node (cascade sur son contenu, rebranchement de la
-   * spine). Phase 1 : édite uniquement la projection `graph`, n'écrit PAS vers
-   * l'AST (les transforms sont encore en stub).
-   */
+  /** Suppression d'un node : retire le statement de l'objet, re-dérive tout. */
   deleteNode: (nodeId: string) => void;
   /**
-   * Création visuelle d'un node : insère `node` (déjà construit, voir
-   * `blocks/node-create.ts`) selon `target` (ex. en scindant une arête). Phase 1 :
-   * édite uniquement la projection `graph`, n'écrit PAS vers l'AST.
+   * Création d'un node : insère le statement de `node` (construit via
+   * `blocks/node-create.ts`) dans l'objet selon `target` (arête/port/libre),
+   * puis re-dérive graph/AST/code.
    */
-  insertNode: (target: InsertTarget, created: CreatedSubgraph) => void;
+  insertNode: (target: InsertTarget, node: GraphNode) => void;
   /**
-   * Modification visuelle d'un node : remplace le node `nodeId` par `node`
-   * (reconstruit depuis le formulaire d'édition), arêtes inchangées. Phase 1 :
-   * édite uniquement la projection `graph`.
+   * Modification d'un node : remplace le statement au chemin `nodeId` par celui
+   * de `node` (reconstruit depuis le formulaire), puis re-dérive.
    */
   updateNode: (nodeId: string, node: GraphNode) => void;
   /** Change le langage de parsing (re-parse le code courant). */
@@ -125,37 +127,9 @@ export interface AstStoreState {
   /** Réinitialise tout l'état. */
   reset: () => void;
 
-  // --- suppressions visuelles persistées (phase 1, sans round-trip AST) ---
-  /**
-   * IDs des nœuds supprimés visuellement. Ré-appliqués après chaque re-dérivation
-   * du graphe (collapse/expand) pour que la suppression « tienne ». Réinitialisé
-   * quand le code source change (les ids path-based peuvent alors se décaler).
-   */
-  deletedNodes: Set<string>;
-
-  // --- créations visuelles persistées (phase 1, sans round-trip AST) ---
-  /**
-   * Insertions de nodes appliquées visuellement. Ré-appliquées après chaque
-   * re-dérivation du graphe (collapse/expand) pour que la création « tienne ».
-   * Réinitialisé quand le code source change (ids path-based instables).
-   */
-  insertions: InsertOp[];
-
-  // --- éditions visuelles persistées (phase 1, sans round-trip AST) ---
-  /**
-   * Nodes modifiés (id → node édité), ré-appliqués en dernier après chaque
-   * re-dérivation du graphe. Réinitialisé quand le code source change.
-   */
-  edits: Map<string, GraphNode>;
-
   // --- expansion des définitions de fonction ---
   /** Ensemble des IDs de nœuds de fonction dont le corps est actuellement déplié. */
   expandedFunctions: Set<string>;
-  /**
-   * IDs des fonctions CRÉÉES (non issues de l'AST) actuellement repliées. Leur
-   * repli est purement visuel (masquage des descendants), géré hors `astToGraph`.
-   */
-  collapsedCreated: Set<string>;
   /** Bascule l'état déplié/replié d'un nœud de définition de fonction. */
   toggleFunctionNode: (nodeId: string) => void;
 }

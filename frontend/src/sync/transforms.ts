@@ -16,6 +16,7 @@
 import type { AstToGraph, Generate, Parse } from "../shared";
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG } from "../shared";
 import { parse as babelParser } from "@babel/parser";
+import _generate from "@babel/generator";
 import traversePath from "../blocks/ast-mapping";
 import { objectToGraph } from "../blocks/object-to-graph";
 import type {
@@ -25,13 +26,6 @@ import type {
 import { convertObjectToAst } from "../blocks/astConverter/ast-converter";
 import type { File } from "@babel/types"
 
-/** Lève une erreur explicite tant qu'une transformation n'est pas implémentée. */
-function notImplemented(fn: string, context: string): never {
-  throw new Error(
-    `[sync] ${fn}() non implémenté — TODO équipe A. Contexte : ${context}`,
-  );
-}
-
 /**
  * code -> AST. À implémenter avec :
  *   `parse(source, LANGUAGE_CONFIG[language].parserOptions)` depuis `@babel/parser`.
@@ -40,9 +34,14 @@ export const parse: Parse = (source, language = DEFAULT_LANGUAGE) => {
   return babelParser(source, LANGUAGE_CONFIG[language].parserOptions);
 };
 
-/** AST -> code. À implémenter avec `generate(ast).code` depuis `@babel/generator`. */
-export const generate: Generate = (ast) =>
-  notImplemented("generate", `racine AST=${ast.type}`);
+// Interop ESM/CJS de @babel/generator (cf. ast-mapping pour @babel/traverse).
+const generator =
+  typeof _generate === "function"
+    ? _generate
+    : (_generate as { default: typeof _generate }).default;
+
+/** AST -> code, via `@babel/generator`. */
+export const generate: Generate = (ast) => generator(ast).code;
 
 /**
  * AST -> graphe de blocs. Cœur en lecture.

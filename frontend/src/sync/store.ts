@@ -1,49 +1,66 @@
 /**
- * Store AST partagé — la SOURCE UNIQUE DE VÉRITÉ de toute l'application.
+ * Store AST partagé — SOURCE UNIQUE DE VÉRITÉ de l'application.
  *
- * L'état canonique est `ast` (l'AST Babel). `source` (code) et `graph` (blocs)
- * sont des projections maintenues à jour à chaque écriture. Toutes les équipes
- * LISENT cet état via `useAstStore(...)` ; elles ÉCRIVENT uniquement via les
- * actions, qui réconcilient systématiquement vers l'AST.
+ * Deux états canoniques :
+ *   - `ast`     : l'AST Babel (pour l'éditeur de code, le langage naturel).
+ *   - `codeObj` : l'OBJET STRUCTURÉ (`<global>` FunctionDeclaration) — source de
+ *                 vérité des BLOCS. Les éditions de blocs le mutent.
+ * `source` et `graph` sont des projections re-dérivées à chaque écriture.
  *
- * Flux d'écriture :
- *   - éditeur (B) / langage naturel (Émie) : `setSource(code, origin)`
- *       -> parse -> ast -> astToGraph -> graph
- *   - blocs (A) : `applyGraphEdit(graph, origin)`
- *       -> graphToAst -> ast -> generate -> code
+ * Flux :
+ *   - éditeur (B) / langage naturel : `setSource(code)` → parse → ast → codeObj
+ *     (traversePath) → graph (objectToGraph).
+ *   - blocs (A) : `insertNode/updateNode/deleteNode` → mutent `codeObj` →
+ *     graph (objectToGraph) + ast (convertObjectToAst) + source (generate).
  *
- * `lastOrigin` permet à chaque vue d'ignorer ses propres modifications et d'éviter
- * les boucles de synchronisation.
- *
- * Propriétaire : équipe A (/sync). Branché sur des transforms encore en STUB —
- * voir `transforms.ts`. Le câblage est complet ; il « marchera » dès que l'équipe A
- * implémentera les quatre transformations.
+ * Propriétaire : équipe A (/sync).
  */
 
 import { create } from 'zustand';
-import type { AstStoreState, SyncError, SyncPhase } from '../shared';
+import type { AstStoreState, EditOrigin, GraphNode, SyncError, SyncPhase } from '../shared';
 import { DEFAULT_LANGUAGE, EMPTY_GRAPH } from '../shared';
-import { astToGraph, generate, graphToAst, parse } from './transforms';
-import { applyCreatedCollapse, applyDeletions, applyEdits, applyInsertions, collectVariableDeletionIds, insertNodeAtPort, insertNodeFloating, insertNodeOnEdge, linkCreatedCalls } from '../blocks/graph-edit';
+import { generate, parse } from './transforms';
+import traversePath from '../blocks/ast-mapping';
+import { objectToGraph } from '../blocks/object-to-graph';
+import { convertObjectToAst } from '../blocks/astConverter/ast-converter';
+import { objectDelete, objectInsert, objectUpdate } from '../blocks/object-edit';
+import type { FunctionDeclaration } from '../blocks/types/function';
+import type { Statement } from '../blocks/types/globalType';
+import type { TypedGraphNode } from '../blocks/typed-nodes';
 
 /** Normalise n'importe quelle exception en `SyncError` taggée par phase. */
 function toSyncError(phase: SyncPhase, e: unknown): SyncError {
   return { phase, message: e instanceof Error ? e.message : String(e) };
 }
 
+/**
+ * Re-dérive le `graph` (toujours) puis l'`ast`/`source` (best-effort) depuis un
+ * objet structuré édité. Renvoie un patch d'état pour `set`.
+ */
+function project(codeObj: FunctionDeclaration, expandedFunctions: Set<string>) {
+  const graph = objectToGraph(codeObj, { expandedFunctions });
+  try {
+    const ast = convertObjectToAst(codeObj);
+    const source = generate(ast);
+    return { codeObj, graph, ast, source, error: null, lastOrigin: 'blocks' as EditOrigin };
+  } catch (e) {
+    return { codeObj, graph, error: toSyncError('graphToAst', e), lastOrigin: 'blocks' as EditOrigin };
+  }
+}
+
+/** Extrait le `stmt` structuré d'un node construit par `node-create`. */
+const stmtOf = (node: GraphNode): Statement => (node as unknown as TypedGraphNode).stmt as Statement;
+
 export const useAstStore = create<AstStoreState>()((set, get) => ({
   // --- état initial ---
   ast: null,
+  codeObj: null,
   source: '',
   graph: EMPTY_GRAPH,
   language: DEFAULT_LANGUAGE,
   error: null,
   lastOrigin: null,
   expandedFunctions: new Set<string>(),
-  collapsedCreated: new Set<string>(),
-  deletedNodes: new Set<string>(),
-  insertions: [],
-  edits: new Map(),
 
   // --- écritures ---
   setSource: (source, origin) => {
@@ -51,127 +68,68 @@ export const useAstStore = create<AstStoreState>()((set, get) => ({
     try {
       const ast = parse(source, language);
       try {
-        // Reset expansion AND deletion state when source changes — node IDs are
-        // path-based and may shift, so persisted deletions no longer apply.
-        const graph = astToGraph(ast);
-        set({ ast, source, graph, expandedFunctions: new Set(), collapsedCreated: new Set(), deletedNodes: new Set(), insertions: [], edits: new Map(), error: null, lastOrigin: origin });
+        // L'objet structuré devient la base éditable des blocs.
+        const codeObj = traversePath(ast) as FunctionDeclaration;
+        const graph = objectToGraph(codeObj, { expandedFunctions: new Set() });
+        set({ ast, codeObj, source, graph, expandedFunctions: new Set(), error: null, lastOrigin: origin });
       } catch (e) {
-        set({ ast, source, expandedFunctions: new Set(), collapsedCreated: new Set(), deletedNodes: new Set(), insertions: [], edits: new Map(), error: toSyncError('astToGraph', e), lastOrigin: origin });
+        set({ ast, source, expandedFunctions: new Set(), error: toSyncError('astToGraph', e), lastOrigin: origin });
       }
     } catch (e) {
       set({ source, error: toSyncError('parse', e), lastOrigin: origin });
     }
   },
 
-  applyGraphEdit: (graph, origin) => {
-    const { ast } = get();
-    if (!ast) {
-      set({
-        graph,
-        lastOrigin: origin,
-        error: {
-          phase: 'graphToAst',
-          message: 'Aucun AST de base : parsez du code avant d’éditer les blocs.',
-        },
-      });
-      return;
-    }
-    try {
-      const nextAst = graphToAst(graph, ast);
-      try {
-        const source = generate(nextAst);
-        set({ ast: nextAst, graph, source, error: null, lastOrigin: origin });
-      } catch (e) {
-        set({ ast: nextAst, graph, error: toSyncError('generate', e), lastOrigin: origin });
-      }
-    } catch (e) {
-      set({ graph, error: toSyncError('graphToAst', e), lastOrigin: origin });
-    }
-  },
+  // Conservé pour le contrat : mise à jour visuelle du graphe sans round-trip.
+  applyGraphEdit: (graph, origin) => set({ graph, lastOrigin: origin }),
 
   setLanguage: (language) => {
     set({ language });
-    // Re-parse le code courant avec le nouveau langage.
     get().setSource(get().source, 'system');
   },
 
   reset: () =>
     set({
       ast: null,
+      codeObj: null,
       source: '',
       graph: EMPTY_GRAPH,
       error: null,
       lastOrigin: null,
       expandedFunctions: new Set(),
-      collapsedCreated: new Set(),
-      deletedNodes: new Set(),
-      insertions: [],
-      edits: new Map(),
     }),
 
-  deleteNode: (nodeId: string) => {
-    // Phase 1 : suppression purement visuelle. On mute directement le `graph`
-    // (que le canvas lit) sans passer par graphToAst/generate (encore en stub).
-    // Supprimer une variable supprime aussi (en cascade transitive) tout ce qui
-    // la référence. On mémorise tous les ids pour ré-appliquer après collapse/expand.
-    const { graph, deletedNodes } = get();
-    const ids = collectVariableDeletionIds(graph, nodeId);
-    const nextDeleted = new Set(deletedNodes);
-    ids.forEach((id) => nextDeleted.add(id));
-    set({ graph: applyDeletions(graph, ids), deletedNodes: nextDeleted, lastOrigin: 'blocks' });
-  },
-
-  insertNode: (target, created) => {
-    // Phase 1 : création purement visuelle. On mute directement le `graph` sans
-    // passer par graphToAst/generate (encore en stub). On mémorise l'opération
-    // pour la ré-appliquer après collapse/expand (cf. toggleFunctionNode).
-    const { graph, insertions } = get();
-    let next = graph;
-    if (target.kind === 'edge') next = insertNodeOnEdge(graph, target.edgeId, created);
-    else if (target.kind === 'port') next = insertNodeAtPort(graph, target.nodeId, target.port, created);
-    else if (target.kind === 'floating') next = insertNodeFloating(graph, created);
-    if (next === graph) return; // cible introuvable : no-op
-    // Relie les sites d'appel ↔ définitions impliquant des nodes créés (calls).
-    next = linkCreatedCalls(next);
-    set({ graph: next, insertions: [...insertions, { target, created }], lastOrigin: 'blocks' });
+  // --- éditions de blocs : mutent l'objet structuré, puis re-dérivent ---
+  insertNode: (target, node) => {
+    const { codeObj, graph, expandedFunctions } = get();
+    if (!codeObj) return;
+    const next = objectInsert(codeObj as FunctionDeclaration, graph, target, stmtOf(node));
+    if (!next) return;
+    set(project(next, expandedFunctions));
   },
 
   updateNode: (nodeId, node) => {
-    // Phase 1 : modification purement visuelle. On remplace le node dans `graph`
-    // et on mémorise l'édition pour la ré-appliquer après collapse/expand.
-    const { graph, edits } = get();
-    if (!graph.nodes.some((n) => n.id === nodeId)) return;
-    const nextEdits = new Map(edits);
-    nextEdits.set(nodeId, node);
-    const nextGraph = linkCreatedCalls({ ...graph, nodes: graph.nodes.map((n) => (n.id === nodeId ? node : n)) });
-    set({ graph: nextGraph, edits: nextEdits, lastOrigin: 'blocks' });
+    const { codeObj, expandedFunctions } = get();
+    if (!codeObj) return;
+    const next = objectUpdate(codeObj as FunctionDeclaration, nodeId, stmtOf(node));
+    if (!next) return;
+    set(project(next, expandedFunctions));
   },
 
-  toggleFunctionNode: (nodeId: string) => {
-    const { ast, expandedFunctions, collapsedCreated, deletedNodes, insertions, edits } = get();
-    if (!ast) return;
+  deleteNode: (nodeId) => {
+    const { codeObj, expandedFunctions } = get();
+    if (!codeObj) return;
+    const next = objectDelete(codeObj as FunctionDeclaration, nodeId);
+    if (!next) return;
+    set(project(next, expandedFunctions));
+  },
 
-    // Fonction CRÉÉE : repli purement visuel (elle n'est pas dans l'AST).
-    const created = nodeId.startsWith('new/');
-    const nextExpanded = new Set(expandedFunctions);
-    const nextCollapsed = new Set(collapsedCreated);
-    if (created) {
-      if (nextCollapsed.has(nodeId)) nextCollapsed.delete(nodeId); else nextCollapsed.add(nodeId);
-    } else {
-      if (nextExpanded.has(nodeId)) nextExpanded.delete(nodeId); else nextExpanded.add(nodeId);
-    }
-
-    try {
-      // Re-dérive depuis l'AST PUIS ré-applique suppressions, créations, éditions
-      // et enfin le repli visuel des fonctions créées.
-      const derived = applyDeletions(astToGraph(ast, { expandedFunctions: nextExpanded }), deletedNodes);
-      const graph = applyCreatedCollapse(
-        linkCreatedCalls(applyEdits(applyInsertions(derived, insertions), edits)),
-        nextCollapsed,
-      );
-      set({ expandedFunctions: nextExpanded, collapsedCreated: nextCollapsed, graph });
-    } catch (e) {
-      set({ expandedFunctions: nextExpanded, collapsedCreated: nextCollapsed, error: toSyncError('astToGraph', e) });
-    }
+  toggleFunctionNode: (nodeId) => {
+    // Vue seule : déplie/replie une fonction (n'altère pas l'objet ni le code).
+    const { codeObj, expandedFunctions } = get();
+    if (!codeObj) return;
+    const next = new Set(expandedFunctions);
+    if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId);
+    set({ expandedFunctions: next, graph: objectToGraph(codeObj as FunctionDeclaration, { expandedFunctions: next }) });
   },
 }));

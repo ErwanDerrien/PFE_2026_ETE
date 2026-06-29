@@ -29,7 +29,7 @@ import {
   type RequestInsert,
 } from "../edges/insertion-context";
 import { graphToFlow } from "../graph-to-flow";
-import { buildCreatedGraph, needsForm, nextNodeId, type BlockSpec } from "../node-create";
+import { buildStatementNode, needsForm, nextNodeId, type BlockSpec } from "../node-create";
 import { nodeTypes } from "../nodes";
 import type { TypedGraphModel, TypedGraphNode } from "../typed-nodes";
 import BlockForm from "./BlockForm";
@@ -43,6 +43,9 @@ export default function BlocksCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Node dont la sidebar d'édition est ouverte. Piloté par un vrai CLIC
+  // (`onNodeClick`), pas par la sélection — sinon déplacer un node l'ouvrirait.
+  const [inspectedId, setInspectedId] = useState<string | null>(null);
   // Insertion en cours : cible (arête à scinder) + point d'ancrage du popup.
   const [pending, setPending] = useState<
     { target: InsertTarget; x: number; y: number } | null
@@ -67,7 +70,7 @@ export default function BlocksCanvas() {
   const insertSpec = useCallback(
     (spec: BlockSpec) => {
       if (!pending) return;
-      insertNode(pending.target, buildCreatedGraph(spec, nextNodeId()));
+      insertNode(pending.target, buildStatementNode(spec, nextNodeId()));
       setPending(null);
       setFormKind(null);
     },
@@ -113,9 +116,9 @@ export default function BlocksCanvas() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId, deleteNode]);
 
-  // Node sélectionné (pour la sidebar d'édition).
-  const selectedNode = selectedId
-    ? (graph.nodes.find((n) => n.id === selectedId) as TypedGraphNode | undefined)
+  // Node ouvert dans la sidebar d'édition (sur clic, pas sur drag).
+  const selectedNode = inspectedId
+    ? (graph.nodes.find((n) => n.id === inspectedId) as TypedGraphNode | undefined)
     : undefined;
 
   return (
@@ -127,6 +130,8 @@ export default function BlocksCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onSelectionChange={onSelectionChange}
+        onNodeClick={(_, node) => setInspectedId(node.id)}
+        onPaneClick={() => setInspectedId(null)}
         onEdgeMouseEnter={(_, edge) => setHoveredEdge(edge.id)}
         onEdgeMouseLeave={() => setHoveredEdge(null)}
         deleteKeyCode={null}
@@ -186,7 +191,7 @@ export default function BlocksCanvas() {
         />
       )}
       {selectedNode && (
-        <BlockSidebar node={selectedNode} onClose={() => setSelectedId(null)} />
+        <BlockSidebar node={selectedNode} onClose={() => setInspectedId(null)} />
       )}
       </HoveredEdgeProvider>
     </InsertionProvider>

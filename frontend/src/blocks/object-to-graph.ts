@@ -523,7 +523,8 @@ class GraphBuilder {
     this.walkBlock(statements, "s");
     this.resolvePendingCalls();
     this.resolvePendingTypeRefs();
-    this.pruneUnlinkedBoundaries();
+    // Note : on n'élague PAS les fonctions sans arête — une fonction déclarée
+    // (même non appelée, ex. créée en bloc libre) doit rester visible comme node.
     return { nodes: this.nodes, edges: this.edges };
   }
 
@@ -990,19 +991,6 @@ class GraphBuilder {
     }
   }
 
-  private pruneUnlinkedBoundaries(): void {
-    const connected = new Set<string>();
-    for (const edge of this.edges) {
-      connected.add(edge.source);
-      connected.add(edge.target);
-    }
-    for (let i = this.nodes.length - 1; i >= 0; i--) {
-      const n = this.nodes[i];
-      if (n.role === "boundary" && !connected.has(n.id)) {
-        this.nodes.splice(i, 1);
-      }
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------

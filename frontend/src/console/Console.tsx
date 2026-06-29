@@ -55,7 +55,7 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
   const handleInputRequest = (question: string): Promise<string> => {
     return new Promise((resolve) => {
       // Afficher la question
-      addMessage('info', `❓ ${question}`);
+      addMessage('info', `${question}`);
       
       // Activer le mode input et mettre en attente
       setInputMode(true);
@@ -165,7 +165,7 @@ ${asyncCode}`;
       // Créer la fonction input qui utilise notre handleInputRequest
       const customInput = async (question: string): Promise<string> => {
         return new Promise((resolve) => {
-          addMessage('info', `❓ ${question}`);
+          addMessage('info', `${question}`);
           setInputMode(true);
           setInputQuestion(question);
           setPendingInput({ resolve, question });
@@ -217,30 +217,7 @@ ${asyncCode}`;
     }
   };
 
-  // Exécuter du code depuis l'input utilisateur
-  const executeUserInput = () => {
-    if (!userInput.trim()) return;
-    
-    addMessage('info', `> ${userInput}`);
-    setUserInput("");
-    
-    // Exécuter le code tapé par l'utilisateur
-    try {
-      const result = eval(userInput);
-      if (result !== undefined && result !== null) {
-        addMessage('output', String(result));
-      }
-    } catch (error: any) {
-      addMessage('error', `Erreur: ${error.message}`);
-    }
-  };
-
-  // Gérer la touche Entrée dans l'input
-  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      executeUserInput();
-    }
-  };
+  
 
   return (
     <div className="console-container">
@@ -303,7 +280,7 @@ ${asyncCode}`;
         <div className="console-input-modal">
           <div className="input-modal-content">
             <div className="input-modal-question">
-              {inputQuestion && <span>❓ {inputQuestion}</span>}
+              {inputQuestion && <span>{inputQuestion}</span>}
             </div>
             <div className="input-modal-field">
               <span className="input-prompt">&gt;</span>
@@ -333,27 +310,6 @@ ${asyncCode}`;
           </div>
         </div>
       )}
-      
-      {/* Input utilisateur pour exécuter du code directement */}
-      <div className="console-input-container">
-        <span className="input-prompt">&gt;</span>
-        <input
-          ref={inputRef}
-          type="text"
-          className="console-input"
-          placeholder="Tapez du code JavaScript et appuyez sur Entrée..."
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-          onKeyPress={handleInputKeyPress}
-        />
-        <button 
-          className="input-submit"
-          onClick={executeUserInput}
-          title="Exécuter le code tapé"
-        >
-          ▶️
-        </button>
-      </div>
       
       <div className="console-stats">
         <span>{messages.length} message(s)</span>

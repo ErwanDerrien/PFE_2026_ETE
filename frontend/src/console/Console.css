@@ -219,3 +219,134 @@
 .console-output::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+/* Input utilisateur */
+.console-input-container {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #252526;
+  border-top: 1px solid #333;
+  gap: 8px;
+}
+
+.input-prompt {
+  color: #6a9955;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.console-input {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #cccccc;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.console-input:focus {
+  border-color: #007acc;
+}
+
+.console-input::placeholder {
+  color: #6a6a6a;
+  font-style: italic;
+}
+
+.input-submit {
+  padding: 8px 12px;
+  background-color: #238636;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.input-submit:hover {
+  background-color: #2ea043;
+}
+
+.input-submit:active {
+  background-color: #238636;
+}
+/* Message d'input utilisateur */
+.console-message-input {
+  color: #dcdcaa;
+  background-color: rgba(220, 220, 170, 0.1);
+  padding: 8px 12px;
+  border-left: 3px solid #dcdcaa;
+  font-style: italic;
+}
+
+/* Modal d'input */
+.console-input-modal {
+  padding: 15px;
+  background-color: #1e1e1e;
+  border-top: 2px solid #dcdcaa;
+}
+
+.input-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-modal-question {
+  color: #dcdcaa;
+  font-size: 14px;
+  padding: 8px 12px;
+  background-color: rgba(220, 220, 170, 0.1);
+  border-radius: 4px;
+}
+
+.input-modal-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-modal-field .console-input-modal {
+  flex: 1;
+  padding: 10px 12px;
+  background-color: #252526;
+  border: 1px solid #dcdcaa;
+  border-radius: 4px;
+  color: #ffffff;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 14px;
+  outline: none;
+}
+
+.input-modal-field .console-input-modal:focus {
+  border-color: #dcdcaa;
+  box-shadow: 0 0 0 1px #dcdcaa;
+}
+
+.input-modal-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #6a6a6a;
+  text-align: center;
+}
+
+.input-cancel {
+  padding: 8px 12px;
+  background-color: #f48771;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.input-cancel:hover {
+  background-color: #da3633;
+}

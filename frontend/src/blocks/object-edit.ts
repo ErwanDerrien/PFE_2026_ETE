@@ -105,8 +105,19 @@ export function objectInsert(
 ): Root | null {
   const next = clone(codeObj);
 
+  if (target.kind === "before") {
+    const slot = statementSlot(next, target.nodeId);
+    if (!slot) return null;
+    slot.container.splice(slot.index, 0, stmt);
+    return next;
+  }
+
   if (target.kind === "floating") {
-    next.body.content.push(stmt);
+    if (stmt.kind === "function-declaration") {
+      next.body.content.unshift(stmt);
+    } else {
+      next.body.content.push(stmt);
+    }
     return next;
   }
 

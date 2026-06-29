@@ -43,6 +43,8 @@ type Endpoints = {
   tailId: string;
   // if-node IDs whose branch-false port has no target yet — connect to the next stmt in sequence
   openFalseBranches?: string[];
+  // node IDs whose exec-out port has no target yet (try/catch tails) — connect to the next stmt
+  openExecTails?: string[];
 };
 
 const BOUNDARY_KINDS = new Set(["function-declaration", "function"]);
@@ -105,6 +107,24 @@ const isLeaf = (v: Value): boolean =>
 // interface est purement type-level — aucune ne s'exécute au lancement. On les
 // garde comme nœuds (définitions) mais hors de la chaîne d'exécution `exec`.
 const NON_EXEC = new Set(["function-declaration", "interface-declaration"]);
+
+// Returns the FunctionValue init if the statement is a single-declaration
+// variable-declaration whose initialiser is a function/arrow (e.g. `const f = () => {}`).
+// These are treated as function boundaries: boundary role, collapsible, body-expandable.
+function getFuncVarInit(stmt: Statement): FunctionValue | null {
+  if (stmt.kind !== "variable-declaration" || stmt.declarations.length !== 1) return null;
+  const init = stmt.declarations[0].init;
+  return init?.kind === "function" ? (init as FunctionValue) : null;
+}
+
+// True if a block ends with an abrupt completion (`throw` / `return`). Such a
+// path does NOT fall through to the next statement: after running `finally`,
+// control leaves the try (the exception/return propagates) rather than
+// continuing the sequence.
+function endsAbruptly(statements: Statement[]): boolean {
+  const last = statements[statements.length - 1];
+  return last?.kind === "throw" || last?.kind === "return";
+}
 
 // Nom racine de la valeur appelée pour tracer un lien `calls` vers sa définition :
 // - foo(...)          → "foo"
@@ -742,15 +762,19 @@ class GraphBuilder {
   // -------------------------------------------------------------------------
 
   private walkStatement(stmt: Statement, path: string): Endpoints {
-    const role = roleForStatement(stmt.kind);
-    const level: NodeLevel = role === "boundary" ? 1 : 2;
     const isFuncDecl = stmt.kind === "function-declaration";
     const isIfaceDecl = stmt.kind === "interface-declaration";
-    const isExpanded =
-      isFuncDecl && (this.options.expandedFunctions?.has(path) ?? false);
+    const funcVarInit = getFuncVarInit(stmt);
+    const isFuncLike = isFuncDecl || funcVarInit !== null;
+    const role = isFuncLike ? "boundary" : roleForStatement(stmt.kind);
+    const level: NodeLevel = role === "boundary" ? 1 : 2;
+    const isExpanded = isFuncLike && (this.options.expandedFunctions?.has(path) ?? false);
     const ifaceMembers = isIfaceDecl
       ? (stmt as InterfaceDeclaration).members.map(describeMember)
       : undefined;
+    const astType = funcVarInit
+      ? (funcVarInit.arrow ? "ArrowFunctionExpression" : "FunctionExpression")
+      : (STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind);
 
     const id = this.emitNode(
       path,
@@ -759,15 +783,17 @@ class GraphBuilder {
         track: "spine",
         level,
         label: labelForStatement(stmt),
-        astType: STATEMENT_AST_TYPE[stmt.kind] ?? stmt.kind,
+        astType,
         source: sourceForStatement(stmt),
-        ...(isFuncDecl ? { collapsed: !isExpanded } : {}),
+        ...(isFuncLike ? { collapsed: !isExpanded } : {}),
         ...(ifaceMembers ? { members: ifaceMembers } : {}),
       },
       stmt,
     );
 
     let openFalseBranches: string[] | undefined;
+    let openExecTails: string[] | undefined;
+    let tailId = id;
 
     switch (stmt.kind) {
       case "if": {
@@ -809,17 +835,20 @@ class GraphBuilder {
       case "try": {
         const tryEnds = this.walkBlock(stmt.block.content, `${path}/try`);
         if (tryEnds)
-          this.addEdge(id, tryEnds.headId, "exec", {
-            sourceHandle: "exec-out",
+          this.addEdge(id, tryEnds.headId, "branch-true", {
+            sourceHandle: "branch-true",
             targetHandle: "exec-in",
             label: "try",
           });
+
+        let handlerTailId: string | null = null;
+        let handlerAbrupt = false;
         if (stmt.handler) {
           const handlerEnds = this.walkBlock(
             stmt.handler.body.content,
             `${path}/catch`,
           );
-          if (handlerEnds)
+          if (handlerEnds) {
             this.addEdge(id, handlerEnds.headId, "branch-false", {
               sourceHandle: "branch-false",
               targetHandle: "exec-in",
@@ -827,18 +856,71 @@ class GraphBuilder {
                 ? `catch (${describeBinding(stmt.handler.param)})`
                 : "catch",
             });
+            handlerTailId = handlerEnds.tailId;
+            handlerAbrupt = endsAbruptly(stmt.handler.body.content);
+          }
         }
+
         if (stmt.finalizer) {
-          const finallyEnds = this.walkBlock(
-            stmt.finalizer.content,
+          const finalizer = stmt.finalizer;
+          const tryAbrupt = tryEnds
+            ? endsAbruptly(stmt.block.content)
+            : false;
+
+          // A `finally` always runs, but where control goes AFTER it depends on
+          // how the protected block completed:
+          //   • normal completion  → fall through to the next statement
+          //   • abrupt  (throw/return) → propagate; the next statement is NOT
+          //     reached. Each abrupt path therefore needs its OWN finally copy
+          //     that terminates, so the graph doesn't show it continuing.
+          const normalTails: string[] = [];
+          if (tryEnds && !tryAbrupt) normalTails.push(tryEnds.tailId);
+          if (handlerTailId && !handlerAbrupt) normalTails.push(handlerTailId);
+
+          const abruptTails: string[] = [];
+          if (tryEnds && tryAbrupt) abruptTails.push(tryEnds.tailId);
+          if (handlerTailId && handlerAbrupt) abruptTails.push(handlerTailId);
+
+          // Shared finally for the fall-through paths → continues the sequence.
+          // Always emitted (even with no normal tail, e.g. empty try) so the
+          // try node keeps an exec-out continuation and a layout anchor.
+          const finallyNormal = this.walkBlock(
+            finalizer.content,
             `${path}/finally`,
           );
-          if (finallyEnds)
-            this.addEdge(id, finallyEnds.headId, "exec", {
+          if (finallyNormal) {
+            this.addEdge(id, finallyNormal.headId, "exec", {
               sourceHandle: "exec-out",
               targetHandle: "exec-in",
               label: "finally",
             });
+            for (const t of normalTails)
+              this.addEdge(t, finallyNormal.headId, "exec", {
+                sourceHandle: "exec-out",
+                targetHandle: "exec-in",
+              });
+            tailId = finallyNormal.tailId;
+          }
+
+          // One finally copy per abrupt path → runs, then STOPS (no outgoing
+          // exec edge ⇒ an end terminus is injected, so flow halts after it).
+          abruptTails.forEach((t, i) => {
+            const finallyAbrupt = this.walkBlock(
+              finalizer.content,
+              `${path}/finally!${i}`,
+            );
+            if (finallyAbrupt)
+              this.addEdge(t, finallyAbrupt.headId, "exec", {
+                sourceHandle: "exec-out",
+                targetHandle: "exec-in",
+                label: "finally",
+              });
+          });
+        } else {
+          // No finally: try body tail is the primary continuation; catch tail is open.
+          if (tryEnds && !endsAbruptly(stmt.block.content)) tailId = tryEnds.tailId;
+          if (handlerTailId && !endsAbruptly(stmt.handler!.body.content))
+            openExecTails = [handlerTailId];
         }
         break;
       }
@@ -853,7 +935,11 @@ class GraphBuilder {
       case "variable-declaration":
         stmt.declarations.forEach((d, i) => {
           if (d.init) {
-            this.maybeWalkValue(d.init, id, `${path}/d${i}`);
+            // For a func-var boundary, don't emit the function as an expression
+            // sub-node — the body is connected separately via connectBlock.
+            if (!(funcVarInit && d.init === funcVarInit)) {
+              this.maybeWalkValue(d.init, id, `${path}/d${i}`);
+            }
             this.recordCall(d.init, id);
           }
           if (d.type) {
@@ -866,6 +952,13 @@ class GraphBuilder {
             if (d.init?.kind === "function") {
               // Arrow fn / fn expression: treat this declaration as a definition.
               this.registerFuncDef(varName, id);
+              // When expanded, connect the function body like a function-declaration.
+              if (isExpanded && d.init === funcVarInit) {
+                const body = funcVarInit.body;
+                if (body.kind === "block") {
+                  this.connectBlock(body, id, `${path}/body`, "function-body");
+                }
+              }
             } else if (d.init?.kind === "call") {
               // The variable holds the result of a call. Resolve transitively so
               // callers of this name trace back to the originating function
@@ -900,9 +993,12 @@ class GraphBuilder {
       // break, continue: no children to emit
     }
 
-    return openFalseBranches
-      ? { headId: id, tailId: id, openFalseBranches }
-      : { headId: id, tailId: id };
+    return {
+      headId: id,
+      tailId,
+      ...(openFalseBranches ? { openFalseBranches } : {}),
+      ...(openExecTails ? { openExecTails } : {}),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -917,15 +1013,18 @@ class GraphBuilder {
     let firstHead: string | null = null;
     let prevTail: string | null = null;
     let prevOpenFalse: string[] = [];
+    let prevOpenExecTails: string[] = [];
 
     for (const [i, stmt] of statements.entries()) {
       const ends = this.walkStatement(stmt, `${path}/${i}`);
 
-      // Definitions (function/interface) are emitted but kept out of the exec chain.
-      if (NON_EXEC.has(stmt.kind)) {
-        // When inside an expanded function body, add a `calls` edge so nested
-        // function declarations appear connected rather than floating.
-        if (stmt.kind === "function-declaration" && containerFromId) {
+      // Definitions (function/interface/arrow-fn-var) are emitted but kept
+      // out of the exec chain — they define a function, not a step in flow.
+      const funcVar = getFuncVarInit(stmt);
+      if (NON_EXEC.has(stmt.kind) || funcVar !== null) {
+        // When inside an expanded function body, connect nested definitions
+        // with a `calls` edge so they appear linked rather than floating.
+        if ((stmt.kind === "function-declaration" || funcVar !== null) && containerFromId) {
           this.addEdge(containerFromId, ends.headId, "calls", {
             sourceHandle: "args",
             targetHandle: "exec-in",
@@ -939,10 +1038,17 @@ class GraphBuilder {
           sourceHandle: "exec-out",
           targetHandle: "exec-in",
         });
-        // Wire any dangling FALSE ports from the previous if-chain to this node.
+        // Wire dangling FALSE ports from the previous if-chain.
         for (const fromId of prevOpenFalse) {
           this.addEdge(fromId, ends.headId, "branch-false", {
             sourceHandle: "branch-false",
+            targetHandle: "exec-in",
+          });
+        }
+        // Wire dangling exec-out tails from the previous try/catch bodies.
+        for (const fromId of prevOpenExecTails) {
+          this.addEdge(fromId, ends.headId, "exec", {
+            sourceHandle: "exec-out",
             targetHandle: "exec-in",
           });
         }
@@ -951,6 +1057,7 @@ class GraphBuilder {
       }
       prevTail = ends.tailId;
       prevOpenFalse = ends.openFalseBranches ?? [];
+      prevOpenExecTails = ends.openExecTails ?? [];
     }
 
     if (firstHead === null || prevTail === null) return null;
@@ -958,6 +1065,7 @@ class GraphBuilder {
       headId: firstHead,
       tailId: prevTail,
       ...(prevOpenFalse.length > 0 ? { openFalseBranches: prevOpenFalse } : {}),
+      ...(prevOpenExecTails.length > 0 ? { openExecTails: prevOpenExecTails } : {}),
     };
   }
 

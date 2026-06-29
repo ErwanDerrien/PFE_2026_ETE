@@ -14,7 +14,7 @@ export interface BlockMeta {
 const BY_AST_TYPE: Record<string, BlockMeta> = {
   FunctionDeclaration: { label: "FUNCTION", icon: "ƒ", accent: "#c084fc" },
   FunctionExpression: { label: "FUNCTION", icon: "ƒ", accent: "#c084fc" },
-  ArrowFunctionExpression: { label: "FUNCTION", icon: "ƒ", accent: "#c084fc" },
+  ArrowFunctionExpression: { label: "ARROW", icon: "=>", accent: "#c084fc" },
   VariableDeclaration: { label: "VARIABLE", icon: "{ }", accent: "#2dd4bf" },
   IfStatement: { label: "CONDITION", icon: "⋔", accent: "#fb7185" },
   SwitchStatement: { label: "SWITCH", icon: "⋔", accent: "#fb7185" },
@@ -57,6 +57,7 @@ const LOOPING = new Set([
 const BRANCHING = new Set([
   "IfStatement",
   "SwitchStatement",
+  "TryStatement",
   ...LOOPING,
 ]);
 

@@ -37,7 +37,7 @@ export function nodeSize(node: GraphNode): NodeSize {
   // Header(32) + Body(44) = 76 base.
   // Function declarations: +1 footer row (26) → 106. Loops: same. Conditions: 2 rows → 132. Plain: 80.
   // Interface nodes grow by one row (24px) per member.
-  const isFuncDeclNode = node.astType === "FunctionDeclaration" && node.collapsed !== undefined;
+  const isFuncDeclNode = node.collapsed !== undefined;
   const memberCount = node.members?.length ?? 0;
   const base = (isFuncDeclNode || isLooping(node.astType)) ? 106
              : isBranching(node.astType) ? 132

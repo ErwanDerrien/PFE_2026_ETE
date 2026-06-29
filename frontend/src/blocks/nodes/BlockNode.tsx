@@ -45,9 +45,10 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
     toggleFunctionNode(node.id);
   };
   const meta = blockMeta(node.astType, node.role);
-  const branching = isBranching(node.astType);
-  const looping   = isLooping(node.astType);
-  const isSwitch  = node.astType === "SwitchStatement";
+  const branching  = isBranching(node.astType);
+  const looping    = isLooping(node.astType);
+  const isSwitch   = node.astType === "SwitchStatement";
+  const isTryCatch = node.astType === "TryStatement";
   const collapsed = node.role === "boundary" ? node.collapsed : false;
   const members   = node.role === "statement" ? node.members : undefined;
   const code = node.source ?? node.label;
@@ -139,6 +140,30 @@ export default function BlockNode({ data, selected }: NodeProps<BlockFlowNode>) 
                 className="bn-exec-handle bn-handle-true"
               />
             </div>
+          ) : isTryCatch ? (
+            /* Try/catch: TRY (happy path) + CATCH (error path) */
+            <>
+              <div className="bn-foot-cell bn-foot-true">
+                <span className="bn-foot-label">TRY</span>
+                {openSlots.includes("true") && addBtn("true", "bn-add-port")}
+                <Handle
+                  id="true"
+                  type="source"
+                  position={Position.Right}
+                  className="bn-exec-handle bn-handle-true"
+                />
+              </div>
+              <div className="bn-foot-cell bn-foot-false">
+                <span className="bn-foot-label">CATCH</span>
+                {openSlots.includes("false") && addBtn("false", "bn-add-port")}
+                <Handle
+                  id="false"
+                  type="source"
+                  position={Position.Right}
+                  className="bn-exec-handle bn-handle-false"
+                />
+              </div>
+            </>
           ) : (
             /* Conditions: TRUE + FALSE ports */
             <>

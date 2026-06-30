@@ -1,10 +1,12 @@
-import { useState } from "react"
+import {useEffect, useState} from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
 import CodeEditor from "../editor/editor"
 import Console from "../console/Console"
 import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
 import "./App.css"
+import {useAstStore} from "../sync";
+import {Decrompress} from "../editor/compressing.ts";
 
 
 
@@ -68,13 +70,16 @@ console.log("L'input ci-dessus a demandé votre nom et a attendu votre réponse!
 // Composant pour le layout principal avec onglets
 function MainLayout() {
 
-
+  const source = useAstStore((s) => s.source);
+  const setSource = useAstStore((s) => s.setSource);
   const location = useLocation()
-  const [code, setCode] = useState<string>(DEFAULT_CODE)
+  const [code, setCode] = useState<string>(source)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      setCode(value)
+      setSource(value, "editor");
+      setCode(value);
+
     }
   }
 
@@ -85,6 +90,17 @@ function MainLayout() {
   const handleClearConsole = () => {
     console.log("Console vidée")
   }
+
+  // Initialisation au montage : tente de restaurer depuis l'URL, sinon charge DEFAULT_CODE
+  useEffect(() => {
+    const restored = Decrompress();
+    if (!restored) {
+      // Pas de hash dans l'URL : on initialise le store avec le code par défaut
+      setSource(DEFAULT_CODE, "editor");
+    } else {
+      setSource(restored?.source, "editor");
+    }
+  }, []);
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"

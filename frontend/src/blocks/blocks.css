@@ -633,9 +633,11 @@
   flex: 1;
 }
 
-/* Select qui s'étire dans une ligne (ex. la cible d'affectation). */
+/* Select / input qui s'étire dans une ligne (ex. la cible d'affectation). */
 .block-form select.bf-grow,
-.block-sidebar select.bf-grow {
+.block-form input.bf-grow,
+.block-sidebar select.bf-grow,
+.block-sidebar input.bf-grow {
   flex: 1;
   width: auto;
   min-width: 0;

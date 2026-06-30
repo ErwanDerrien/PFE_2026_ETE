@@ -8,12 +8,13 @@
  * `BlockSpec` (le contrat de construction de node).
  */
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useAstStore } from "../../sync";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import { PRIMITIVE_TYPE_NAMES, namedTypesFromGraph } from "../type-options";
 import {
   callableNames,
+  namesInScope,
   reassignableInScope,
   reassignableNames,
   type ScopeAnchor,
@@ -23,6 +24,8 @@ import {
   type AssignmentOperator,
   type DeclarationKind,
 } from "../types/variable";
+import type { TypedGraphNode } from "../typed-nodes";
+import type { Statement, Value } from "../types/globalType";
 
 /** État plat de tous les champs possibles (un sous-ensemble est utilisé par kind). */
 export interface FormValues {
@@ -113,13 +116,32 @@ export function buildSpec(kind: BlockSpec["kind"], v: FormValues): BlockSpec {
         updateText: v.updateText,
       };
     case "for-of":
-      return { kind: "for-of", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
+      return {
+        kind: "for-of",
+        declarationKind: v.declarationKind,
+        varName: v.name,
+        iterableText: v.iterableText,
+      };
     case "for-in":
-      return { kind: "for-in", declarationKind: v.declarationKind, varName: v.name, iterableText: v.iterableText };
+      return {
+        kind: "for-in",
+        declarationKind: v.declarationKind,
+        varName: v.name,
+        iterableText: v.iterableText,
+      };
     case "switch":
-      return { kind: "switch", discriminantText: v.discriminantText, casesText: v.casesText };
+      return {
+        kind: "switch",
+        discriminantText: v.discriminantText,
+        casesText: v.casesText,
+      };
     case "function":
-      return { kind: "function", name: v.name, paramsText: v.paramsText, returnTypeText: v.returnTypeText };
+      return {
+        kind: "function",
+        name: v.name,
+        paramsText: v.paramsText,
+        returnTypeText: v.returnTypeText,
+      };
   }
 }
 
@@ -186,8 +208,10 @@ export function isInvalid(kind: BlockSpec["kind"], v: FormValues): boolean {
     (kind === "assignment" && (!v.targetText.trim() || !v.valueText.trim())) ||
     (kind === "call" && !v.calleeText.trim()) ||
     (kind === "throw" && !v.valueText.trim()) ||
-    ((kind === "if" || kind === "while" || kind === "do-while") && !v.conditionText.trim()) ||
-    ((kind === "for-of" || kind === "for-in") && (!v.name.trim() || !v.iterableText.trim())) ||
+    ((kind === "if" || kind === "while" || kind === "do-while") &&
+      !v.conditionText.trim()) ||
+    ((kind === "for-of" || kind === "for-in") &&
+      (!v.name.trim() || !v.iterableText.trim())) ||
     (kind === "switch" && !v.discriminantText.trim()) ||
     (kind === "function" && !v.name.trim())
   );
@@ -204,14 +228,24 @@ interface Props {
   errors?: Partial<Record<keyof FormValues, string>>;
 }
 
-export default function BlockFields({ kind, values: v, onChange, autoFocus, scopeAnchor, errors }: Props) {
+export default function BlockFields({
+  kind,
+  values: v,
+  onChange,
+  autoFocus,
+  scopeAnchor,
+  errors,
+}: Props) {
   const graph = useAstStore((s) => s.graph);
   const namedTypes = useMemo(() => namedTypesFromGraph(graph), [graph]);
   // Cible d'affectation : variables réassignables EN PORTÉE au point d'ancrage
   // (repli global si pas d'ancrage).
   const anchorKey = scopeAnchor ? JSON.stringify(scopeAnchor) : "";
   const targets = useMemo(
-    () => (scopeAnchor ? reassignableInScope(graph, scopeAnchor) : reassignableNames(graph)),
+    () =>
+      scopeAnchor
+        ? reassignableInScope(graph, scopeAnchor)
+        : reassignableNames(graph),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [graph, anchorKey],
   );
@@ -219,21 +253,84 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
   // et créées) — indépendant de l'AST.
   const callables = useMemo(() => callableNames(graph), [graph]);
   const curCallee = v.calleeText.trim();
-  const extraCallee = curCallee && !callables.includes(curCallee) ? curCallee : null;
+  const extraCallee =
+    curCallee && !callables.includes(curCallee) ? curCallee : null;
   // Conserve le type courant comme option s'il n'est ni primitif ni déclaré
   // (ex. un générique `Record<…>` venu de l'AST), pour ne pas le perdre à l'édition.
   const cur = v.typeText.trim();
   const extraType =
-    cur && !(PRIMITIVE_TYPE_NAMES as string[]).includes(cur) && !namedTypes.includes(cur)
+    cur &&
+    !(PRIMITIVE_TYPE_NAMES as string[]).includes(cur) &&
+    !namedTypes.includes(cur)
       ? cur
       : null;
   // Conserve la cible courante (ex. `obj.prop`, ou un nom hors scope collecté) si
   // elle n'est pas dans la liste des réassignables.
   const curTarget = v.targetText.trim();
-  const extraTarget = curTarget && !targets.includes(curTarget) ? curTarget : null;
+  const extraTarget =
+    curTarget && !targets.includes(curTarget) ? curTarget : null;
+
+  // Property paths for object variables in scope (e.g. obj.prop, obj.nested.value).
+  // Respects declaration order: only includes objects declared before the anchor.
+  const scopeNames = useMemo(
+    () => (scopeAnchor ? namesInScope(graph, scopeAnchor) : null),
+    [graph, anchorKey],
+  );
+
+  const propertyPaths = useMemo(() => {
+    const paths: string[] = [];
+    const visited = new Set<string>();
+    function collect(val: Value | undefined, prefix: string): void {
+      if (!val) return;
+      if (val.kind === "object") {
+        for (const prop of val.properties) {
+          const p = `${prefix}.${prop.key}`;
+          if (!visited.has(p)) {
+            visited.add(p);
+            paths.push(p);
+          }
+          collect(prop.value, p);
+        }
+      } else if (val.kind === "array") {
+        val.elements.forEach((el, i) => {
+          if (!el || el.kind === "spread") return;
+          const ip = `${prefix}[${i}]`;
+          if (!visited.has(ip)) {
+            visited.add(ip);
+            paths.push(ip);
+          }
+          collect(el, ip);
+        });
+      }
+    }
+    for (const node of graph.nodes as TypedGraphNode[]) {
+      const s = node.stmt as Statement | undefined;
+      if (s?.kind === "variable-declaration") {
+        const isConst = s.declarationKind === "const";
+        for (const d of s.declarations) {
+          if (d.target.kind === "variable" && d.init) {
+            const name = d.target.name;
+            // Only include if visible at the insertion point (or no anchor = global).
+            if (scopeNames && !scopeNames.has(name)) continue;
+            if (!isConst) {
+              paths.push(name);
+            }
+            collect(d.init, name);
+          }
+        }
+      }
+    }
+    return paths;
+  }, [graph, scopeNames]);
+
+  const datalistId = useId();
 
   if (kind === "break" || kind === "continue") {
-    return <div className="bf-empty">Aucun paramètre pour « {astTypeForKind(kind)} ».</div>;
+    return (
+      <div className="bf-empty">
+        Aucun paramètre pour « {astTypeForKind(kind)} ».
+      </div>
+    );
   }
 
   return (
@@ -255,10 +352,14 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
           <div className="bf-row">
             <select
               value={v.declarationKind}
-              onChange={(e) => onChange({ declarationKind: e.target.value as DeclarationKind })}
+              onChange={(e) =>
+                onChange({ declarationKind: e.target.value as DeclarationKind })
+              }
             >
               {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>{k}</option>
+                <option key={k} value={k}>
+                  {k}
+                </option>
               ))}
             </select>
             <input
@@ -279,13 +380,17 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               <option value="">(aucun)</option>
               <optgroup label="Primitifs">
                 {PRIMITIVE_TYPE_NAMES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </optgroup>
               {namedTypes.length > 0 && (
                 <optgroup label="Types du code">
                   {namedTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </optgroup>
               )}
@@ -310,28 +415,39 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
       {kind === "assignment" && (
         <>
           <div className="bf-row">
-            <select
+            <input
               autoFocus={autoFocus}
               className="bf-grow"
               value={v.targetText}
               onChange={(e) => onChange({ targetText: e.target.value })}
-            >
-              <option value="">cible…</option>
+              placeholder="cible (ex. obj.prop)"
+              list={datalistId}
+            />
+            <datalist id={datalistId}>
               {targets.map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n} />
               ))}
-              {extraTarget && (
-                <optgroup label="Actuel">
-                  <option value={extraTarget}>{extraTarget}</option>
-                </optgroup>
-              )}
-            </select>
+              {propertyPaths
+                .filter((p) => !targets.includes(p))
+                .map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              {extraTarget &&
+                !targets.includes(extraTarget) &&
+                !propertyPaths.includes(extraTarget) && (
+                  <option value={extraTarget} />
+                )}
+            </datalist>
             <select
               value={v.operator}
-              onChange={(e) => onChange({ operator: e.target.value as AssignmentOperator })}
+              onChange={(e) =>
+                onChange({ operator: e.target.value as AssignmentOperator })
+              }
             >
               {ASSIGNMENT_OPERATORS.map((op) => (
-                <option key={op} value={op}>{op}</option>
+                <option key={op} value={op}>
+                  {op}
+                </option>
               ))}
             </select>
           </div>
@@ -342,7 +458,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ valueText: e.target.value })}
               placeholder="ex. a + 1"
             />
-            {errors?.valueText && <span className="bf-error">{errors.valueText}</span>}
+            {errors?.valueText && (
+              <span className="bf-error">{errors.valueText}</span>
+            )}
           </label>
         </>
       )}
@@ -359,7 +477,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
             >
               <option value="">fonction…</option>
               {callables.map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
               {extraCallee && (
                 <optgroup label="Actuel">
@@ -400,7 +520,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
             onChange={(e) => onChange({ conditionText: e.target.value })}
             placeholder="ex. score >= 90"
           />
-          {errors?.conditionText && <span className="bf-error">{errors.conditionText}</span>}
+          {errors?.conditionText && (
+            <span className="bf-error">{errors.conditionText}</span>
+          )}
         </label>
       )}
 
@@ -409,10 +531,14 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
           <div className="bf-row">
             <select
               value={v.declarationKind}
-              onChange={(e) => onChange({ declarationKind: e.target.value as DeclarationKind })}
+              onChange={(e) =>
+                onChange({ declarationKind: e.target.value as DeclarationKind })
+              }
             >
               {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>{k}</option>
+                <option key={k} value={k}>
+                  {k}
+                </option>
               ))}
             </select>
             <input
@@ -430,7 +556,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ iterableText: e.target.value })}
               placeholder={kind === "for-of" ? "ex. items" : "ex. obj"}
             />
-            {errors?.iterableText && <span className="bf-error">{errors.iterableText}</span>}
+            {errors?.iterableText && (
+              <span className="bf-error">{errors.iterableText}</span>
+            )}
           </label>
         </>
       )}
@@ -440,10 +568,14 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
           <div className="bf-row">
             <select
               value={v.declarationKind}
-              onChange={(e) => onChange({ declarationKind: e.target.value as DeclarationKind })}
+              onChange={(e) =>
+                onChange({ declarationKind: e.target.value as DeclarationKind })
+              }
             >
               {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>{k}</option>
+                <option key={k} value={k}>
+                  {k}
+                </option>
               ))}
             </select>
             <input
@@ -460,7 +592,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               placeholder="= 0"
             />
           </div>
-          {errors?.initText && <span className="bf-error">{errors.initText}</span>}
+          {errors?.initText && (
+            <span className="bf-error">{errors.initText}</span>
+          )}
           <label className="bf-field">
             <span>condition (test)</span>
             <input
@@ -468,7 +602,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ testText: e.target.value })}
               placeholder="ex. i < n"
             />
-            {errors?.testText && <span className="bf-error">{errors.testText}</span>}
+            {errors?.testText && (
+              <span className="bf-error">{errors.testText}</span>
+            )}
           </label>
           <label className="bf-field">
             <span>incrément (update)</span>
@@ -477,7 +613,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ updateText: e.target.value })}
               placeholder="ex. i++"
             />
-            {errors?.updateText && <span className="bf-error">{errors.updateText}</span>}
+            {errors?.updateText && (
+              <span className="bf-error">{errors.updateText}</span>
+            )}
           </label>
         </>
       )}
@@ -492,7 +630,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ discriminantText: e.target.value })}
               placeholder="ex. code"
             />
-            {errors?.discriminantText && <span className="bf-error">{errors.discriminantText}</span>}
+            {errors?.discriminantText && (
+              <span className="bf-error">{errors.discriminantText}</span>
+            )}
           </label>
           <label className="bf-field">
             <span>cas (séparés par , — « default » accepté)</span>
@@ -501,7 +641,9 @@ export default function BlockFields({ kind, values: v, onChange, autoFocus, scop
               onChange={(e) => onChange({ casesText: e.target.value })}
               placeholder="ex. 200, 404, default"
             />
-            {errors?.casesText && <span className="bf-error">{errors.casesText}</span>}
+            {errors?.casesText && (
+              <span className="bf-error">{errors.casesText}</span>
+            )}
           </label>
         </>
       )}

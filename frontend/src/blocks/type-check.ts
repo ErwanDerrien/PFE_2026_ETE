@@ -12,7 +12,11 @@
 import type { GraphModel } from "../shared";
 import type { FormValues } from "./Components/BlockFields";
 import { parseValue } from "./node-create";
-import { allBindingNames, namesInScope, type ScopeAnchor } from "./scope-options";
+import {
+  allBindingNames,
+  namesInScope,
+  type ScopeAnchor,
+} from "./scope-options";
 import type { BlockSpec } from "./node-create";
 import type { TypedGraphNode } from "./typed-nodes";
 import type { Value } from "./types/globalType";
@@ -21,10 +25,31 @@ import { valueVars } from "./var-refs";
 
 // Identifiants « globaux » acceptés comme référence sans être déclarés dans le code.
 const GLOBAL_VALUES = new Set([
-  "undefined", "NaN", "Infinity", "globalThis",
-  "Math", "JSON", "console", "Object", "Array", "String", "Number", "Boolean",
-  "Date", "Symbol", "Promise", "Map", "Set", "RegExp", "Error",
-  "parseInt", "parseFloat", "isNaN", "isFinite", "window", "document",
+  "undefined",
+  "NaN",
+  "Infinity",
+  "globalThis",
+  "Math",
+  "JSON",
+  "console",
+  "Object",
+  "Array",
+  "String",
+  "Number",
+  "Boolean",
+  "Date",
+  "Symbol",
+  "Promise",
+  "Map",
+  "Set",
+  "RegExp",
+  "Error",
+  "parseInt",
+  "parseFloat",
+  "isNaN",
+  "isFinite",
+  "window",
+  "document",
 ]);
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -74,7 +99,9 @@ function tagFromValue(v: Value, lookup: (name: string) => Tag, depth = 0): Tag {
       if (val === null) return "null";
       if (val === undefined) return "undefined";
       const tp = typeof val;
-      return tp === "number" || tp === "string" || tp === "boolean" ? tp : "unknown";
+      return tp === "number" || tp === "string" || tp === "boolean"
+        ? tp
+        : "unknown";
     }
     case "variable":
       return lookup(v.name);
@@ -87,12 +114,31 @@ function tagFromValue(v: Value, lookup: (name: string) => Tag, depth = 0): Tag {
     case "unary":
       if (v.op === "!") return "boolean";
       if (v.op === "typeof") return "string";
-      return v.op === "-" || v.op === "+" || v.op === "~" ? "number" : "unknown";
+      return v.op === "-" || v.op === "+" || v.op === "~"
+        ? "number"
+        : "unknown";
     case "binary": {
       const op = v.op;
-      if (["===", "!==", "==", "!=", "<", ">", "<=", ">=", "instanceof", "in"].includes(op))
+      if (
+        [
+          "===",
+          "!==",
+          "==",
+          "!=",
+          "<",
+          ">",
+          "<=",
+          ">=",
+          "instanceof",
+          "in",
+        ].includes(op)
+      )
         return "boolean";
-      if (["-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>"].includes(op))
+      if (
+        ["-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>"].includes(
+          op,
+        )
+      )
         return "number";
       if (op === "+") {
         const l = tagFromValue(v.left, lookup, depth + 1);
@@ -114,11 +160,19 @@ function nameTag(graph: GraphModel, name: string, depth = 0): Tag {
   for (const node of graph.nodes as TypedGraphNode[]) {
     const stmt = node.stmt as { kind?: string } | undefined;
     if (stmt?.kind !== "variable-declaration") continue;
-    const decl = node.stmt as Extract<TypedGraphNode["stmt"], { kind: "variable-declaration" }>;
+    const decl = node.stmt as Extract<
+      TypedGraphNode["stmt"],
+      { kind: "variable-declaration" }
+    >;
     for (const d of decl.declarations) {
       if (d.target.kind === "variable" && d.target.name === name) {
         if (d.type) return tagFromAnnotation(d.type);
-        if (d.init) return tagFromValue(d.init, (n) => nameTag(graph, n, depth + 1), depth + 1);
+        if (d.init)
+          return tagFromValue(
+            d.init,
+            (n) => nameTag(graph, n, depth + 1),
+            depth + 1,
+          );
         return "unknown";
       }
     }
@@ -141,7 +195,8 @@ const LABEL: Record<Tag, string> = {
  * Message d'erreur pour la valeur d'une affectation, sinon `null` :
  *  1. une référence nue (identifiant) doit exister dans le code — sinon c'est
  *     probablement une chaîne sans guillemets ;
- *  2. son type doit correspondre à celui de la cible (primitifs connus, `=` seul).
+ *  2. la cible ne doit pas être une constante (sauf accès propriété/index) ;
+ *  3. son type doit correspondre à celui de la cible (primitifs connus, `=` seul).
  */
 export function assignmentTypeError(
   graph: GraphModel,
@@ -152,7 +207,37 @@ export function assignmentTypeError(
 ): string | null {
   const target = targetText.trim();
   const value = valueText.trim();
-  if (!target || !value) return null;
+  if (!target) return null;
+
+  // 0. La cible ne doit pas être une constante (réassignation directe).
+  //    obj.prop / arr[0] sur un const sont OK (mutation, pas réassignation).
+  const base = target.match(/^([\w$]+)/)?.[1] ?? target;
+  const isPropertyAccess = target.includes(".") || target.includes("[");
+  if (!isPropertyAccess) {
+    // 0a. La cible doit exister dans la portée (déclarée avant).
+    if (IDENTIFIER.test(base) && !GLOBAL_VALUES.has(base) && !known.has(base)) {
+      return `« ${base} » n'est pas encore déclaré à cet endroit.`;
+    }
+    // 0b. La cible ne doit pas être une constante.
+    for (const node of graph.nodes as TypedGraphNode[]) {
+      const s = node.stmt as
+        | { kind?: string; declarationKind?: string }
+        | undefined;
+      if (s?.kind === "variable-declaration" && s.declarationKind === "const") {
+        const decl = node.stmt as Extract<
+          TypedGraphNode["stmt"],
+          { kind: "variable-declaration" }
+        >;
+        for (const d of decl.declarations) {
+          if (d.target.kind === "variable" && d.target.name === base) {
+            return `« ${base} » est une constante (const). Utilisez ${base}.propriété pour modifier ses propriétés.`;
+          }
+        }
+      }
+    }
+  }
+
+  if (!value) return null;
 
   const parsed = parseValue(value);
 
@@ -196,7 +281,10 @@ function referenceError(text: string, known: Set<string>): string | null {
 
 /** Valide chaque test de case d'un switch (« default » ignoré). */
 function casesError(text: string, known: Set<string>): string | null {
-  for (const part of text.split(",").map((s) => s.trim()).filter(Boolean)) {
+  for (const part of text
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     if (part.toLowerCase() === "default") continue;
     const e = referenceError(part, known);
     if (e) return e;
@@ -224,7 +312,13 @@ export function blockErrors(
 
   switch (kind) {
     case "assignment": {
-      const e = assignmentTypeError(graph, known, v.operator, v.targetText, v.valueText);
+      const e = assignmentTypeError(
+        graph,
+        known,
+        v.operator,
+        v.targetText,
+        v.valueText,
+      );
       if (e) errs.valueText = e;
       break;
     }

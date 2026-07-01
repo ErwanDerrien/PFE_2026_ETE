@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
 import CodeEditor from "../editor/editor"
 import OutputConsole from "../console/OutputConsole"
@@ -58,6 +58,15 @@ console.log(\`\${nom} habite à \${personne.ville}\`);
 const resultats = nombres.map(n => n * 2).filter(n => n > 4);
 console.log("Nombres doublés et filtrés:", resultats);
 
+// Exemple 7: Input utilisateur (fonction input() disponible)
+// Note: La fonction input() retourne une promesse, donc il faut utiliser await
+const nom_utilisateur = await input('Quel est votre nom?');
+if (nom_utilisateur) {
+  console.log(\`Bienvenue \${nom_utilisateur}!\`);
+} else {
+  console.log('Vous avez annulé la saisie.');
+}
+
 console.log("=== Exécution terminée avec succès! ===");`;
 
 // Composant pour le layout principal avec onglets
@@ -66,11 +75,30 @@ function MainLayout() {
   const [code, setCode] = useState<string>(DEFAULT_CODE)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isRunning, setIsRunning] = useState(false)
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false)
+  const [inputPrompt, setInputPrompt] = useState('')
+  const inputResolveRef = useRef<((value: string) => void) | null>(null)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value)
     }
+  }
+
+  const handleInputSubmit = (value: string) => {
+    setIsWaitingForInput(false)
+    if (inputResolveRef.current) {
+      inputResolveRef.current(value)
+      inputResolveRef.current = null
+    }
+  }
+
+  const handleInputRequest = (prompt: string): Promise<string> => {
+    return new Promise((resolve) => {
+      setInputPrompt(prompt)
+      setIsWaitingForInput(true)
+      inputResolveRef.current = resolve
+    })
   }
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
@@ -132,6 +160,7 @@ function MainLayout() {
                   onLogsChange={setLogs}
                   isRunning={isRunning}
                   onRunStateChange={setIsRunning}
+                  onInputRequest={handleInputRequest}
                 />
               </div>
             </div>
@@ -162,7 +191,12 @@ function MainLayout() {
                 <span className="panel-team">Équipe B: Justin & Erwan</span>
               </div>
               <div className="panel-content">
-                <OutputConsole logs={logs} />
+                <OutputConsole 
+                  logs={logs}
+                  isWaitingForInput={isWaitingForInput}
+                  inputPrompt={inputPrompt}
+                  onInputSubmit={handleInputSubmit}
+                />
               </div>
             </div>
           </div>
@@ -180,10 +214,16 @@ function MainLayout() {
                 onLogsChange={setLogs}
                 isRunning={isRunning}
                 onRunStateChange={setIsRunning}
+                onInputRequest={handleInputRequest}
               />
             </div>
             <div className="single-view-console">
-              <OutputConsole logs={logs} />
+              <OutputConsole 
+                logs={logs}
+                isWaitingForInput={isWaitingForInput}
+                inputPrompt={inputPrompt}
+                onInputSubmit={handleInputSubmit}
+              />
             </div>
           </div>
         )}

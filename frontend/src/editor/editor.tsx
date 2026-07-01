@@ -11,9 +11,10 @@ interface CodeEditorProps {
   onLogsChange?: (logs: LogEntry[]) => void;
   isRunning?: boolean;
   onRunStateChange?: (isRunning: boolean) => void;
+  onInputRequest?: (prompt: string) => Promise<string>;
 }
 
-function CodeEditor({ onChange, onLogsChange, isRunning: externalIsRunning, onRunStateChange }: CodeEditorProps) {
+function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -51,11 +52,23 @@ function CodeEditor({ onChange, onLogsChange, isRunning: externalIsRunning, onRu
                 }]);
             } else if (event.data?.type === 'execution-done') {
                 setIsRunning(false);
+            } else if (event.data?.type === 'request-input') {
+                // Utiliser la callback du parent pour gérer l'input
+                if (onInputRequest) {
+                    onInputRequest(event.data.prompt || 'Input: ').then((value) => {
+                        if (iframeRef.current?.contentWindow) {
+                            iframeRef.current.contentWindow.postMessage({
+                                type: 'input-response',
+                                value: value
+                            }, '*');
+                        }
+                    });
+                }
             }
         };
         window.addEventListener('message', handler);
         return () => window.removeEventListener('message', handler);
-    }, []);
+    }, [onInputRequest]);
 
     // Référence à l'éditeur et à Monaco
     function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {

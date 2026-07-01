@@ -31,6 +31,30 @@
   let executionAborted = false;
   const EXECUTION_TIMEOUT = 10000; // 10 seconds max
 
+  // Fonction input() disponible pour le code utilisateur (simule Python/Blockly)
+  // Utilise un système de promesse pour la communication avec le parent
+  function input(prompt_text = '') {
+    return new Promise((resolve) => {
+      // Envoyer une demande d'input au parent
+      window.parent.postMessage({ type: 'request-input', prompt: prompt_text }, '*');
+      
+      // Écouter la réponse
+      const handler = (event) => {
+        if (event.data && event.data.type === 'input-response') {
+          window.removeEventListener('message', handler);
+          resolve(event.data.value);
+        }
+      };
+      window.addEventListener('message', handler);
+      
+      // Timeout après 30 secondes si pas de réponse
+      setTimeout(() => {
+        window.removeEventListener('message', handler);
+        resolve('');
+      }, 30000);
+    });
+  }
+
   // Initialiser Pyodide de manière asynchrone
   async function initPyodide() {
     if (!pyodideReady) {

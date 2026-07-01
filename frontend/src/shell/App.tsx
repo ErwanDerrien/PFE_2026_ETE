@@ -1,9 +1,10 @@
-import {useEffect} from "react"
+import { useState, useRef, useEffect } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
-import CodeEditor from "../editor/Editor.tsx"
-import Console from "../console/Console"
+import CodeEditor from "../editor/editor"
+import OutputConsole from "../console/OutputConsole"
 import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
+import type { LogEntry } from "../console/OutputConsole"
 import "./App.css"
 import {useAstStore} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
@@ -11,31 +12,19 @@ import {Decrompress} from "../editor/compressing.ts";
 
 
 
-export const DEFAULT_CODE : string = `// Mini-démo - Éditeur de code + Console d'exécution
-// Ce code de démonstration peut être facilement modifié ou supprimé
+export const DEFAULT_CODE : string = `// 🚀 Bienvenue dans l'Éditeur de Code!
+// Appuyez sur "Run" pour exécuter ce code
 
-console.log("=== Démonstration de l'exécution sandbox ===");
+console.log("=== Démonstration - Exécution JavaScript ===");
 
-// Exemple 1: Input utilisateur (interaction)
-// Utilisez input("question") pour demander une valeur à l'utilisateur
-// L'exécution SE MET EN PAUSE jusqu'à ce que l'utilisateur réponde!
-async function saluerAvecInput() {
-  const nom = await input("Quel est votre nom?");
-  console.log(\`Bonjour \${nom}! Bienvenue dans l'éditeur!\`);
-}
-
-// Décommentez la ligne ci-dessous pour tester l'input:
-await saluerAvecInput();
-
-// Exemple 2: Fonctions de base (JavaScript pur)
+// Exemple 1: Fonctions de base
 function saluer(nom) {
   return \`Bonjour \${nom}!\`;
 }
 
 console.log(saluer("Étudiant"));
-console.log("");
 
-// Exemple 3: Opérations mathématiques
+// Exemple 2: Opérations mathématiques
 function calculerSurface(rayon) {
   return Math.PI * rayon * rayon;
 }
@@ -43,9 +32,8 @@ function calculerSurface(rayon) {
 const rayon = 5;
 const surface = calculerSurface(rayon);
 console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
-console.log("");
 
-// Exemple 4: Tableaux et boucles
+// Exemple 3: Tableaux et boucles
 const nombres = [1, 2, 3, 4, 5];
 console.log("Nombres:", nombres);
 
@@ -54,25 +42,47 @@ for (const n of nombres) {
   somme += n;
 }
 console.log(\`Somme des nombres = \${somme}\`);
-console.log("");
 
-// Exemple 5: Conditions
+// Exemple 4: Conditions
 const age = 20;
 if (age >= 18) {
-  console.log(\`Âge: \${age} - Majeur\`);
+  console.log(\`Âge: \${age} - Majeur ✓\`);
 } else {
   console.log(\`Âge: \${age} - Mineur\`);
 }
 
-console.log("=== Fin de la démonstration ===");
-console.log("L'input ci-dessus a demandé votre nom et a attendu votre réponse!");`;
+// Exemple 5: Objets et destructuring
+const personne = { nom: 'Alice', age: 25, ville: 'Montréal' };
+const { nom, personneAge = 30 } = personne;
+console.log(\`\${nom} habite à \${personne.ville}\`);
+
+// Exemple 6: Map et Filter
+const resultats = nombres.map(n => n * 2).filter(n => n > 4);
+console.log("Nombres doublés et filtrés:", resultats);
+
+// Exemple 7: Input utilisateur (fonction input() disponible)
+// Note: La fonction input() retourne une promesse, donc il faut utiliser await
+const nom_utilisateur = await input('Quel est votre nom?');
+if (nom_utilisateur) {
+  console.log(\`Bienvenue \${nom_utilisateur}!\`);
+} else {
+  console.log('Vous avez annulé la saisie.');
+}
+
+console.log("=== Exécution terminée avec succès! ===");`;
 
 // Composant pour le layout principal avec onglets
 function MainLayout() {
+  const location = useLocation()
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [isRunning, setIsRunning] = useState(false)
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false)
+  const [inputPrompt, setInputPrompt] = useState('')
+  const inputResolveRef = useRef<((value: string) => void) | null>(null)
+  const editorControlsRef = useRef<{ run: () => void; stop: () => void } | null>(null)
 
   const source = useAstStore((s) => s.source);
   const setSource = useAstStore((s) => s.setSource);
-  const location = useLocation()
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
@@ -81,12 +91,39 @@ function MainLayout() {
     }
   }
 
-  const handleExecute = () => {
-    console.log("Code exécuté:", source.substring(0, 100) + "...")
+  const handleInputSubmit = (value: string) => {
+    setIsWaitingForInput(false)
+    if (inputResolveRef.current) {
+      inputResolveRef.current(value)
+      inputResolveRef.current = null
+    }
   }
 
-  const handleClearConsole = () => {
-    console.log("Console vidée")
+  const handleInputCancel = () => {
+    setIsWaitingForInput(false)
+    if (inputResolveRef.current) {
+      inputResolveRef.current('')
+      inputResolveRef.current = null
+    }
+  }
+
+  const handleRegisterControls = (controls: { run: () => void; stop: () => void }) => {
+    editorControlsRef.current = controls
+  }
+
+  const handleRun = () => editorControlsRef.current?.run()
+  const handleStop = () => editorControlsRef.current?.stop()
+  const handleClear = () => {
+    setLogs([])
+    handleInputCancel()
+  }
+
+  const handleInputRequest = (prompt: string): Promise<string> => {
+    return new Promise((resolve) => {
+      setInputPrompt(prompt)
+      setIsWaitingForInput(true)
+      inputResolveRef.current = resolve
+    })
   }
 
   // Initialisation au montage : tente de restaurer depuis l'URL, sinon charge DEFAULT_CODE
@@ -154,10 +191,18 @@ function MainLayout() {
                 <span className="panel-team">Équipe B: Justin & Erwan</span>
               </div>
               <div className="panel-content">
-                <CodeEditor onChange={handleEditorChange} />
+                <CodeEditor 
+                  onChange={handleEditorChange}
+                  onLogsChange={setLogs}
+                  isRunning={isRunning}
+                  onRunStateChange={setIsRunning}
+                  onInputRequest={handleInputRequest}
+                  onInputCancel={handleInputCancel}
+                  onRegisterControls={handleRegisterControls}
+                />
               </div>
             </div>
-            
+
             <div className="panel panel-blocks">
               <div className="panel-header">
                 <h3>🟦 Blocs Visuels</h3>
@@ -184,10 +229,16 @@ function MainLayout() {
                 <span className="panel-team">Équipe B: Justin & Erwan</span>
               </div>
               <div className="panel-content">
-                <Console 
-                  code={source}
-                  onExecute={handleExecute}
-                  onClear={handleClearConsole}
+                <OutputConsole 
+                  logs={logs}
+                  isWaitingForInput={isWaitingForInput}
+                  inputPrompt={inputPrompt}
+                  onInputSubmit={handleInputSubmit}
+                  onInputCancel={handleInputCancel}
+                  isRunning={isRunning}
+                  onRun={handleRun}
+                  onStop={handleStop}
+                  onClear={handleClear}
                 />
               </div>
             </div>
@@ -201,13 +252,27 @@ function MainLayout() {
               <p>Interface de développement principale avec Monaco Editor</p>
             </div>
             <div className="single-view-content">
-              <CodeEditor onChange={handleEditorChange} />
+              <CodeEditor 
+                onChange={handleEditorChange}
+                onLogsChange={setLogs}
+                isRunning={isRunning}
+                onRunStateChange={setIsRunning}
+                onInputRequest={handleInputRequest}
+                onInputCancel={handleInputCancel}
+                onRegisterControls={handleRegisterControls}
+              />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={source}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
+              <OutputConsole 
+                logs={logs}
+                isWaitingForInput={isWaitingForInput}
+                inputPrompt={inputPrompt}
+                onInputSubmit={handleInputSubmit}
+                onInputCancel={handleInputCancel}
+                isRunning={isRunning}
+                onRun={handleRun}
+                onStop={handleStop}
+                onClear={handleClear}
               />
             </div>
           </div>
@@ -223,11 +288,7 @@ function MainLayout() {
               <BlocksView />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={source}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
-              />
+              <OutputConsole logs={logs} />
             </div>
           </div>
         )}
@@ -242,11 +303,7 @@ function MainLayout() {
               <NaturalLangView />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={source}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
-              />
+              <OutputConsole logs={logs} />
             </div>
           </div>
         )}

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
-<head></head>
+<head>
+  <script async src="https://cdn.jsdelivr.net/pyodide/v0.24.0/full/pyodide.js"></script>
+</head>
 <body>
 <script>
   const send = (level, args) => {
@@ -23,13 +25,134 @@
     return true;
   };
 
-  window.addEventListener('message', ({ data }) => {
-    if (data?.type === 'run') {
+  let pyodideReady = false;
+  let pyodide = null;
+
+  let executionAborted = false;
+  const EXECUTION_TIMEOUT = 10000; // 10 seconds max
+
+  // Fonction input() disponible pour le code utilisateur (simule Python/Blockly)
+  // Utilise un système de promesse pour la communication avec le parent
+  function input(prompt_text = '') {
+    return new Promise((resolve) => {
+      // Envoyer une demande d'input au parent
+      window.parent.postMessage({ type: 'request-input', prompt: prompt_text }, '*');
+      
+      // Écouter la réponse
+      const handler = (event) => {
+        if (event.data && event.data.type === 'input-response') {
+          window.removeEventListener('message', handler);
+          resolve(event.data.value);
+        }
+      };
+      window.addEventListener('message', handler);
+      
+      // Timeout après 30 secondes si pas de réponse
+      setTimeout(() => {
+        window.removeEventListener('message', handler);
+        resolve('');
+      }, 30000);
+    });
+  }
+
+  // Initialiser Pyodide de manière asynchrone
+  async function initPyodide() {
+    if (!pyodideReady) {
+      pyodide = await loadPyodide();
+      pyodideReady = true;
+    }
+    return pyodide;
+  }
+
+  // Exécuter du code JavaScript
+  async function runJavaScript(code) {
+    try {
+      executionAborted = false;
+      const timeoutId = setTimeout(() => {
+        executionAborted = true;
+        send('error', ['Execution timeout: code took too long (>10s)']);
+      }, EXECUTION_TIMEOUT);
+      
+      const asyncCode = `(async () => {\n${code}\n})()`;
+      await new Function(asyncCode)();
+      clearTimeout(timeoutId);
+      
+      // Mark execution done
       try {
-        new Function(data.code)();
+        executionAborted = false;
+        window.parent.postMessage({ type: 'execution-done' }, '*');
       } catch (e) {
+        // Ignore errors from postMessage
+      }
+    } catch (e) {
+      if (!executionAborted) {
         send('error', [e.toString()]);
       }
+      
+      // Mark execution done even on error
+      try {
+        executionAborted = false;
+        window.parent.postMessage({ type: 'execution-done' }, '*');
+      } catch (e2) {
+        // Ignore errors from postMessage
+      }
+    }
+  }
+
+  // Exécuter du code Python
+  async function runPython(code) {
+    try {
+      const py = await initPyodide();
+            executionAborted = false;
+            const timeoutId = setTimeout(() => {
+              executionAborted = true;
+              send('error', ['Execution timeout: code took too long (>10s)']);
+            }, EXECUTION_TIMEOUT);
+      
+      
+      // Capturer les print et autres outputs
+      const interceptedCode = `
+import sys
+from io import StringIO
+
+old_stdout = sys.stdout
+old_stderr = sys.stderr
+sys.stdout = StringIO() 
+sys.stderr = StringIO()
+
+try:
+${code.split('\\n').map(line => '    ' + line).join('\\n')}
+finally:
+    output = sys.stdout.getvalue()
+    errors = sys.stderr.getvalue()
+    sys.stdout = old_stdout
+    sys.stderr = old_stderr
+    if output:
+        print(output, end='')
+    if errors:
+        print(errors, end='', file=sys.stderr)
+`;
+      
+      py.runPython(interceptedCode);
+      clearTimeout(timeoutId);
+      if (!executionAborted) {
+        markExecutionDone();
+      }
+    } catch (e) {
+      if (!executionAborted) {
+        send('error', [e.toString()]);
+        markExecutionDone();
+      }
+    }
+  }
+
+  window.addEventListener('message', async ({ data }) => {
+    if (data?.type === 'run') {
+      const { code } = data;
+      await runJavaScript(code);
+    } else if (data?.type === 'stop') {
+      executionAborted = true;
+      send('error', ['Execution stopped by user']);
     }
   });
 </script>

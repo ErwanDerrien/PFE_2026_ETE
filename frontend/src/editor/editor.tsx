@@ -5,6 +5,7 @@ import type { Monaco } from "@monaco-editor/react";
 import { useAstStore } from '../sync';
 import { DEFAULT_CODE } from '../shell/App';
 import type { LogEntry } from '../console/OutputConsole';
+import { Compress } from './compressing';
 
 interface CodeEditorProps {
   onChange?: (value: string) => void;
@@ -21,12 +22,13 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isRunning, setIsRunning] = useState(false);
+    const [copied, setCopied] = useState(false);
     const [theme, setTheme] = useState<string>(() => localStorage.getItem('editorTheme') || 'vs-dark');
     const [fontSize, setFontSize] = useState<number>(() => {
         const v = Number(localStorage.getItem('editorFontSize'));
         return Number.isFinite(v) && v > 8 ? v : 14;
     });
-    
+
     const source = useAstStore((s) => s.source);
     const lastOrigin = useAstStore((s) => s.lastOrigin);
     const setSource = useAstStore((s) => s.setSource);
@@ -53,14 +55,10 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
             } else if (event.data?.type === 'execution-done') {
                 setIsRunning(false);
             } else if (event.data?.type === 'request-input') {
-                // Utiliser la callback du parent pour gérer l'input
                 if (onInputRequest) {
                     onInputRequest(event.data.prompt || 'Input: ').then((value) => {
                         if (iframeRef.current?.contentWindow) {
-                            iframeRef.current.contentWindow.postMessage({
-                                type: 'input-response',
-                                value: value
-                            }, '*');
+                            iframeRef.current.contentWindow.postMessage({ type: 'input-response', value }, '*');
                         }
                     });
                 }
@@ -78,13 +76,10 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         if (currentValue) {
             setSource(currentValue, "editor");
         }
-        // appliquer thème et taille initiale
         try {
             monaco.editor.setTheme(theme);
             editor.updateOptions({ fontSize });
-        } catch (e) {
-            // ignore si monaco non prêt
-        }
+        } catch (e) { /* ignore */ }
     }
 
     // Exécuter le code
@@ -99,23 +94,18 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     // Arrêter l'exécution
     const stopExecution = useCallback(() => {
         setIsRunning(false);
-        if (iframeRef.current) {
-            iframeRef.current.contentWindow?.postMessage({ type: 'stop' }, '*');
-        }
+        iframeRef.current?.contentWindow?.postMessage({ type: 'stop' }, '*');
     }, []);
 
     // Exporter le code
     const exportCode = useCallback(() => {
         const code = editorRef.current?.getValue();
         if (!code) return;
-        
-        const filename = 'code.js';
-        
         const blob = new Blob([code], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = 'code.js';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -123,20 +113,15 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     }, []);
 
     // Clear console logs
-    const handleClearLogs = useCallback(() => {
-        setLogs([]);
-    }, []);
+    const handleClearLogs = useCallback(() => setLogs([]), []);
 
     // Import fichier JS/TS
-    const handleImportFile = useCallback(() => {
-        fileInputRef.current?.click();
-    }, []);
+    const handleImportFile = useCallback(() => fileInputRef.current?.click(), []);
 
     // Gérer la sélection de fichier
     const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target?.result as string;
@@ -146,181 +131,75 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
             }
         };
         reader.readAsText(file);
-
-        // Reset input
         event.target.value = '';
     }, [setSource]);
 
+    // Partager: compresse l'état dans l'URL
+    const handleShare = useCallback(() => {
+        const appState = useAstStore.getState();
+        Compress(appState);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }, []);
+
     // Appliquer thème quand il change
     useEffect(() => {
-        try {
-            if (monacoRef.current) monacoRef.current.editor.setTheme(theme);
-        } catch (e) {}
+        try { if (monacoRef.current) monacoRef.current.editor.setTheme(theme); } catch (e) {}
         localStorage.setItem('editorTheme', theme);
     }, [theme]);
 
     // Appliquer fontSize quand il change
     useEffect(() => {
-        try {
-            if (editorRef.current) editorRef.current.updateOptions({ fontSize });
-        } catch (e) {}
+        try { if (editorRef.current) editorRef.current.updateOptions({ fontSize }); } catch (e) {}
         localStorage.setItem('editorFontSize', String(fontSize));
     }, [fontSize]);
 
-    // Pour obtenir la valeur lors d'un changement dans le code
     function handleEditorChange(value: string | undefined) {
         if (value !== undefined) {
-            // Mettre à jour le store AST
             setSource(value, "editor");
-            // Notifier le parent (App.tsx) pour la console
-            if (onChange) {
-                onChange(value);
-            }
+            onChange?.(value);
         }
     }
 
-    // Gestion des erreurs
     function handleEditorValidation(markers: any[]) {
         markers.forEach((marker: any) => console.log(`ERROR [Line ${marker.startLineNumber}]: ${marker.message}`));
     }
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            {/* Input file caché */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept=".js,.ts,.jsx,.tsx"
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-            />
+            <input ref={fileInputRef} type="file" accept=".js,.ts,.jsx,.tsx" onChange={handleFileSelect} style={{ display: 'none' }} />
 
-            {/* Toolbar */}
-            <div style={{
-                padding: "8px 12px",
-                background: "#2d2d2d",
-                borderBottom: "1px solid #3e3e3e",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-            }}>
-                
-                <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: 'center' }}>
-                    {/* Import button */}
-                    <button
-                        onClick={handleImportFile}
-                        title="Import JS/TS file"
-                        style={{
-                            background: "#4a5",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "3px",
-                            padding: "4px 8px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                        }}
-                    >
-                        📁 Import
+            {/* Barre d'outils */}
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", padding: "4px 8px", backgroundColor: "#1e1e1e", borderBottom: "1px solid #333", flexShrink: 0, flexWrap: "wrap" }}>
+                <button onClick={handleImportFile} title="Import JS/TS file" style={{ background: "#4a5", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
+                    📁 Import
+                </button>
+                <button onClick={() => setTheme(prev => prev === 'vs-dark' ? 'light' : 'vs-dark')} title="Toggle theme" style={{ background: "#444", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
+                    {theme === 'vs-dark' ? '🌙' : '☀️'}
+                </button>
+                <label style={{ color: '#ccc', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: '#888' }}>A</span>
+                    <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
+                </label>
+                <button onClick={handleClearLogs} title="Clear console" style={{ background: "#555", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
+                    ✖ Clear
+                </button>
+                <button onClick={exportCode} title="Export code to file" style={{ background: "#666", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 10px", cursor: "pointer", fontSize: "13px" }}>
+                    ⬇ Export
+                </button>
+                <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "13px", fontFamily: "inherit", cursor: "pointer", borderRadius: "3px", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
+                    {copied ? "✓ Copié !" : "🔗 Partager"}
+                </button>
+                {isRunning ? (
+                    <button onClick={stopExecution} title="Stop execution" style={{ background: "#f48771", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 14px", cursor: "pointer", fontSize: "13px" }}>
+                        ⏹ Stop
                     </button>
-
-                    {/* Theme toggle */}
-                    <button
-                        onClick={() => setTheme(prev => prev === 'vs-dark' ? 'light' : 'vs-dark')}
-                        title="Toggle theme"
-                        style={{
-                            background: "#444",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "3px",
-                            padding: "4px 8px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                        }}
-                    >
-                        {theme === 'vs-dark' ? '🌙' : '☀️'}
+                ) : (
+                    <button onClick={runCode} title="Execute code" style={{ background: "#0e639c", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 14px", cursor: "pointer", fontSize: "13px" }}>
+                        ▶ Run
                     </button>
-
-                    {/* Font size slider */}
-                    <label style={{ color: '#ccc', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ color: '#888' }}>A</span>
-                        <input
-                            type="range"
-                            min={10}
-                            max={24}
-                            value={fontSize}
-                            onChange={(e) => setFontSize(Number(e.target.value))}
-                            style={{ cursor: 'pointer' }}
-                        />
-                    </label>
-
-                    <button
-                        onClick={handleClearLogs}
-                        title="Clear console"
-                        style={{
-                            background: "#555",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "3px",
-                            padding: "4px 8px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                        }}
-                    >
-                        ✖ Clear
-                    </button>
-
-                    <button
-                        onClick={exportCode}
-                        title="Export code to file"
-                        style={{
-                            background: "#666",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "3px",
-                            padding: "4px 10px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                        }}
-                    >
-                        ⬇ Export
-                    </button>
-                    
-                    {isRunning ? (
-                        <button
-                            onClick={stopExecution}
-                            title="Stop execution"
-                            style={{
-                                background: "#f48771",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "3px",
-                                padding: "4px 14px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                            }}
-                        >
-                            ⏹ Stop
-                        </button>
-                    ) : (
-                        <button
-                            onClick={runCode}
-                            title="Execute code"
-                            style={{
-                                background: "#0e639c",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "3px",
-                                padding: "4px 14px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                            }}
-                        >
-                            ▶ Run
-                        </button>
-                    )}
-                </div>
+                )}
             </div>
-
             {/* Éditeur */}
             <div style={{ flex: 1, minHeight: 0 }}>
                 <Editor

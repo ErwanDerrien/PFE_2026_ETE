@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
 import CodeEditor from "../editor/editor"
 import OutputConsole from "../console/OutputConsole"
@@ -6,6 +6,8 @@ import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
 import type { LogEntry } from "../console/OutputConsole"
 import "./App.css"
+import {useAstStore} from "../sync";
+import {Decrompress} from "../editor/compressing.ts";
 
 
 
@@ -72,16 +74,19 @@ console.log("=== Exécution terminée avec succès! ===");`;
 // Composant pour le layout principal avec onglets
 function MainLayout() {
   const location = useLocation()
-  const [code, setCode] = useState<string>(DEFAULT_CODE)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isRunning, setIsRunning] = useState(false)
   const [isWaitingForInput, setIsWaitingForInput] = useState(false)
   const [inputPrompt, setInputPrompt] = useState('')
   const inputResolveRef = useRef<((value: string) => void) | null>(null)
 
+  const source = useAstStore((s) => s.source);
+  const setSource = useAstStore((s) => s.setSource);
+
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      setCode(value)
+      setSource(value, "editor");
+
     }
   }
 
@@ -100,6 +105,17 @@ function MainLayout() {
       inputResolveRef.current = resolve
     })
   }
+
+  // Initialisation au montage : tente de restaurer depuis l'URL, sinon charge DEFAULT_CODE
+  useEffect(() => {
+    const restored = Decrompress();
+    if (!restored) {
+      // Pas de hash dans l'URL : on initialise le store avec le code par défaut
+      setSource(DEFAULT_CODE, "editor");
+    } else {
+      setSource(restored?.source, "editor");
+    }
+  }, [setSource]);
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"
@@ -266,7 +282,7 @@ function MainLayout() {
           <div className="footer-links">
             <span>Mode: {activeView === 'full' ? '4 onglets' : 'vue unique'}</span>
             <span>•</span>
-            <span>Code source: {code.length > 0 ? `${code.length} caractères` : 'vide'}</span>
+            <span>Code source: {source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
             <span>•</span>
             <span>Serveur: <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer">localhost:5173</a></span>
           </div>

@@ -13,9 +13,10 @@ interface CodeEditorProps {
   isRunning?: boolean;
   onRunStateChange?: (isRunning: boolean) => void;
   onInputRequest?: (prompt: string) => Promise<string>;
+  onInputCancel?: () => void;
 }
 
-function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest }: CodeEditorProps) {
+function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -113,7 +114,10 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     }, []);
 
     // Clear console logs
-    const handleClearLogs = useCallback(() => setLogs([]), []);
+    const handleClearLogs = useCallback(() => {
+        setLogs([]);
+        onInputCancel?.();
+    }, [onInputCancel]);
 
     // Import fichier JS/TS
     const handleImportFile = useCallback(() => fileInputRef.current?.click(), []);

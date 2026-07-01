@@ -12,9 +12,10 @@ interface OutputConsoleProps {
   isWaitingForInput?: boolean;
   inputPrompt?: string;
   onInputSubmit?: (value: string) => void;
+  onInputCancel?: () => void;
 }
 
-function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '', onInputSubmit }: OutputConsoleProps) {
+function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '', onInputSubmit, onInputCancel }: OutputConsoleProps) {
   const consoleRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState('');
@@ -48,6 +49,10 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSubmit();
+    } else if (e.key === 'c' && e.ctrlKey) {
+      e.preventDefault();
+      setInputValue('');
+      onInputCancel?.();
     }
   };
 
@@ -68,8 +73,9 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
     <div style={{ ...defaultStyle, ...style }}>
       {isWaitingForInput && (
         <div style={{
-          background: '#f48771',
-          padding: '8px',
+          background: '#2d2d2d',
+          border: '1px solid #f48771',
+          padding: '6px 8px',
           marginBottom: '8px',
           borderRadius: '4px',
           display: 'flex',
@@ -77,7 +83,7 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
           alignItems: 'center',
           flexShrink: 0,
         }}>
-          <span style={{ color: '#000', fontSize: '12px' }}>{inputPrompt}</span>
+          <span style={{ color: '#f48771', fontSize: '12px', whiteSpace: 'nowrap' }}>{inputPrompt}</span>
           <input
             ref={inputRef}
             type="text"
@@ -87,9 +93,9 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
             style={{
               flex: 1,
               padding: '4px 6px',
-              background: '#fff',
-              border: 'none',
-              color: '#000',
+              background: '#1e1e1e',
+              border: '1px solid #555',
+              color: '#cccccc',
               fontFamily: 'monospace',
               fontSize: '12px',
               borderRadius: '3px',
@@ -98,18 +104,16 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
           />
           <button
             onClick={handleSubmit}
-            style={{
-              padding: '4px 10px',
-              background: '#fff',
-              color: '#000',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold',
-            }}
+            style={{ padding: '4px 10px', background: '#0e639c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
           >
             OK
+          </button>
+          <button
+            onClick={() => { setInputValue(''); onInputCancel?.(); }}
+            title="Annuler (Ctrl+C)"
+            style={{ padding: '4px 8px', background: 'transparent', color: '#888', border: '1px solid #555', borderRadius: '3px', cursor: 'pointer', fontSize: '12px', lineHeight: 1 }}
+          >
+            ✕
           </button>
         </div>
       )}

@@ -98,6 +98,14 @@ function MainLayout() {
     }
   }
 
+  const handleInputCancel = () => {
+    setIsWaitingForInput(false)
+    if (inputResolveRef.current) {
+      inputResolveRef.current('')
+      inputResolveRef.current = null
+    }
+  }
+
   const handleInputRequest = (prompt: string): Promise<string> => {
     return new Promise((resolve) => {
       setInputPrompt(prompt)
@@ -177,10 +185,11 @@ function MainLayout() {
                   isRunning={isRunning}
                   onRunStateChange={setIsRunning}
                   onInputRequest={handleInputRequest}
+                  onInputCancel={handleInputCancel}
                 />
               </div>
             </div>
-            
+
             <div className="panel panel-blocks">
               <div className="panel-header">
                 <h3>🟦 Blocs Visuels</h3>
@@ -212,6 +221,7 @@ function MainLayout() {
                   isWaitingForInput={isWaitingForInput}
                   inputPrompt={inputPrompt}
                   onInputSubmit={handleInputSubmit}
+                  onInputCancel={handleInputCancel}
                 />
               </div>
             </div>
@@ -231,6 +241,7 @@ function MainLayout() {
                 isRunning={isRunning}
                 onRunStateChange={setIsRunning}
                 onInputRequest={handleInputRequest}
+                onInputCancel={handleInputCancel}
               />
             </div>
             <div className="single-view-console">
@@ -239,6 +250,7 @@ function MainLayout() {
                 isWaitingForInput={isWaitingForInput}
                 inputPrompt={inputPrompt}
                 onInputSubmit={handleInputSubmit}
+                onInputCancel={handleInputCancel}
               />
             </div>
           </div>

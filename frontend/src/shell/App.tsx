@@ -79,6 +79,7 @@ function MainLayout() {
   const [isWaitingForInput, setIsWaitingForInput] = useState(false)
   const [inputPrompt, setInputPrompt] = useState('')
   const inputResolveRef = useRef<((value: string) => void) | null>(null)
+  const editorControlsRef = useRef<{ run: () => void; stop: () => void } | null>(null)
 
   const source = useAstStore((s) => s.source);
   const setSource = useAstStore((s) => s.setSource);
@@ -104,6 +105,17 @@ function MainLayout() {
       inputResolveRef.current('')
       inputResolveRef.current = null
     }
+  }
+
+  const handleRegisterControls = (controls: { run: () => void; stop: () => void }) => {
+    editorControlsRef.current = controls
+  }
+
+  const handleRun = () => editorControlsRef.current?.run()
+  const handleStop = () => editorControlsRef.current?.stop()
+  const handleClear = () => {
+    setLogs([])
+    handleInputCancel()
   }
 
   const handleInputRequest = (prompt: string): Promise<string> => {
@@ -186,6 +198,7 @@ function MainLayout() {
                   onRunStateChange={setIsRunning}
                   onInputRequest={handleInputRequest}
                   onInputCancel={handleInputCancel}
+                  onRegisterControls={handleRegisterControls}
                 />
               </div>
             </div>
@@ -222,6 +235,10 @@ function MainLayout() {
                   inputPrompt={inputPrompt}
                   onInputSubmit={handleInputSubmit}
                   onInputCancel={handleInputCancel}
+                  isRunning={isRunning}
+                  onRun={handleRun}
+                  onStop={handleStop}
+                  onClear={handleClear}
                 />
               </div>
             </div>
@@ -242,6 +259,7 @@ function MainLayout() {
                 onRunStateChange={setIsRunning}
                 onInputRequest={handleInputRequest}
                 onInputCancel={handleInputCancel}
+                onRegisterControls={handleRegisterControls}
               />
             </div>
             <div className="single-view-console">
@@ -251,6 +269,10 @@ function MainLayout() {
                 inputPrompt={inputPrompt}
                 onInputSubmit={handleInputSubmit}
                 onInputCancel={handleInputCancel}
+                isRunning={isRunning}
+                onRun={handleRun}
+                onStop={handleStop}
+                onClear={handleClear}
               />
             </div>
           </div>

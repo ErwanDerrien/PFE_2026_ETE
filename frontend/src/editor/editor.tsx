@@ -14,9 +14,10 @@ interface CodeEditorProps {
   onRunStateChange?: (isRunning: boolean) => void;
   onInputRequest?: (prompt: string) => Promise<string>;
   onInputCancel?: () => void;
+  onRegisterControls?: (controls: { run: () => void; stop: () => void }) => void;
 }
 
-function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel }: CodeEditorProps) {
+function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel: _onInputCancel, onRegisterControls }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -113,12 +114,6 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         URL.revokeObjectURL(url);
     }, []);
 
-    // Clear console logs
-    const handleClearLogs = useCallback(() => {
-        setLogs([]);
-        onInputCancel?.();
-    }, [onInputCancel]);
-
     // Import fichier JS/TS
     const handleImportFile = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -145,6 +140,11 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     }, []);
+
+    // Expose run/stop to parent
+    useEffect(() => {
+        onRegisterControls?.({ run: runCode, stop: stopExecution });
+    }, [onRegisterControls, runCode, stopExecution]);
 
     // Appliquer thème quand il change
     useEffect(() => {
@@ -185,24 +185,12 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                     <span style={{ color: '#888' }}>A</span>
                     <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
                 </label>
-                <button onClick={handleClearLogs} title="Clear console" style={{ background: "#555", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
-                    ✖ Clear
-                </button>
                 <button onClick={exportCode} title="Export code to file" style={{ background: "#666", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 10px", cursor: "pointer", fontSize: "13px" }}>
                     ⬇ Export
                 </button>
                 <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "13px", fontFamily: "inherit", cursor: "pointer", borderRadius: "3px", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
                     {copied ? "✓ Copié !" : "🔗 Partager"}
                 </button>
-                {isRunning ? (
-                    <button onClick={stopExecution} title="Stop execution" style={{ background: "#f48771", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 14px", cursor: "pointer", fontSize: "13px" }}>
-                        ⏹ Stop
-                    </button>
-                ) : (
-                    <button onClick={runCode} title="Execute code" style={{ background: "#0e639c", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 14px", cursor: "pointer", fontSize: "13px" }}>
-                        ▶ Run
-                    </button>
-                )}
             </div>
             {/* Éditeur */}
             <div style={{ flex: 1, minHeight: 0 }}>

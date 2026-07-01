@@ -1,6 +1,6 @@
-import {useEffect, useState} from "react"
+import {useEffect} from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
-import CodeEditor from "../editor/editor"
+import CodeEditor from "../editor/Editor.tsx"
 import Console from "../console/Console"
 import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
@@ -73,18 +73,16 @@ function MainLayout() {
   const source = useAstStore((s) => s.source);
   const setSource = useAstStore((s) => s.setSource);
   const location = useLocation()
-  const [code, setCode] = useState<string>(source)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
       setSource(value, "editor");
-      setCode(value);
 
     }
   }
 
   const handleExecute = () => {
-    console.log("Code exécuté:", code.substring(0, 100) + "...")
+    console.log("Code exécuté:", source.substring(0, 100) + "...")
   }
 
   const handleClearConsole = () => {
@@ -100,7 +98,7 @@ function MainLayout() {
     } else {
       setSource(restored?.source, "editor");
     }
-  }, []);
+  }, [setSource]);
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"
@@ -187,7 +185,7 @@ function MainLayout() {
               </div>
               <div className="panel-content">
                 <Console 
-                  code={code}
+                  code={source}
                   onExecute={handleExecute}
                   onClear={handleClearConsole}
                 />
@@ -207,7 +205,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -226,7 +224,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -245,7 +243,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -261,7 +259,7 @@ function MainLayout() {
           <div className="footer-links">
             <span>Mode: {activeView === 'full' ? '4 onglets' : 'vue unique'}</span>
             <span>•</span>
-            <span>Code source: {code.length > 0 ? `${code.length} caractères` : 'vide'}</span>
+            <span>Code source: {source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
             <span>•</span>
             <span>Serveur: <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer">localhost:5173</a></span>
           </div>

@@ -38,15 +38,10 @@
       pyodideReady = true;
     }
     return pyodide;
-
-    function markExecutionDone() {
-      executionAborted = false;
-      window.parent.postMessage({ type: 'execution-done' }, '*');
-    }
   }
 
   // Exécuter du code JavaScript
-  function runJavaScript(code) {
+  async function runJavaScript(code) {
     try {
       executionAborted = false;
       const timeoutId = setTimeout(() => {
@@ -54,13 +49,28 @@
         send('error', ['Execution timeout: code took too long (>10s)']);
       }, EXECUTION_TIMEOUT);
       
-      new Function(code)();
+      const asyncCode = `(async () => {\n${code}\n})()`;
+      await new Function(asyncCode)();
       clearTimeout(timeoutId);
-      markExecutionDone();
+      
+      // Mark execution done
+      try {
+        executionAborted = false;
+        window.parent.postMessage({ type: 'execution-done' }, '*');
+      } catch (e) {
+        // Ignore errors from postMessage
+      }
     } catch (e) {
       if (!executionAborted) {
         send('error', [e.toString()]);
-        markExecutionDone();
+      }
+      
+      // Mark execution done even on error
+      try {
+        executionAborted = false;
+        window.parent.postMessage({ type: 'execution-done' }, '*');
+      } catch (e2) {
+        // Ignore errors from postMessage
       }
     }
   }
@@ -115,7 +125,7 @@ finally:
   window.addEventListener('message', async ({ data }) => {
     if (data?.type === 'run') {
       const { code } = data;
-      runJavaScript(code);
+      await runJavaScript(code);
     } else if (data?.type === 'stop') {
       executionAborted = true;
       send('error', ['Execution stopped by user']);

@@ -10,31 +10,19 @@ import "./App.css"
 
 
 
-export const DEFAULT_CODE : string = `// Mini-démo - Éditeur de code + Console d'exécution
-// Ce code de démonstration peut être facilement modifié ou supprimé
+export const DEFAULT_CODE : string = `// 🚀 Bienvenue dans l'Éditeur de Code!
+// Appuyez sur "Run" pour exécuter ce code
 
-console.log("=== Démonstration de l'exécution sandbox ===");
+console.log("=== Démonstration - Exécution JavaScript ===");
 
-// Exemple 1: Input utilisateur (interaction)
-// Utilisez input("question") pour demander une valeur à l'utilisateur
-// L'exécution SE MET EN PAUSE jusqu'à ce que l'utilisateur réponde!
-async function saluerAvecInput() {
-  const nom = await input("Quel est votre nom?");
-  console.log(\`Bonjour \${nom}! Bienvenue dans l'éditeur!\`);
-}
-
-// Décommentez la ligne ci-dessous pour tester l'input:
-await saluerAvecInput();
-
-// Exemple 2: Fonctions de base (JavaScript pur)
+// Exemple 1: Fonctions de base
 function saluer(nom) {
   return \`Bonjour \${nom}!\`;
 }
 
 console.log(saluer("Étudiant"));
-console.log("");
 
-// Exemple 3: Opérations mathématiques
+// Exemple 2: Opérations mathématiques
 function calculerSurface(rayon) {
   return Math.PI * rayon * rayon;
 }
@@ -42,9 +30,8 @@ function calculerSurface(rayon) {
 const rayon = 5;
 const surface = calculerSurface(rayon);
 console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
-console.log("");
 
-// Exemple 4: Tableaux et boucles
+// Exemple 3: Tableaux et boucles
 const nombres = [1, 2, 3, 4, 5];
 console.log("Nombres:", nombres);
 
@@ -53,18 +40,25 @@ for (const n of nombres) {
   somme += n;
 }
 console.log(\`Somme des nombres = \${somme}\`);
-console.log("");
 
-// Exemple 5: Conditions
+// Exemple 4: Conditions
 const age = 20;
 if (age >= 18) {
-  console.log(\`Âge: \${age} - Majeur\`);
+  console.log(\`Âge: \${age} - Majeur ✓\`);
 } else {
   console.log(\`Âge: \${age} - Mineur\`);
 }
 
-console.log("=== Fin de la démonstration ===");
-console.log("L'input ci-dessus a demandé votre nom et a attendu votre réponse!");`;
+// Exemple 5: Objets et destructuring
+const personne = { nom: 'Alice', age: 25, ville: 'Montréal' };
+const { nom, personneAge = 30 } = personne;
+console.log(\`\${nom} habite à \${personne.ville}\`);
+
+// Exemple 6: Map et Filter
+const resultats = nombres.map(n => n * 2).filter(n => n > 4);
+console.log("Nombres doublés et filtrés:", resultats);
+
+console.log("=== Exécution terminée avec succès! ===");`;
 
 // Composant pour le layout principal avec onglets
 function MainLayout() {

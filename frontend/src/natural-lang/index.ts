@@ -1,1 +1,2 @@
-export { default } from './NaturalLangView';
+export { NaturalLangPanel } from './NaturalLangPanel';
+

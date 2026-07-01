@@ -1,79 +1,104 @@
-import { useState } from "react"
+import {useEffect} from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
-import CodeEditor from "../editor/editor"
+import CodeEditor from "../editor/Editor.tsx"
 import Console from "../console/Console"
 import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
 import "./App.css"
+import {useAstStore} from "../sync";
+import {Decrompress} from "../editor/compressing.ts";
 
 
 
 
 export const DEFAULT_CODE : string = `// Mini-démo - Éditeur de code + Console d'exécution
-                      // Ce code de démonstration peut être facilement modifié ou supprimé
+// Ce code de démonstration peut être facilement modifié ou supprimé
 
-                      console.log("=== Démonstration de l'exécution sandbox ===");
+console.log("=== Démonstration de l'exécution sandbox ===");
 
-                      // Exemple 1: Fonctions de base (JavaScript pur)
-                      function saluer(nom) {
-                        return \`Bonjour \${nom}!\`;
-                      }
+// Exemple 1: Input utilisateur (interaction)
+// Utilisez input("question") pour demander une valeur à l'utilisateur
+// L'exécution SE MET EN PAUSE jusqu'à ce que l'utilisateur réponde!
+async function saluerAvecInput() {
+  const nom = await input("Quel est votre nom?");
+  console.log(\`Bonjour \${nom}! Bienvenue dans l'éditeur!\`);
+}
 
-                      console.log(saluer("Étudiant"));
-                      console.log("");
+// Décommentez la ligne ci-dessous pour tester l'input:
+await saluerAvecInput();
 
-                      // Exemple 2: Opérations mathématiques
-                      function calculerSurface(rayon) {
-                        return Math.PI * rayon * rayon;
-                      }
+// Exemple 2: Fonctions de base (JavaScript pur)
+function saluer(nom) {
+  return \`Bonjour \${nom}!\`;
+}
 
-                      const rayon = 5;
-                      const surface = calculerSurface(rayon);
-                      console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
-                      console.log("");
+console.log(saluer("Étudiant"));
+console.log("");
 
-                      // Exemple 3: Tableaux et boucles
-                      const nombres = [1, 2, 3, 4, 5];
-                      console.log("Nombres:", nombres);
+// Exemple 3: Opérations mathématiques
+function calculerSurface(rayon) {
+  return Math.PI * rayon * rayon;
+}
 
-                      let somme = 0;
-                      for (const n of nombres) {
-                        somme += n;
-                      }
-                      console.log(\`Somme des nombres = \${somme}\`);
-                      console.log("");
+const rayon = 5;
+const surface = calculerSurface(rayon);
+console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
+console.log("");
 
-                      // Exemple 4: Conditions
-                      const age = 20;
-                      if (age >= 18) {
-                        console.log(\`Âge: \${age} - Majeur\`);
-                      } else {
-                        console.log(\`Âge: \${age} - Mineur\`);
-                      }
+// Exemple 4: Tableaux et boucles
+const nombres = [1, 2, 3, 4, 5];
+console.log("Nombres:", nombres);
 
-                      console.log("=== Fin de la démonstration ===");
-                      console.log("Modifiez ce code et cliquez sur 'Exécuter le code' pour tester!");`;
+let somme = 0;
+for (const n of nombres) {
+  somme += n;
+}
+console.log(\`Somme des nombres = \${somme}\`);
+console.log("");
+
+// Exemple 5: Conditions
+const age = 20;
+if (age >= 18) {
+  console.log(\`Âge: \${age} - Majeur\`);
+} else {
+  console.log(\`Âge: \${age} - Mineur\`);
+}
+
+console.log("=== Fin de la démonstration ===");
+console.log("L'input ci-dessus a demandé votre nom et a attendu votre réponse!");`;
 
 // Composant pour le layout principal avec onglets
 function MainLayout() {
 
-
+  const source = useAstStore((s) => s.source);
+  const setSource = useAstStore((s) => s.setSource);
   const location = useLocation()
-  const [code, setCode] = useState<string>(DEFAULT_CODE)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
-      setCode(value)
+      setSource(value, "editor");
+
     }
   }
 
   const handleExecute = () => {
-    console.log("Code exécuté:", code.substring(0, 100) + "...")
+    console.log("Code exécuté:", source.substring(0, 100) + "...")
   }
 
   const handleClearConsole = () => {
     console.log("Console vidée")
   }
+
+  // Initialisation au montage : tente de restaurer depuis l'URL, sinon charge DEFAULT_CODE
+  useEffect(() => {
+    const restored = Decrompress();
+    if (!restored) {
+      // Pas de hash dans l'URL : on initialise le store avec le code par défaut
+      setSource(DEFAULT_CODE, "editor");
+    } else {
+      setSource(restored?.source, "editor");
+    }
+  }, [setSource]);
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"
@@ -160,7 +185,7 @@ function MainLayout() {
               </div>
               <div className="panel-content">
                 <Console 
-                  code={code}
+                  code={source}
                   onExecute={handleExecute}
                   onClear={handleClearConsole}
                 />
@@ -180,7 +205,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -199,7 +224,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -218,7 +243,7 @@ function MainLayout() {
             </div>
             <div className="single-view-console">
               <Console 
-                code={code}
+                code={source}
                 onExecute={handleExecute}
                 onClear={handleClearConsole}
               />
@@ -234,7 +259,7 @@ function MainLayout() {
           <div className="footer-links">
             <span>Mode: {activeView === 'full' ? '4 onglets' : 'vue unique'}</span>
             <span>•</span>
-            <span>Code source: {code.length > 0 ? `${code.length} caractères` : 'vide'}</span>
+            <span>Code source: {source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
             <span>•</span>
             <span>Serveur: <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer">localhost:5173</a></span>
           </div>

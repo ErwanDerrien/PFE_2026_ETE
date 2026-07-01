@@ -15,12 +15,23 @@ interface ConsoleProps {
   onClear?: () => void;
 }
 
+// Type pour les promesses d'input en attente
+type PendingInput = {
+  resolve: (value: string) => void;
+  question: string;
+};
+
 function Console({ code, onExecute, onClear }: ConsoleProps) {
   const [messages, setMessages] = useState<ConsoleMessage[]>([
-    { id: '1', type: 'info', message: 'Console prête. Tapez du code et cliquez sur "Exécuter".', timestamp: Date.now() },
+    { id: '1', type: 'info', message: 'Console prête. Tapez du code et cliquez sur "Exécuter" ou tapez directement dans le champ ci-dessous.', timestamp: Date.now() },
   ]);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [userInput, setUserInput] = useState("");
+  const [inputMode, setInputMode] = useState(false);
+  const [inputQuestion, setInputQuestion] = useState("");
+  const [pendingInput, setPendingInput] = useState<PendingInput | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Effet pour scroller automatiquement vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -40,6 +51,66 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
     setMessages(prev => [...prev, newMessage]);
   };
 
+  // Fonction pour gérer les demandes d'input du code utilisateur
+  const handleInputRequest = (question: string): Promise<string> => {
+    return new Promise((resolve) => {
+      // Afficher la question
+      addMessage('info', `${question}`);
+      
+      // Activer le mode input et mettre en attente
+      setInputMode(true);
+      setInputQuestion(question);
+      setPendingInput({ resolve, question });
+      
+      // Focus sur l'input
+      setTimeout(() => {
+        const inputEl = document.querySelector('.console-input-modal') as HTMLInputElement;
+        if (inputEl) inputEl.focus();
+      }, 100);
+    });
+  };
+
+  // Soumettre la réponse de l'utilisateur
+  const submitInput = () => {
+    if (pendingInput) {
+      const value = userInput;
+      addMessage('input', `> ${value}`);
+      pendingInput.resolve(value);
+      setPendingInput(null);
+      setInputMode(false);
+      setInputQuestion("");
+      setUserInput("");
+    }
+  };
+
+  // Annuler l'input
+  const cancelInput = () => {
+    if (pendingInput) {
+      pendingInput.resolve("");
+      setPendingInput(null);
+      setInputMode(false);
+      setInputQuestion("");
+      setUserInput("");
+      addMessage('warn', 'Input annulé');
+    }
+  };
+
+  // Fonction pour transformer le code en version async avec support de input()
+  const transformToAsyncCode = (code: string): string => {
+    // Remplacer les appels à input() par une version await
+    // Cette regex trouve les appels input("question")
+    const inputRegex = /input\s*\(\s*(['"`])(.*?)\1\s*\)/g;
+    
+    // Transformer le code: input("question") devient await input("question")
+    let asyncCode = code.replace(inputRegex, 'await input($1$2$1)');
+    
+    // Ajouter "use strict" et rendre le tout async
+    asyncCode = `'use strict';
+${asyncCode}`;
+    
+    return asyncCode;
+  };
+
   const executeCode = async () => {
     if (!code.trim()) {
       addMessage('error', 'Aucun code à exécuter.');
@@ -50,18 +121,22 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
     addMessage('info', 'Exécution en cours...');
 
     try {
-      // Sandbox sécurisée
-      const executeInSandbox = () => {
-        const output = [];
-        const originalLog = console.log;
-        const originalError = console.error;
-        const originalWarn = console.warn;
-        const originalInfo = console.info;
-        const originalClear = console.clear;
-        
-        // Capturer les logs
-        console.log = (...args) => {
-          output.push({ type: 'log', message: args.map(arg => {
+      // Transformer le code en version async
+      const asyncCode = transformToAsyncCode(code);
+      
+      // Créer une fonction async qui sera exécutée
+      const asyncFunction = new Function('input', 'console', `
+        return (async () => {
+          ${asyncCode}
+        })();
+      `);
+      
+      // Créer notre propre console qui capture les sorties
+      const capturedLogs: Array<{type: string, message: string}> = [];
+      
+      const customConsole = {
+        log: (...args: any[]) => {
+          const msg = args.map(arg => {
             if (typeof arg === 'object') {
               try {
                 return JSON.stringify(arg, null, 2);
@@ -70,58 +145,51 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
               }
             }
             return String(arg);
-          }).join(' ') });
-        };
-        
-        console.error = (...args) => {
-          output.push({ type: 'error', message: args.map(arg => String(arg)).join(' ') });
-        };
-        
-        console.warn = (...args) => {
-          output.push({ type: 'warn', message: args.map(arg => String(arg)).join(' ') });
-        };
-        
-        console.info = (...args) => {
-          output.push({ type: 'info', message: args.map(arg => String(arg)).join(' ') });
-        };
-        
-        console.clear = () => {
-          output.push({ type: 'info', message: 'console.clear() appelé' });
-        };
-        
-        try {
-          // Évaluer le code dans un contexte isolé
-          const result = eval(code);
-          // Si le code retourne quelque chose
-          if (result !== undefined && result !== null) {
-            output.push({ type: 'output', message: `Résultat: ${String(result)}` });
-          }
-        } catch (error: any) {
-          output.push({ type: 'error', message: `Erreur d'exécution: ${error.message}` });
-        } finally {
-          // Restaurer les fonctions console originales
-          console.log = originalLog;
-          console.error = originalError;
-          console.warn = originalWarn;
-          console.info = originalInfo;
-          console.clear = originalClear;
+          }).join(' ');
+          capturedLogs.push({ type: 'log', message: msg });
+        },
+        error: (...args: any[]) => {
+          capturedLogs.push({ type: 'error', message: args.map(String).join(' ') });
+        },
+        warn: (...args: any[]) => {
+          capturedLogs.push({ type: 'warn', message: args.map(String).join(' ') });
+        },
+        info: (...args: any[]) => {
+          capturedLogs.push({ type: 'info', message: args.map(String).join(' ') });
+        },
+        clear: () => {
+          capturedLogs.push({ type: 'info', message: 'console.clear() appelé' });
         }
-        
-        return output;
       };
-
-      const results = executeInSandbox();
       
-      if (results && results.length > 0) {
-        results.forEach((result: any) => {
-          addMessage(result.type, result.message);
+      // Créer la fonction input qui utilise notre handleInputRequest
+      const customInput = async (question: string): Promise<string> => {
+        return new Promise((resolve) => {
+          addMessage('info', `${question}`);
+          setInputMode(true);
+          setInputQuestion(question);
+          setPendingInput({ resolve, question });
+          
+          // Focus sur l'input
+          setTimeout(() => {
+            const inputEl = document.querySelector('.console-input-modal') as HTMLInputElement;
+            if (inputEl) inputEl.focus();
+          }, 100);
         });
-        addMessage('info', `Exécution terminée - ${results.length} message(s)`);
-      } else {
-        addMessage('info', 'Exécution terminée sans sortie.');
-      }
+      };
+      
+      // Exécuter la fonction async
+      await asyncFunction(customInput, customConsole);
+      
+      // Afficher tous les messages capturés
+      capturedLogs.forEach((log) => {
+        addMessage(log.type as any, log.message);
+      });
+      
+      addMessage('info', 'Exécution terminée.');
+      
     } catch (error: any) {
-      addMessage('error', `Erreur de sandbox: ${error.message}`);
+      addMessage('error', `Erreur: ${error.message}`);
     } finally {
       setIsExecuting(false);
       onExecute();
@@ -144,9 +212,12 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
       case 'warn': return 'console-message-warn';
       case 'info': return 'console-message-info';
       case 'output': return 'console-message-output';
+      case 'input': return 'console-message-input';
       default: return 'console-message-log';
     }
   };
+
+  
 
   return (
     <div className="console-container">
@@ -203,6 +274,42 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
           ))
         )}
       </div>
+      
+      {/* Mode input modal - affiché quand le code demande une entrée */}
+      {inputMode && (
+        <div className="console-input-modal">
+          <div className="input-modal-content">
+            <div className="input-modal-question">
+              {inputQuestion && <span>{inputQuestion}</span>}
+            </div>
+            <div className="input-modal-field">
+              <span className="input-prompt">&gt;</span>
+              <input
+                type="text"
+                className="console-input-modal"
+                placeholder="Tapez votre réponse..."
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && submitInput()}
+                autoFocus
+              />
+              <button 
+                className="input-submit"
+                onClick={submitInput}
+              >
+                ✓
+              </button>
+              <button 
+                className="input-cancel"
+                onClick={cancelInput}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="input-modal-hint">Appuyez sur Entrée pour soumettre</p>
+          </div>
+        </div>
+      )}
       
       <div className="console-stats">
         <span>{messages.length} message(s)</span>

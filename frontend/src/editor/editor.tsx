@@ -197,7 +197,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                 <Editor
                     height="100%"
                     language="javascript"
-                    defaultValue={DEFAULT_CODE}
+                    defaultValue={source}
                     value={lastOrigin === "editor" ? undefined : source}
                     onMount={handleEditorDidMount}
                     onChange={handleEditorChange}

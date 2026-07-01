@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
 import CodeEditor from "../editor/editor"
-import Console from "../console/Console"
+import OutputConsole from "../console/OutputConsole"
 import BlocksView from "../blocks/BlocksView"
 import NaturalLangView from "../natural-lang/NaturalLangView"
+import type { LogEntry } from "../console/OutputConsole"
 import "./App.css"
 
 
@@ -67,23 +68,15 @@ console.log("L'input ci-dessus a demandé votre nom et a attendu votre réponse!
 
 // Composant pour le layout principal avec onglets
 function MainLayout() {
-
-
   const location = useLocation()
   const [code, setCode] = useState<string>(DEFAULT_CODE)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [isRunning, setIsRunning] = useState(false)
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value)
     }
-  }
-
-  const handleExecute = () => {
-    console.log("Code exécuté:", code.substring(0, 100) + "...")
-  }
-
-  const handleClearConsole = () => {
-    console.log("Console vidée")
   }
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
@@ -140,7 +133,12 @@ function MainLayout() {
                 <span className="panel-team">Équipe B: Justin & Erwan</span>
               </div>
               <div className="panel-content">
-                <CodeEditor onChange={handleEditorChange} />
+                <CodeEditor 
+                  onChange={handleEditorChange}
+                  onLogsChange={setLogs}
+                  isRunning={isRunning}
+                  onRunStateChange={setIsRunning}
+                />
               </div>
             </div>
             
@@ -170,11 +168,7 @@ function MainLayout() {
                 <span className="panel-team">Équipe B: Justin & Erwan</span>
               </div>
               <div className="panel-content">
-                <Console 
-                  code={code}
-                  onExecute={handleExecute}
-                  onClear={handleClearConsole}
-                />
+                <OutputConsole logs={logs} />
               </div>
             </div>
           </div>
@@ -187,14 +181,15 @@ function MainLayout() {
               <p>Interface de développement principale avec Monaco Editor</p>
             </div>
             <div className="single-view-content">
-              <CodeEditor onChange={handleEditorChange} />
+              <CodeEditor 
+                onChange={handleEditorChange}
+                onLogsChange={setLogs}
+                isRunning={isRunning}
+                onRunStateChange={setIsRunning}
+              />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={code}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
-              />
+              <OutputConsole logs={logs} />
             </div>
           </div>
         )}
@@ -209,11 +204,7 @@ function MainLayout() {
               <BlocksView />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={code}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
-              />
+              <OutputConsole logs={logs} />
             </div>
           </div>
         )}
@@ -228,11 +219,7 @@ function MainLayout() {
               <NaturalLangView />
             </div>
             <div className="single-view-console">
-              <Console 
-                code={code}
-                onExecute={handleExecute}
-                onClear={handleClearConsole}
-              />
+              <OutputConsole logs={logs} />
             </div>
           </div>
         )}

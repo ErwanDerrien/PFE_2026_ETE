@@ -164,9 +164,6 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
             onKeyDown={handleKeyDown}
             style={{ flex: 1, padding: '4px 6px', background: '#1e1e1e', border: '1px solid #555', color: '#cccccc', fontFamily: 'monospace', fontSize: '12px', borderRadius: '3px', outline: 'none' }}
           />
-          <button onClick={handleSubmit} style={{ padding: '4px 10px', background: '#0e639c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
-            OK
-          </button>
           <button onClick={handleSubmit} style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: '#0e639c', color: '#fff', fontWeight: 'bold' }}>
             OK
           </button>

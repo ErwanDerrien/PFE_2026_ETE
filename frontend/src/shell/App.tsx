@@ -140,6 +140,15 @@ function MainLayout() {
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"
 
+  // CodeEditor doit rester monté sur les vues "full" et "code"
+  const showCodeEditor = activeView === 'full' || activeView === 'code'
+  // BlocksView doit rester monté sur les vues "full" et "blocks"
+  const showBlocksView = activeView === 'full' || activeView === 'blocks'
+  // NaturalLangView doit rester monté sur les vues "full" et "text"
+  const showNaturalLangView = activeView === 'full' || activeView === 'text'
+  // OutputConsole doit rester monté sur toutes les vues (il est toujours affiché quelque part)
+  // -> une seule instance permanente, jamais démontée tant que MainLayout est monté
+
   return (
     <div className="app-container">
       {/* Barre de navigation */}
@@ -182,131 +191,80 @@ function MainLayout() {
       </nav>
 
       {/* Contenu principal basé sur la route */}
-      <div className="main-content">
-        {activeView === 'full' && (
-          <div className="four-panel-view">
-            <div className="panel panel-code">
-              <div className="panel-header">
-                <h3>💻 Éditeur de Code</h3>
-                <span className="panel-team">Équipe B: Justin & Erwan</span>
-              </div>
-              <div className="panel-content">
-                <CodeEditor 
-                  onChange={handleEditorChange}
-                  onLogsChange={setLogs}
-                  isRunning={isRunning}
-                  onRunStateChange={setIsRunning}
-                  onInputRequest={handleInputRequest}
-                  onInputCancel={handleInputCancel}
-                  onRegisterControls={handleRegisterControls}
-                />
-              </div>
-            </div>
-
-            <div className="panel panel-blocks">
-              <div className="panel-header">
-                <h3>🟦 Blocs Visuels</h3>
-                <span className="panel-team">Équipe A: Adel & Junior</span>
-              </div>
-              <div className="panel-content">
-                <BlocksView />
-              </div>
-            </div>
-            
-            <div className="panel panel-text">
-              <div className="panel-header">
-                <h3>📝 Langage Naturel</h3>
-                <span className="panel-team">Émie (Transversal)</span>
-              </div>
-              <div className="panel-content">
-                <NaturalLangView />
-              </div>
-            </div>
-            
-            <div className="panel panel-console">
-              <div className="panel-header">
-                <h3>📟 Console d'Exécution</h3>
-                <span className="panel-team">Équipe B: Justin & Erwan</span>
-              </div>
-              <div className="panel-content">
-                <OutputConsole 
-                  logs={logs}
-                  isWaitingForInput={isWaitingForInput}
-                  inputPrompt={inputPrompt}
-                  onInputSubmit={handleInputSubmit}
-                  onInputCancel={handleInputCancel}
-                  isRunning={isRunning}
-                  onRun={handleRun}
-                  onStop={handleStop}
-                  onClear={handleClear}
-                />
-              </div>
-            </div>
+      {/* Grille unique et persistante : les 4 panneaux + la console sont de VRAIS enfants directs
+          du même conteneur grid en permanence. Seule la classe "view-*" change la disposition
+          (grid-template-areas) ; aucun composant n'est jamais démonté lors du changement d'onglet. */}
+      <div className={`main-content view-grid view-${activeView}`}>
+        {/* --- Panneau Éditeur de code --- */}
+        <div
+          className="panel panel-code grid-item-code"
+          style={{ display: showCodeEditor ? undefined : 'none' }}
+        >
+          <div className="panel-header">
+            <h3>💻 Éditeur de Code</h3>
+            <span className="panel-team">Équipe B: Justin & Erwan</span>
           </div>
-        )}
-
-        {activeView === 'code' && (
-          <div className="single-view">
-            <div className="single-view-header">
-              <h2>💻 Éditeur de Code</h2>
-              <p>Interface de développement principale avec Monaco Editor</p>
-            </div>
-            <div className="single-view-content">
-              <CodeEditor 
-                onChange={handleEditorChange}
-                onLogsChange={setLogs}
-                isRunning={isRunning}
-                onRunStateChange={setIsRunning}
-                onInputRequest={handleInputRequest}
-                onInputCancel={handleInputCancel}
-                onRegisterControls={handleRegisterControls}
-              />
-            </div>
-            <div className="single-view-console">
-              <OutputConsole 
-                logs={logs}
-                isWaitingForInput={isWaitingForInput}
-                inputPrompt={inputPrompt}
-                onInputSubmit={handleInputSubmit}
-                onInputCancel={handleInputCancel}
-                isRunning={isRunning}
-                onRun={handleRun}
-                onStop={handleStop}
-                onClear={handleClear}
-              />
-            </div>
+          <div className="panel-content">
+            <CodeEditor
+              onChange={handleEditorChange}
+              onLogsChange={setLogs}
+              isRunning={isRunning}
+              onRunStateChange={setIsRunning}
+              onInputRequest={handleInputRequest}
+              onInputCancel={handleInputCancel}
+              onRegisterControls={handleRegisterControls}
+            />
           </div>
-        )}
+        </div>
 
-        {activeView === 'blocks' && (
-          <div className="single-view">
-            <div className="single-view-header">
-              <h2>🟦 Blocs Visuels</h2>
-              <p>Représentation graphique de la structure du code</p>
-            </div>
-            <div className="single-view-content">
-              <BlocksView />
-            </div>
-            <div className="single-view-console">
-              <OutputConsole logs={logs} />
-            </div>
+        {/* --- Panneau Blocs Visuels --- */}
+        <div
+          className="panel panel-blocks grid-item-blocks"
+          style={{ display: showBlocksView ? undefined : 'none' }}
+        >
+          <div className="panel-header">
+            <h3>🟦 Blocs Visuels</h3>
+            <span className="panel-team">Équipe A: Adel & Junior</span>
           </div>
-        )}
+          <div className="panel-content">
+            <BlocksView />
+          </div>
+        </div>
 
-        {activeView === 'text' && (
-          <div className="single-view">
-            <div className="single-view-header">
-              <h2>📝 Langage Naturel</h2>
-              <p>Conversion code ↔ description textuelle via API Claude</p>
-            </div>
-            <div className="single-view-content">
-              <NaturalLangView />
-            </div>
-            <div className="single-view-console">
-              <OutputConsole logs={logs} />
-            </div>
+        {/* --- Panneau Langage Naturel --- */}
+        <div
+          className="panel panel-text grid-item-text"
+          style={{ display: showNaturalLangView ? undefined : 'none' }}
+        >
+          <div className="panel-header">
+            <h3>📝 Langage Naturel</h3>
+            <span className="panel-team">Émie (Transversal)</span>
           </div>
-        )}
+          <div className="panel-content">
+            <NaturalLangView />
+          </div>
+        </div>
+
+        {/* --- Console de sortie : une seule instance, toujours montée, jamais recréée --- */}
+        <div className="panel panel-console grid-item-console">
+          <div className="panel-header">
+            <h3>📟 Console d'Exécution</h3>
+            <span className="panel-team">Équipe B: Justin & Erwan</span>
+          </div>
+          <div className="panel-content">
+            <OutputConsole
+              logs={logs}
+              isWaitingForInput={isWaitingForInput}
+              inputPrompt={inputPrompt}
+              onInputSubmit={handleInputSubmit}
+              onInputCancel={handleInputCancel}
+              isRunning={isRunning}
+              onRun={handleRun}
+              onStop={handleStop}
+              onClear={handleClear}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Pied de page */}
@@ -331,11 +289,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MainLayout />} />
-        <Route path="/full" element={<MainLayout />} />
-        <Route path="/code" element={<MainLayout />} />
-        <Route path="/blocks" element={<MainLayout />} />
-        <Route path="/text" element={<MainLayout />} />
+        <Route path="/*" element={<MainLayout />} />
       </Routes>
     </Router>
   )

@@ -86,19 +86,74 @@ html, body, #root {
 }
 
 /* Contenu principal */
-.main-content {
+
+/*
+  === Grille persistante ===
+  Remplace l'ancien couple .four-panel-view / .single-view.
+  Un seul conteneur grid reste monté en permanence ; les 4 panneaux
+  (code, blocks, text, console) sont toujours des enfants directs.
+  On ne change QUE grid-template-areas/columns/rows selon la vue active
+  (via la classe view-full / view-code / view-blocks / view-text),
+  et les panneaux non affichés sont masqués avec display:none
+  sans jamais être retirés du DOM (donc jamais démontés).
+*/
+.view-grid {
   flex: 1;
   overflow: hidden;
   padding: 20px;
+  display: grid;
+  gap: 15px;
 }
 
-/* Vue à 4 panneaux */
-.four-panel-view {
-  display: grid;
+/* Vue à 4 panneaux (comportement identique à l'ancien .four-panel-view) */
+.view-grid.view-full {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 15px;
-  height: 100%;
+  grid-template-areas:
+    "code blocks"
+    "text console";
+}
+
+/* Vues à panneau unique : le panneau actif occupe toute la largeur,
+   la console reste visible en dessous (comportement de l'ancien .single-view) */
+.view-grid.view-code {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 300px;
+  grid-template-areas:
+    "code"
+    "console";
+}
+
+.view-grid.view-blocks {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 300px;
+  grid-template-areas:
+    "blocks"
+    "console";
+}
+
+.view-grid.view-text {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 300px;
+  grid-template-areas:
+    "text"
+    "console";
+}
+
+.grid-item-code {
+  grid-area: code;
+}
+
+.grid-item-blocks {
+  grid-area: blocks;
+}
+
+.grid-item-text {
+  grid-area: text;
+}
+
+.grid-item-console {
+  grid-area: console;
 }
 
 .panel {
@@ -108,6 +163,8 @@ html, body, #root {
   border: 1px solid #30363d;
   border-radius: 8px;
   overflow: hidden;
+  min-height: 0;
+  min-width: 0;
 }
 
 .panel-header {
@@ -148,51 +205,6 @@ html, body, #root {
 
 .panel-console .panel-content {
   background-color: #1e1e1e;
-}
-
-/* Vue unique */
-.single-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 15px;
-}
-
-.single-view-header {
-  padding: 15px;
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.single-view-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  color: #ffffff;
-}
-
-.single-view-header p {
-  margin: 0;
-  font-size: 14px;
-  color: #8b949e;
-}
-
-.single-view-content {
-  flex: 1;
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.single-view-console {
-  height: 300px;
-  min-height: 300px;
-  background-color: #1e1e1e;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 /* Footer */
@@ -237,11 +249,16 @@ html, body, #root {
 
 /* Responsive */
 @media (max-width: 1200px) {
-  .four-panel-view {
+  .view-grid.view-full {
     grid-template-columns: 1fr;
     grid-template-rows: repeat(4, 1fr);
+    grid-template-areas:
+      "code"
+      "blocks"
+      "text"
+      "console";
   }
-  
+
   .panel {
     min-height: 250px;
   }

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
 
 export type LogEntry = {
   level: 'log' | 'error' | 'warn' | 'info';
@@ -89,14 +90,9 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
   }, [logs]);
 
   const btnStyle = (color: string): React.CSSProperties => ({
+    ...TOOLBAR_BUTTON_BASE_STYLE,
     background: color,
     color: '#fff',
-    border: 'none',
-    borderRadius: '3px',
-    padding: '3px 10px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    flexShrink: 0,
   });
 
   return (
@@ -115,7 +111,7 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
         <button
           onClick={() => setDarkMode(d => !d)}
           title="Toggle theme"
-          style={{ ...btnStyle('#444'), background: 'transparent', color: darkMode ? '#ccc' : '#555', border: `1px solid ${borderColor}` }}
+          style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: 'transparent', color: darkMode ? '#ccc' : '#555', border: `1px solid ${borderColor}` }}
         >
           {darkMode ? '🌙' : '☀️'}
         </button>
@@ -171,7 +167,10 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
           <button onClick={handleSubmit} style={{ padding: '4px 10px', background: '#0e639c', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
             OK
           </button>
-          <button onClick={() => { setInputValue(''); onInputCancel?.(); }} title="Annuler (Ctrl+C)" style={{ padding: '4px 8px', background: 'transparent', color: '#888', border: '1px solid #555', borderRadius: '3px', cursor: 'pointer', fontSize: '12px' }}>
+          <button onClick={handleSubmit} style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: '#0e639c', color: '#fff', fontWeight: 'bold' }}>
+            OK
+          </button>
+          <button onClick={() => { setInputValue(''); onInputCancel?.(); }} title="Annuler (Ctrl+C)" style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: 'transparent', color: '#888', border: '1px solid #555' }}>
             ✕
           </button>
         </div>

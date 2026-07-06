@@ -3,9 +3,9 @@ import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import type { Monaco } from "@monaco-editor/react";
 import { useAstStore } from '../sync';
-import { DEFAULT_CODE } from '../shell/App';
 import type { LogEntry } from '../console/OutputConsole';
 import { Compress } from './compressing';
+import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
 
 interface CodeEditorProps {
   onChange?: (value: string) => void;
@@ -175,20 +175,21 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
 
             {/* Barre d'outils */}
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", padding: "4px 8px", backgroundColor: "#1e1e1e", borderBottom: "1px solid #333", flexShrink: 0, flexWrap: "wrap" }}>
-                <button onClick={handleImportFile} title="Import JS/TS file" style={{ background: "#4a5", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
+                <button onClick={handleImportFile} title="Import JS/TS file" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: "#4a5", color: "#fff" }}>
                     📁 Import
                 </button>
-                <button onClick={() => setTheme(prev => prev === 'vs-dark' ? 'light' : 'vs-dark')} title="Toggle theme" style={{ background: "#444", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px" }}>
+                <button onClick={exportCode} title="Export code to file" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: "#666", color: "#fff" }}>
+                    ⬇ Export
+                </button>
+                <div style={{ width: '1px', height: '18px', background: '#333', margin: '0 2px' }} />
+                <button onClick={() => setTheme(prev => prev === 'vs-dark' ? 'light' : 'vs-dark')} title="Toggle theme" style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: "#444", color: "#fff" }}>
                     {theme === 'vs-dark' ? '🌙' : '☀️'}
                 </button>
                 <label style={{ color: '#ccc', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ color: '#888' }}>A</span>
                     <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
                 </label>
-                <button onClick={exportCode} title="Export code to file" style={{ background: "#666", color: "#fff", border: "none", borderRadius: "3px", padding: "4px 10px", cursor: "pointer", fontSize: "13px" }}>
-                    ⬇ Export
-                </button>
-                <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "4px 10px", fontSize: "13px", fontFamily: "inherit", cursor: "pointer", borderRadius: "3px", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
+                <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, gap: "6px", fontFamily: "inherit", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
                     {copied ? "✓ Copié !" : "🔗 Partager"}
                 </button>
             </div>

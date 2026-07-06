@@ -3,7 +3,7 @@ import './Console.css';
 
 export type ConsoleMessage = {
   id: string;
-  type: 'log' | 'error' | 'warn' | 'info' | 'output';
+  type: 'log' | 'error' | 'warn' | 'info' | 'output' | 'input';
   message: string;
   timestamp: number;
   lineNumber?: number;
@@ -31,7 +31,6 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
   const [inputQuestion, setInputQuestion] = useState("");
   const [pendingInput, setPendingInput] = useState<PendingInput | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Effet pour scroller automatiquement vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -49,25 +48,6 @@ function Console({ code, onExecute, onClear }: ConsoleProps) {
       lineNumber,
     };
     setMessages(prev => [...prev, newMessage]);
-  };
-
-  // Fonction pour gérer les demandes d'input du code utilisateur
-  const handleInputRequest = (question: string): Promise<string> => {
-    return new Promise((resolve) => {
-      // Afficher la question
-      addMessage('info', `${question}`);
-      
-      // Activer le mode input et mettre en attente
-      setInputMode(true);
-      setInputQuestion(question);
-      setPendingInput({ resolve, question });
-      
-      // Focus sur l'input
-      setTimeout(() => {
-        const inputEl = document.querySelector('.console-input-modal') as HTMLInputElement;
-        if (inputEl) inputEl.focus();
-      }, 100);
-    });
   };
 
   // Soumettre la réponse de l'utilisateur

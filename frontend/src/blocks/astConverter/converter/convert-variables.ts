@@ -1,10 +1,4 @@
-import type {
-  ArrayDestructure,
-  PropertyTarget,
-  VariableDeclaration,
-  VariableDeclarator,
-  VariableTarget,
-} from "../../types/variable";
+import type { VariableDeclaration } from "../../types/variable";
 import * as t from "@babel/types";
 import { convertAssignmentTarget, convertNodeFromValue } from "./convert-value";
 import { convertType } from "./convert-type";

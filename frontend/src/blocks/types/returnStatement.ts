@@ -1,4 +1,4 @@
-import type { Value } from "./variable";
+import type { Value } from "./globalType";
 
 export interface ReturnStatement {
   blockUid: number;

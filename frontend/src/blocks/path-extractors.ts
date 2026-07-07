@@ -35,7 +35,6 @@ import type {
   FunctionValue as NewFnValue,
 } from "./types/function";
 import type { SwitchCase, SwitchStatement } from "./types/switch-case";
-import type { Block, Statement } from "./types/globalType";
 import type { InterfaceDeclaration } from "./types/interface";
 import type { IfStatement } from "./types/ifStatement";
 import type {

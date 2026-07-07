@@ -66,20 +66,27 @@ export default function BlockNode({
     value?: string; // init / assigned value
   }
 
-  /** Walk a (possibly nested) PropertyTarget chain → flat segments. */
-  function targetSegments(t: AssignmentTarget): string[] {
+  /** Walk a (possibly nested) PropertyTarget chain → flat segments.
+      Accepte aussi une `Value` : `t.object` d'un PropertyTarget est une Value. */
+  function targetSegments(t: AssignmentTarget | Value): string[] {
     if (t.kind === "variable") return [t.name];
     if (t.kind === "property")
       return [...targetSegments(t.object), `.${t.property}`];
     if (t.kind === "index")
       return [...targetSegments(t.object), `[${describe(t.index)}]`];
-    return [describeTarget(t)];
+    if (t.kind === "array-destructure" || t.kind === "object-destructure")
+      return [describeTarget(t)];
+    return [describe(t)];
   }
 
-  /** Build breakdown rows from a BindingTarget (destructure leaf → flattened rows). */
-  function bindingRows(t: BindingTarget, init?: Value): BreakdownRow[] {
+  /** Build breakdown rows from a BindingTarget (destructure leaf → flattened rows).
+      Accepte aussi une AssignmentTarget : les cibles de rest/defaulted le sont. */
+  function bindingRows(t: BindingTarget | AssignmentTarget, init?: Value): BreakdownRow[] {
     if (t.kind === "variable") {
       return [{ key: t.name, value: init ? describe(init) : undefined }];
+    }
+    if (t.kind === "property" || t.kind === "index") {
+      return [{ key: targetSegments(t).join(""), value: init ? describe(init) : undefined }];
     }
     if (t.kind === "array-destructure") {
       return t.elements.flatMap((el, i) => {

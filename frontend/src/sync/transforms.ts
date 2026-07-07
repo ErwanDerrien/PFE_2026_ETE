@@ -49,7 +49,6 @@ export const generate: Generate = (ast) => generator(ast).code;
  * `GraphModel` via `objectToGraph` (voir ../blocks/object-to-graph.ts).
  */
 export const astToGraph: AstToGraph = (ast, options) => {
-  console.log(traversePath(ast));
   return objectToGraph(traversePath(ast), options);
 };
 

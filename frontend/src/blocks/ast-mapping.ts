@@ -147,7 +147,7 @@ const traversePath = (ast: t.File): FunctionDeclaration | FunctionValue => {
 
   traverse(ast, {
     Program: {
-      enter(path: NodePath<t.Program>) {
+      enter(_path: NodePath<t.Program>) {
         const globalFn: FunctionDeclaration = {
           kind: "function-declaration",
           name: "<global>",

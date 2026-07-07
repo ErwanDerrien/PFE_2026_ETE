@@ -216,6 +216,10 @@ function resolveAnchor(
     const edge = graph.edges.find((e) => e.id === t.edgeId);
     return edge ? { path: edge.source, inclusive: true } : null;
   }
+  if (t.kind === "before") {
+    // before : le nouveau node prend la place de nodeId (visible = déclaré avant lui).
+    return { path: t.nodeId, inclusive: false };
+  }
   return null; // floating : aucune portée d'ancrage
 }
 
@@ -237,6 +241,9 @@ export function breakContinueAllowed(
   if (target.kind === "port") {
     startId = target.nodeId;
     includeStart = target.port !== "exec-out"; // true/false/body → on entre dans ce node
+  } else if (target.kind === "before") {
+    startId = target.nodeId; // même bloc que le node : mêmes conteneurs
+    includeStart = false;
   } else {
     const edge = graph.edges.find((e) => e.id === target.edgeId);
     if (!edge) return { break: false, continue: false };

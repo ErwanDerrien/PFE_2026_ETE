@@ -1,0 +1,122 @@
+/* NaturalLangPanel — utilise les variables CSS du projet */
+
+.nl-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+.nl-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nl-panel__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+  letter-spacing: 0.1px;
+}
+
+.nl-panel__body {
+  padding: 16px;
+  flex: 1;
+}
+
+.nl-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.nl-panel__description {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.nl-panel__placeholder {
+  color: var(--text);
+  font-size: 14px;
+  opacity: 0.5;
+  margin: 0;
+  font-style: italic;
+}
+
+.nl-panel__loading {
+  color: var(--text);
+  font-size: 14px;
+  opacity: 0.6;
+  margin: 0;
+}
+
+.nl-panel__error {
+  color: #e53e3e;
+  font-size: 14px;
+  margin: 0;
+}
+
+.nl-panel__textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-h);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.nl-panel__textarea:focus {
+  border-color: var(--accent-border);
+}
+
+.nl-panel__btn {
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: box-shadow 0.2s, opacity 0.2s;
+}
+
+.nl-panel__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nl-panel__btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.nl-panel__btn--ghost:hover:not(:disabled) {
+  box-shadow: var(--shadow);
+}
+
+.nl-panel__btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.nl-panel__btn--primary:hover:not(:disabled) {
+  box-shadow: var(--shadow);
+}

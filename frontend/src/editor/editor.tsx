@@ -194,7 +194,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                 </button>
             </div>
             {/* Éditeur */}
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div className="nokey" style={{ flex: 1, minHeight: 0 }}>
                 <Editor
                     height="100%"
                     language="javascript"

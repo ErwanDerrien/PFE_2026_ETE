@@ -3,14 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react
 import CodeEditor from "../editor/editor"
 import OutputConsole from "../console/OutputConsole"
 import BlocksView from "../blocks/BlocksView"
-import NaturalLangView from "../natural-lang/NaturalLangView"
+import { NaturalLangPanel } from "../natural-lang/NaturalLangPanel.tsx"
 import type { LogEntry } from "../console/OutputConsole"
 import "./App.css"
 import {useAstStore} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
-
-
-
+import { ApiKeyInput } from '../api';
 
 export const DEFAULT_CODE : string = `// 🚀 Bienvenue dans l'Éditeur de Code!
 // Appuyez sur "Run" pour exécuter ce code
@@ -144,8 +142,8 @@ function MainLayout() {
   const showCodeEditor = activeView === 'full' || activeView === 'code'
   // BlocksView doit rester monté sur les vues "full" et "blocks"
   const showBlocksView = activeView === 'full' || activeView === 'blocks'
-  // NaturalLangView doit rester monté sur les vues "full" et "text"
-  const showNaturalLangView = activeView === 'full' || activeView === 'text'
+  // NaturalLangPanel doit rester monté sur les vues "full" et "text"
+  const showNaturalLangPanel = activeView === 'full' || activeView === 'text'
   // OutputConsole doit rester monté sur toutes les vues (il est toujours affiché quelque part)
   // -> une seule instance permanente, jamais démontée tant que MainLayout est monté
 
@@ -234,14 +232,14 @@ function MainLayout() {
         {/* --- Panneau Langage Naturel --- */}
         <div
           className="panel panel-text grid-item-text"
-          style={{ display: showNaturalLangView ? undefined : 'none' }}
+          style={{ display: showNaturalLangPanel ? undefined : 'none' }}
         >
           <div className="panel-header">
             <h3>📝 Langage Naturel</h3>
             <span className="panel-team">Émie (Transversal)</span>
           </div>
           <div className="panel-content">
-            <NaturalLangView />
+            <NaturalLangPanel />
           </div>
         </div>
 
@@ -291,6 +289,7 @@ function App() {
       <Routes>
         <Route path="/*" element={<MainLayout />} />
       </Routes>
+      <ApiKeyInput />
     </Router>
   )
 }

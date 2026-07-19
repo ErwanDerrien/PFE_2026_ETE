@@ -6,7 +6,7 @@ import BlocksView from "../blocks/BlocksView"
 import { NaturalLangPanel } from "../natural-lang/NaturalLangPanel.tsx"
 import type { LogEntry } from "../console/OutputConsole"
 import "./App.css"
-import {useAstStore} from "../sync";
+import {useAstStore, SyncButton} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
 import { ApiKeyInput } from '../api';
 
@@ -160,9 +160,12 @@ function MainLayout() {
           </div>
         </div>
         
+        {/* Bouton global de synchronisation entre les vues (équipe A) */}
+        <SyncButton />
+
         <div className="nav-tabs">
-          <Link 
-            to="/full" 
+          <Link
+            to="/full"
             className={`nav-tab ${activeView === 'full' ? 'active' : ''}`}
           >
             📊 Vue Complète (4 onglets)

@@ -1,0 +1,45 @@
+/* SyncButton — bouton global de synchronisation (équipe A). */
+
+.sync-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font: 600 13px/1 system-ui, sans-serif;
+  color: #8b949e;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  cursor: not-allowed;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* Modifications en attente : bouton actif et mis en évidence. */
+.sync-button.is-dirty {
+  color: #ffffff;
+  background: #1f6feb;
+  border-color: #388bfd;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.25);
+}
+
+.sync-button.is-dirty:hover {
+  background: #388bfd;
+}
+
+.sync-button-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Petite rotation du glyphe quand une sync est disponible. */
+.sync-button.is-dirty .sync-button-icon {
+  animation: sync-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(180deg); }
+}

@@ -32,6 +32,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     });
 
     const source = useAstStore((s) => s.source);
+    const pendingSource = useAstStore((s) => s.pendingSource);
     const lastOrigin = useAstStore((s) => s.lastOrigin);
     const setSource = useAstStore((s) => s.setSource);
 
@@ -199,7 +200,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                     height="100%"
                     language="javascript"
                     defaultValue={source}
-                    value={lastOrigin === "editor" ? undefined : source}
+                    value={lastOrigin === "editor" ? undefined : (pendingSource ?? source)}
                     onMount={handleEditorDidMount}
                     onChange={handleEditorChange}
                     onValidate={handleEditorValidation}

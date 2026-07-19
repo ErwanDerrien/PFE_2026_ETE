@@ -40,8 +40,13 @@ const generator =
     ? _generate
     : (_generate as { default: typeof _generate }).default;
 
-/** AST -> code, via `@babel/generator`. */
-export const generate: Generate = (ast) => generator(ast).code;
+/**
+ * AST -> code, via `@babel/generator`.
+ * `jsescOption.minimal` : n'échapper que le strict nécessaire — préserve les
+ * caractères UTF-8 (é, è, emojis…) au lieu de les transformer en `\xE9`/`\uXXXX`.
+ */
+export const generate: Generate = (ast) =>
+  generator(ast, { jsescOption: { minimal: true } }).code;
 
 /**
  * AST -> graphe de blocs. Cœur en lecture.

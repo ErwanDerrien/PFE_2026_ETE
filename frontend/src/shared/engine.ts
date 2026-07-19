@@ -132,4 +132,24 @@ export interface AstStoreState {
   expandedFunctions: Set<string>;
   /** Bascule l'état déplié/replié d'un nœud de définition de fonction. */
   toggleFunctionNode: (nodeId: string) => void;
+
+  // --- synchronisation MANUELLE entre les vues (bouton global) ---
+  /**
+   * Vrai s'il existe des modifications locales (tampon d'une vue) pas encore
+   * propagées aux autres vues. Pilote l'état activé/désactivé du bouton global.
+   */
+  dirty: boolean;
+  /**
+   * Tampon de l'éditeur : code tapé mais pas encore propagé. `null` quand
+   * l'éditeur n'a pas de modification en attente. (Le tampon des blocs est
+   * `codeObj`/`graph`, mutés localement sans régénérer `ast`/`source`.)
+   */
+  pendingSource: string | null;
+  /**
+   * Propage les modifications de la vue émettrice (`lastOrigin`) vers les autres
+   * vues, puis remet `dirty` à false. La vue émettrice ne re-render pas :
+   *  - lastOrigin=blocks           → codeObj → ast → source (l'éditeur se met à jour)
+   *  - lastOrigin=editor/nat-lang  → pendingSource → parse → codeObj → graph (les blocs se mettent à jour)
+   */
+  sync: () => void;
 }

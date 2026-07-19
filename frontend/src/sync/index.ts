@@ -10,3 +10,4 @@
 
 export { useAstStore } from './store';
 export { parse, generate, astToGraph, graphToAst } from './transforms';
+export { default as SyncButton } from './SyncButton';

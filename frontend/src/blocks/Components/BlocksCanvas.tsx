@@ -138,7 +138,10 @@ export default function BlocksCanvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        // Cadrage initial : ne jamais descendre sous 75 % de zoom. Un petit
+        // graphe reste entièrement visible ; un grand graphe montre le début du
+        // code à taille lisible (on navigue au lieu de tout dézoomer).
+        fitViewOptions={{ padding: 0.2, minZoom: 0.75 }}
         nodesConnectable={false}
         colorMode="dark"
         proOptions={{ hideAttribution: true }}

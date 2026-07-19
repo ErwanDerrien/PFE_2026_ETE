@@ -93,7 +93,9 @@ export function graphToFlow(graph: TypedGraphModel): FlowModel {
   }
 
   const layout = new dagre.graphlib.Graph();
-  layout.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100, marginx: 48, marginy: 48 });
+  // Espacements compacts : graphe plus dense → moins de dézoom nécessaire pour
+  // l'embrasser, et moins de navigation pour le parcourir.
+  layout.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 70, marginx: 24, marginy: 24 });
   layout.setDefaultEdgeLabel(() => ({}));
 
   for (const node of graph.nodes) {

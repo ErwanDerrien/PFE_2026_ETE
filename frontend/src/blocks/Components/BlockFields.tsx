@@ -9,6 +9,10 @@
  */
 
 import { useId, useMemo } from "react";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { HStack, Stack } from "@astryxdesign/core/Stack";
 import { useAstStore } from "../../sync";
 import { astTypeForKind, type BlockSpec } from "../node-create";
 import { PRIMITIVE_TYPE_NAMES, namedTypesFromGraph } from "../type-options";
@@ -327,356 +331,280 @@ export default function BlockFields({
 
   if (kind === "break" || kind === "continue") {
     return (
-      <div className="bf-empty">
+      <Text type="supporting" size="sm" as="p">
         Aucun paramètre pour « {astTypeForKind(kind)} ».
-      </div>
+      </Text>
     );
   }
 
+  const err = (k: keyof FormValues) =>
+    errors?.[k] ? { type: "error" as const, message: errors[k]! } : undefined;
+
+  const KIND_OPTIONS = [...DECLARATION_KINDS];
+
   return (
-    <>
+    <Stack gap={2}>
       {kind === "return" && (
-        <label className="bf-field">
-          <span>valeur (optionnel)</span>
-          <input
-            autoFocus={autoFocus}
-            value={v.returnValue}
-            onChange={(e) => onChange({ returnValue: e.target.value })}
-            placeholder="ex. result"
-          />
-        </label>
+        <TextInput
+          label="Valeur (optionnel)"
+          size="sm"
+          value={v.returnValue}
+          onChange={(val: string) => onChange({ returnValue: val })}
+          placeholder="ex. result"
+        />
       )}
 
       {kind === "variable" && (
         <>
-          <div className="bf-row">
-            <select
+          <HStack gap={1.5} vAlign="end">
+            <Selector
+              label="Portée"
+              size="sm"
+              options={KIND_OPTIONS}
               value={v.declarationKind}
-              onChange={(e) =>
-                onChange({ declarationKind: e.target.value as DeclarationKind })
-              }
-            >
-              {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <input
-              autoFocus={autoFocus}
-              className="bf-grow"
+              onChange={(val: string) => onChange({ declarationKind: val as DeclarationKind })}
+            />
+            <TextInput
+              label="Nom"
+              size="sm"
               value={v.name}
-              onChange={(e) => onChange({ name: e.target.value })}
+              onChange={(val: string) => onChange({ name: val })}
               placeholder="nom"
             />
-          </div>
-          <label className="bf-field">
-            <span>type (optionnel)</span>
-            <select
-              className="bf-fullwidth"
-              value={v.typeText}
-              onChange={(e) => onChange({ typeText: e.target.value })}
-            >
-              <option value="">(aucun)</option>
-              <optgroup label="Primitifs">
-                {PRIMITIVE_TYPE_NAMES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </optgroup>
-              {namedTypes.length > 0 && (
-                <optgroup label="Types du code">
-                  {namedTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {extraType && (
-                <optgroup label="Actuel">
-                  <option value={extraType}>{extraType}</option>
-                </optgroup>
-              )}
-            </select>
-          </label>
-          <label className="bf-field">
-            <span>valeur initiale (optionnel)</span>
-            <input
-              value={v.initText}
-              onChange={(e) => onChange({ initText: e.target.value })}
-              placeholder="ex. a + b"
-            />
-          </label>
+          </HStack>
+          <Selector
+            label="Type (optionnel)"
+            size="sm"
+            options={[
+              "(aucun)",
+              ...PRIMITIVE_TYPE_NAMES,
+              ...namedTypes,
+              ...(extraType ? [extraType] : []),
+            ]}
+            value={v.typeText || "(aucun)"}
+            onChange={(val: string) => onChange({ typeText: val === "(aucun)" ? "" : val })}
+          />
+          <TextInput
+            label="Valeur initiale (optionnel)"
+            size="sm"
+            value={v.initText}
+            onChange={(val: string) => onChange({ initText: val })}
+            placeholder="ex. a + b"
+          />
         </>
       )}
 
       {kind === "assignment" && (
         <>
-          <div className="bf-row">
-            <input
-              autoFocus={autoFocus}
-              className="bf-grow"
-              value={v.targetText}
-              onChange={(e) => onChange({ targetText: e.target.value })}
-              placeholder="cible (ex. obj.prop)"
-              list={datalistId}
-            />
-            <datalist id={datalistId}>
-              {targets.map((n) => (
-                <option key={n} value={n} />
-              ))}
-              {propertyPaths
-                .filter((p) => !targets.includes(p))
-                .map((p) => (
-                  <option key={p} value={p} />
+          <HStack gap={1.5} vAlign="end">
+            {/* Saisie libre + suggestions de portée : datalist natif (pas d'équivalent
+                Astryx sans source de recherche asynchrone). */}
+            <label className="bf-field bf-grow">
+              <Text type="label" size="xsm" color="secondary">Cible</Text>
+              <input
+                className="bf-native-input"
+                autoFocus={autoFocus}
+                value={v.targetText}
+                onChange={(e) => onChange({ targetText: e.target.value })}
+                placeholder="ex. obj.prop"
+                list={datalistId}
+              />
+              <datalist id={datalistId}>
+                {targets.map((n) => (
+                  <option key={n} value={n} />
                 ))}
-              {extraTarget &&
-                !targets.includes(extraTarget) &&
-                !propertyPaths.includes(extraTarget) && (
-                  <option value={extraTarget} />
-                )}
-            </datalist>
-            <select
+                {propertyPaths
+                  .filter((p) => !targets.includes(p))
+                  .map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                {extraTarget &&
+                  !targets.includes(extraTarget) &&
+                  !propertyPaths.includes(extraTarget) && (
+                    <option value={extraTarget} />
+                  )}
+              </datalist>
+            </label>
+            <Selector
+              label="Opérateur"
+              size="sm"
+              options={[...ASSIGNMENT_OPERATORS]}
               value={v.operator}
-              onChange={(e) =>
-                onChange({ operator: e.target.value as AssignmentOperator })
-              }
-            >
-              {ASSIGNMENT_OPERATORS.map((op) => (
-                <option key={op} value={op}>
-                  {op}
-                </option>
-              ))}
-            </select>
-          </div>
-          <label className="bf-field">
-            <span>valeur</span>
-            <input
-              value={v.valueText}
-              onChange={(e) => onChange({ valueText: e.target.value })}
-              placeholder="ex. a + 1"
+              onChange={(val: string) => onChange({ operator: val as AssignmentOperator })}
             />
-            {errors?.valueText && (
-              <span className="bf-error">{errors.valueText}</span>
-            )}
-          </label>
+          </HStack>
+          <TextInput
+            label="Valeur"
+            size="sm"
+            value={v.valueText}
+            onChange={(val: string) => onChange({ valueText: val })}
+            placeholder="ex. a + 1"
+            status={err("valueText")}
+          />
         </>
       )}
 
       {kind === "call" && (
         <>
-          <label className="bf-field">
-            <span>fonction</span>
-            <select
-              autoFocus={autoFocus}
-              className="bf-fullwidth"
-              value={v.calleeText}
-              onChange={(e) => onChange({ calleeText: e.target.value })}
-            >
-              <option value="">fonction…</option>
-              {callables.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              {extraCallee && (
-                <optgroup label="Actuel">
-                  <option value={extraCallee}>{extraCallee}</option>
-                </optgroup>
-              )}
-            </select>
-          </label>
-          <label className="bf-field">
-            <span>arguments (séparés par ,)</span>
-            <input
-              value={v.argsText}
-              onChange={(e) => onChange({ argsText: e.target.value })}
-              placeholder="ex. x, y, 42"
-            />
-          </label>
+          <Selector
+            label="Fonction"
+            size="sm"
+            placeholder="fonction…"
+            options={[...callables, ...(extraCallee ? [extraCallee] : [])]}
+            value={v.calleeText}
+            onChange={(val: string) => onChange({ calleeText: val })}
+          />
+          <TextInput
+            label="Arguments (séparés par ,)"
+            size="sm"
+            value={v.argsText}
+            onChange={(val: string) => onChange({ argsText: val })}
+            placeholder="ex. x, y, 42"
+          />
         </>
       )}
 
       {kind === "throw" && (
-        <label className="bf-field">
-          <span>valeur</span>
-          <input
-            autoFocus={autoFocus}
-            value={v.valueText}
-            onChange={(e) => onChange({ valueText: e.target.value })}
-            placeholder='ex. new Error("…")'
-          />
-        </label>
+        <TextInput
+          label="Valeur"
+          size="sm"
+          value={v.valueText}
+          onChange={(val: string) => onChange({ valueText: val })}
+          placeholder='ex. new Error("…")'
+        />
       )}
 
       {(kind === "if" || kind === "while" || kind === "do-while") && (
-        <label className="bf-field">
-          <span>condition</span>
-          <input
-            autoFocus={autoFocus}
-            value={v.conditionText}
-            onChange={(e) => onChange({ conditionText: e.target.value })}
-            placeholder="ex. score >= 90"
-          />
-          {errors?.conditionText && (
-            <span className="bf-error">{errors.conditionText}</span>
-          )}
-        </label>
+        <TextInput
+          label="Condition"
+          size="sm"
+          value={v.conditionText}
+          onChange={(val: string) => onChange({ conditionText: val })}
+          placeholder="ex. score >= 90"
+          status={err("conditionText")}
+        />
       )}
 
       {(kind === "for-of" || kind === "for-in") && (
         <>
-          <div className="bf-row">
-            <select
+          <HStack gap={1.5} vAlign="end">
+            <Selector
+              label="Portée"
+              size="sm"
+              options={KIND_OPTIONS}
               value={v.declarationKind}
-              onChange={(e) =>
-                onChange({ declarationKind: e.target.value as DeclarationKind })
-              }
-            >
-              {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <input
-              autoFocus={autoFocus}
-              className="bf-grow"
+              onChange={(val: string) => onChange({ declarationKind: val as DeclarationKind })}
+            />
+            <TextInput
+              label="Variable"
+              size="sm"
               value={v.name}
-              onChange={(e) => onChange({ name: e.target.value })}
+              onChange={(val: string) => onChange({ name: val })}
               placeholder={kind === "for-of" ? "item" : "key"}
             />
-          </div>
-          <label className="bf-field">
-            <span>{kind === "for-of" ? "itérable (of)" : "objet (in)"}</span>
-            <input
-              value={v.iterableText}
-              onChange={(e) => onChange({ iterableText: e.target.value })}
-              placeholder={kind === "for-of" ? "ex. items" : "ex. obj"}
-            />
-            {errors?.iterableText && (
-              <span className="bf-error">{errors.iterableText}</span>
-            )}
-          </label>
+          </HStack>
+          <TextInput
+            label={kind === "for-of" ? "Itérable (of)" : "Objet (in)"}
+            size="sm"
+            value={v.iterableText}
+            onChange={(val: string) => onChange({ iterableText: val })}
+            placeholder={kind === "for-of" ? "ex. items" : "ex. obj"}
+            status={err("iterableText")}
+          />
         </>
       )}
 
       {kind === "for" && (
         <>
-          <div className="bf-row">
-            <select
+          <HStack gap={1.5} vAlign="end">
+            <Selector
+              label="Portée"
+              size="sm"
+              options={KIND_OPTIONS}
               value={v.declarationKind}
-              onChange={(e) =>
-                onChange({ declarationKind: e.target.value as DeclarationKind })
-              }
-            >
-              {DECLARATION_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <input
-              autoFocus={autoFocus}
-              className="bf-grow"
+              onChange={(val: string) => onChange({ declarationKind: val as DeclarationKind })}
+            />
+            <TextInput
+              label="Variable"
+              size="sm"
               value={v.name}
-              onChange={(e) => onChange({ name: e.target.value })}
+              onChange={(val: string) => onChange({ name: val })}
               placeholder="i"
             />
-            <input
-              className="bf-grow"
+            <TextInput
+              label="Init"
+              size="sm"
               value={v.initText}
-              onChange={(e) => onChange({ initText: e.target.value })}
+              onChange={(val: string) => onChange({ initText: val })}
               placeholder="= 0"
+              status={err("initText")}
             />
-          </div>
-          {errors?.initText && (
-            <span className="bf-error">{errors.initText}</span>
-          )}
-          <label className="bf-field">
-            <span>condition (test)</span>
-            <input
-              value={v.testText}
-              onChange={(e) => onChange({ testText: e.target.value })}
-              placeholder="ex. i < n"
-            />
-            {errors?.testText && (
-              <span className="bf-error">{errors.testText}</span>
-            )}
-          </label>
-          <label className="bf-field">
-            <span>incrément (update)</span>
-            <input
-              value={v.updateText}
-              onChange={(e) => onChange({ updateText: e.target.value })}
-              placeholder="ex. i++"
-            />
-            {errors?.updateText && (
-              <span className="bf-error">{errors.updateText}</span>
-            )}
-          </label>
+          </HStack>
+          <TextInput
+            label="Condition (test)"
+            size="sm"
+            value={v.testText}
+            onChange={(val: string) => onChange({ testText: val })}
+            placeholder="ex. i < n"
+            status={err("testText")}
+          />
+          <TextInput
+            label="Incrément (update)"
+            size="sm"
+            value={v.updateText}
+            onChange={(val: string) => onChange({ updateText: val })}
+            placeholder="ex. i++"
+            status={err("updateText")}
+          />
         </>
       )}
 
       {kind === "switch" && (
         <>
-          <label className="bf-field">
-            <span>expression (discriminant)</span>
-            <input
-              autoFocus={autoFocus}
-              value={v.discriminantText}
-              onChange={(e) => onChange({ discriminantText: e.target.value })}
-              placeholder="ex. code"
-            />
-            {errors?.discriminantText && (
-              <span className="bf-error">{errors.discriminantText}</span>
-            )}
-          </label>
-          <label className="bf-field">
-            <span>cas (séparés par , — « default » accepté)</span>
-            <input
-              value={v.casesText}
-              onChange={(e) => onChange({ casesText: e.target.value })}
-              placeholder="ex. 200, 404, default"
-            />
-            {errors?.casesText && (
-              <span className="bf-error">{errors.casesText}</span>
-            )}
-          </label>
+          <TextInput
+            label="Expression (discriminant)"
+            size="sm"
+            value={v.discriminantText}
+            onChange={(val: string) => onChange({ discriminantText: val })}
+            placeholder="ex. code"
+            status={err("discriminantText")}
+          />
+          <TextInput
+            label="Cas (séparés par , — « default » accepté)"
+            size="sm"
+            value={v.casesText}
+            onChange={(val: string) => onChange({ casesText: val })}
+            placeholder="ex. 200, 404, default"
+            status={err("casesText")}
+          />
         </>
       )}
 
       {kind === "function" && (
         <>
-          <label className="bf-field">
-            <span>nom</span>
-            <input
-              autoFocus={autoFocus}
-              value={v.name}
-              onChange={(e) => onChange({ name: e.target.value })}
-              placeholder="ex. compute"
-            />
-          </label>
-          <label className="bf-field">
-            <span>paramètres (ex. a: number, b)</span>
-            <input
-              value={v.paramsText}
-              onChange={(e) => onChange({ paramsText: e.target.value })}
-              placeholder="a: number, b"
-            />
-          </label>
-          <label className="bf-field">
-            <span>type de retour (optionnel)</span>
-            <input
-              value={v.returnTypeText}
-              onChange={(e) => onChange({ returnTypeText: e.target.value })}
-              placeholder="ex. number"
-            />
-          </label>
+          <TextInput
+            label="Nom"
+            size="sm"
+            value={v.name}
+            onChange={(val: string) => onChange({ name: val })}
+            placeholder="ex. compute"
+          />
+          <TextInput
+            label="Paramètres (ex. a: number, b)"
+            size="sm"
+            value={v.paramsText}
+            onChange={(val: string) => onChange({ paramsText: val })}
+            placeholder="a: number, b"
+          />
+          <TextInput
+            label="Type de retour (optionnel)"
+            size="sm"
+            value={v.returnTypeText}
+            onChange={(val: string) => onChange({ returnTypeText: val })}
+            placeholder="ex. number"
+          />
         </>
       )}
-    </>
+    </Stack>
   );
 }

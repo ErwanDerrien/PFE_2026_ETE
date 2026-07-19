@@ -1,3 +1,4 @@
+import { Button } from "@astryxdesign/core/Button";
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
 
@@ -100,11 +101,11 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: toolbarBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, flexWrap: 'wrap' }}>
         {isRunning ? (
-          <button onClick={onStop} style={btnStyle('#f48771')}>⏹ Stop</button>
+          <Button label="Stop" variant="destructive" size="sm" onClick={onStop} />
         ) : (
-          <button onClick={onRun} style={btnStyle('#0e639c')}>▶ Run</button>
+          <Button label="Run" variant="primary" size="sm" onClick={onRun} />
         )}
-        <button onClick={onClear} style={btnStyle('#555')}>✖ Clear</button>
+        <Button label="Clear" variant="ghost" size="sm" onClick={onClear} />
 
         <div style={{ width: '1px', height: '18px', background: borderColor, margin: '0 2px' }} />
 

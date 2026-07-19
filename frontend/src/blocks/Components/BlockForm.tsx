@@ -5,6 +5,9 @@
  */
 
 import { type CSSProperties, useEffect, useState } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { HStack } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
 import type { InsertTarget } from "../../shared";
 import { useAstStore } from "../../sync";
 import { blockMeta } from "../block-meta";
@@ -57,7 +60,8 @@ export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Pr
         onSubmit={submit}
       >
         <div className="palette-title">
-          <span className="bf-icon">{meta.icon}</span> {meta.label}
+          <span className="bf-icon">{meta.icon}</span>{" "}
+          <Text type="label" weight="semibold">{meta.label}</Text>
         </div>
 
         <BlockFields
@@ -69,14 +73,10 @@ export default function BlockForm({ kind, x, y, target, onSubmit, onCancel }: Pr
           errors={errors}
         />
 
-        <div className="bf-actions">
-          <button type="button" className="bf-btn bf-cancel" onClick={onCancel}>
-            Annuler
-          </button>
-          <button type="submit" className="bf-btn bf-submit" disabled={invalid}>
-            Créer
-          </button>
-        </div>
+        <HStack gap={1.5} hAlign="end">
+          <Button label="Annuler" variant="ghost" size="sm" onClick={onCancel} />
+          <Button label="Créer" variant="primary" size="sm" type="submit" isDisabled={invalid} />
+        </HStack>
       </form>
     </div>
   );

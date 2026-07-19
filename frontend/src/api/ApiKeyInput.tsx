@@ -1,7 +1,21 @@
+/**
+ * ApiKeyInput — gestion de la clé API Anthropic (vue Langage naturel).
+ *
+ * UI Astryx : un bouton-pastille (StatusDot + Button ghost) dans l'en-tête du
+ * panneau ouvre un Popover contenant le formulaire (TextInput password avec
+ * statut de validation intégré, actions Sauvegarder/Supprimer). La logique
+ * (validation, vérification via le proxy, stockage local) est inchangée.
+ */
+
 import { useState } from 'react';
+import { Button } from '@astryxdesign/core/Button';
+import { Popover } from '@astryxdesign/core/Popover';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { HStack, Stack } from '@astryxdesign/core/Stack';
 import { useApiKeyStore } from './keyStore';
 import { verifyApiKey } from './client';
-import './ApiKeyInput.css';
 
 function validateKey(key: string): string | null {
   if (!key.trim()) return 'La clé ne peut pas être vide.';
@@ -10,34 +24,10 @@ function validateKey(key: string): string | null {
   return null;
 }
 
-function EyeIcon({ open }: { open: boolean }) {
-  return open ? (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  ) : (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ up }: { up: boolean }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ transform: up ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
 const STATUS_CONFIG = {
-  missing: { dot: 'dot--missing', label: 'Clé API manquante' },
-  unverified: { dot: 'dot--unverified', label: 'Clé API non vérifiée' },
-  verified: { dot: 'dot--verified', label: 'Clé API vérifiée' },
+  missing: { variant: 'error' as const, label: 'Clé API manquante' },
+  unverified: { variant: 'warning' as const, label: 'Clé API non vérifiée' },
+  verified: { variant: 'success' as const, label: 'Clé API vérifiée' },
 };
 
 export function ApiKeyInput() {
@@ -47,12 +37,12 @@ export function ApiKeyInput() {
   const clearApiKey = useApiKeyStore((s) => s.clearApiKey);
 
   const [inputValue, setInputValue] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const { dot, label } = STATUS_CONFIG[status];
+  const { variant, label } = STATUS_CONFIG[status];
 
   async function handleSave() {
     const error = validateKey(inputValue);
@@ -69,7 +59,7 @@ export function ApiKeyInput() {
         return; // on reste ouvert pour que l'utilisateur corrige
       }
       setInputValue('');
-      setIsExpanded(false);
+      setIsOpen(false);
     } catch (e) {
       setValidationError(e instanceof Error ? e.message : 'Erreur de vérification.');
     } finally {
@@ -81,66 +71,62 @@ export function ApiKeyInput() {
     clearApiKey();
     setInputValue('');
     setValidationError(null);
-    setIsExpanded(true);
   }
 
-  return (
-    <div className="akw">
-      <button className="akw__pill" onClick={() => setIsExpanded(p => !p)}>
-        <span className={`akw__dot ${dot}`} />
-        <span className="akw__label">{label}</span>
-        <ChevronIcon up={isExpanded} />
-      </button>
+  const formContent =
+    apiKey && status === 'verified' ? (
+      <HStack gap={2} vAlign="center">
+        <Text type="code" size="sm">sk-ant-••••••••••••••••</Text>
+        <Button label="Supprimer" variant="destructive" size="sm" onClick={handleClear} />
+      </HStack>
+    ) : (
+      <Stack gap={2}>
+        <Text type="supporting" size="sm" as="p">
+          Entrez votre clé API Anthropic. Elle ne sera jamais stockée sur un serveur.
+        </Text>
+        <TextInput
+          label="Clé API Anthropic"
+          isLabelHidden
+          type={showKey ? 'text' : 'password'}
+          value={inputValue}
+          onChange={(v: string) => { setInputValue(v); setValidationError(null); }}
+          placeholder="sk-ant-api03-..."
+          isDisabled={isVerifying}
+          status={validationError ? { type: 'error', message: validationError } : undefined}
+        />
+        <HStack gap={1.5} vAlign="center">
+          <Button
+            label={showKey ? 'Masquer la clé' : 'Afficher la clé'}
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowKey((v) => !v)}
+          />
+          <Button
+            label={isVerifying ? 'Vérification…' : 'Sauvegarder'}
+            variant="primary"
+            size="sm"
+            isLoading={isVerifying}
+            isDisabled={!inputValue.trim() || isVerifying}
+            onClick={handleSave}
+          />
+        </HStack>
+      </Stack>
+    );
 
-      {isExpanded && (
-        <div className="akw__panel">
-          {apiKey && status === 'verified' ? (
-            <div className="akw__row">
-              <span className="akw__masked">sk-ant-••••••••••••••••</span>
-              <button className="akw__ghost" onClick={handleClear}>Supprimer</button>
-            </div>
-          ) : (
-            <>
-              <p className="akw__hint">
-                Entrez votre clé API Anthropic. Elle ne sera jamais stockée sur un serveur.
-              </p>
-              <div className="akw__row">
-                <div className="akw__input-wrap">
-                  <input
-                    className="akw__input"
-                    type={showKey ? 'text' : 'password'}
-                    value={inputValue}
-                    onChange={(e) => { setInputValue(e.target.value); setValidationError(null); }}
-                    placeholder="sk-ant-api03-..."
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                    autoComplete="off"
-                    spellCheck={false}
-                    disabled={isVerifying}
-                  />
-                  <button
-                    className="akw__eye"
-                    onClick={() => setShowKey(v => !v)}
-                    title={showKey ? 'Masquer' : 'Afficher'}
-                    tabIndex={-1}
-                  >
-                    <EyeIcon open={showKey} />
-                  </button>
-                </div>
-                <button
-                  className="akw__primary"
-                  onClick={handleSave}
-                  disabled={!inputValue.trim() || isVerifying}
-                >
-                  {isVerifying ? 'Vérification…' : 'Sauvegarder'}
-                </button>
-              </div>
-              {validationError && (
-                <p className="akw__error">{validationError}</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
+  return (
+    <Popover
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+      label="Clé API Anthropic"
+      placement="below"
+      content={<Stack gap={2} padding={2}>{formContent}</Stack>}
+    >
+      <Button
+        label={label}
+        variant="ghost"
+        size="sm"
+        icon={<StatusDot variant={variant} label={label} />}
+      />
+    </Popover>
   );
 }

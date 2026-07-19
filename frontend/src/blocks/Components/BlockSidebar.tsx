@@ -8,6 +8,9 @@
  */
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { HStack } from "@astryxdesign/core/Stack";
+import { Text } from "@astryxdesign/core/Text";
 import { useAstStore } from "../../sync";
 import { blockMeta } from "../block-meta";
 import { buildStatementNode, specFromNode } from "../node-create";
@@ -57,10 +60,8 @@ export default function BlockSidebar({ node, onClose }: Props) {
     <aside className="block-sidebar" style={{ "--accent": meta.accent } as CSSProperties}>
       <header className="sidebar-head">
         <span className="sidebar-icon">{meta.icon}</span>
-        <span className="sidebar-title">{meta.label}</span>
-        <button type="button" className="sidebar-close" title="Fermer" onClick={onClose}>
-          ×
-        </button>
+        <span className="sidebar-title"><Text type="label" weight="semibold">{meta.label}</Text></span>
+        <Button label="Fermer" variant="ghost" size="sm" isIconOnly icon={<span aria-hidden>×</span>} onClick={onClose} />
       </header>
 
       {spec ? (
@@ -72,16 +73,9 @@ export default function BlockSidebar({ node, onClose }: Props) {
             scopeAnchor={{ kind: "node", nodeId: node.id }}
             errors={errors}
           />
-          <div className="bf-actions">
-            <button
-              type="button"
-              className="bf-btn bf-submit"
-              disabled={invalid}
-              onClick={apply}
-            >
-              Appliquer
-            </button>
-          </div>
+          <HStack gap={1.5} hAlign="end">
+            <Button label="Appliquer" variant="primary" size="sm" isDisabled={invalid} onClick={apply} />
+          </HStack>
         </div>
       ) : (
         <div className="sidebar-body">

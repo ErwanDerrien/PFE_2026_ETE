@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom"
+import { TopNav, TopNavHeading } from "@astryxdesign/core/TopNav"
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl"
+import { Badge } from "@astryxdesign/core/Badge"
+import { Text } from "@astryxdesign/core/Text"
 import CodeEditor from "../editor/editor"
 import OutputConsole from "../console/OutputConsole"
 import BlocksView from "../blocks/BlocksView"
@@ -137,6 +141,7 @@ function MainLayout() {
 
   // Détermine quelle vue est active pour l'affichage des 4 onglets
   const activeView = location.pathname.substring(1) || "full"
+  const navigate = useNavigate()
 
   // CodeEditor doit rester monté sur les vues "full" et "code"
   const showCodeEditor = activeView === 'full' || activeView === 'code'
@@ -149,44 +154,25 @@ function MainLayout() {
 
   return (
     <div className="app-container">
-      {/* Barre de navigation compacte (une seule ligne : titre, onglets, sync) */}
-      <nav className="app-nav">
-        <div className="nav-title">
-          <h1>PFE 2026 — Éditeur Multi-vues</h1>
-        </div>
-
-        <div className="nav-tabs">
-          <Link
-            to="/full"
-            className={`nav-tab ${activeView === 'full' ? 'active' : ''}`}
+      {/* Barre de navigation Astryx : titre, sélecteur de vue, bouton de sync. */}
+      <TopNav
+        label="Navigation principale"
+        heading={<TopNavHeading heading="PFE 2026" superheading="Éditeur multi-vues" />}
+        startContent={
+          <SegmentedControl
+            value={activeView}
+            onChange={(v) => navigate(`/${v}`)}
+            label="Vue active"
+            size="sm"
           >
-            Vue complète
-          </Link>
-          <Link
-            to="/code"
-            className={`nav-tab ${activeView === 'code' ? 'active' : ''}`}
-          >
-            Éditeur de code
-          </Link>
-          <Link
-            to="/blocks"
-            className={`nav-tab ${activeView === 'blocks' ? 'active' : ''}`}
-          >
-            Blocs visuels
-          </Link>
-          <Link
-            to="/text"
-            className={`nav-tab ${activeView === 'text' ? 'active' : ''}`}
-          >
-            Langage naturel
-          </Link>
-        </div>
-
-        {/* Bouton global de synchronisation entre les vues (équipe A) */}
-        <div className="nav-sync">
-          <SyncButton />
-        </div>
-      </nav>
+            <SegmentedControlItem value="full" label="Vue complète" />
+            <SegmentedControlItem value="code" label="Éditeur de code" />
+            <SegmentedControlItem value="blocks" label="Blocs visuels" />
+            <SegmentedControlItem value="text" label="Langage naturel" />
+          </SegmentedControl>
+        }
+        endContent={<SyncButton />}
+      />
 
       {/* Contenu principal basé sur la route */}
       {/* Grille unique et persistante : les 4 panneaux + la console sont de VRAIS enfants directs
@@ -199,8 +185,8 @@ function MainLayout() {
           style={{ display: showCodeEditor ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>Éditeur de code</h3>
-            <span className="panel-team">Équipe B: Justin & Erwan</span>
+            <Text type="label" weight="semibold">Éditeur de code</Text>
+            <Badge variant="blue" label="Équipe B — Justin & Erwan" />
           </div>
           <div className="panel-content">
             <CodeEditor
@@ -221,8 +207,8 @@ function MainLayout() {
           style={{ display: showBlocksView ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>Blocs visuels</h3>
-            <span className="panel-team">Équipe A: Adel & Junior</span>
+            <Text type="label" weight="semibold">Blocs visuels</Text>
+            <Badge variant="purple" label="Équipe A — Adel & Junior" />
           </div>
           <div className="panel-content">
             <BlocksView />
@@ -235,7 +221,7 @@ function MainLayout() {
           style={{ display: showNaturalLangPanel ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>Langage naturel</h3>
+            <Text type="label" weight="semibold">Langage naturel</Text>
             {/* Clé API Claude : rattachée à la vue qui l'utilise (plus d'overlay
                 fixe qui chevauchait le bouton de synchronisation). */}
             <ApiKeyInput />
@@ -248,8 +234,8 @@ function MainLayout() {
         {/* --- Console de sortie : une seule instance, toujours montée, jamais recréée --- */}
         <div className="panel panel-console grid-item-console">
           <div className="panel-header">
-            <h3>Console d'exécution</h3>
-            <span className="panel-team">Équipe B: Justin & Erwan</span>
+            <Text type="label" weight="semibold">Console d'exécution</Text>
+            <Badge variant="teal" label="Équipe B — Justin & Erwan" />
           </div>
           <div className="panel-content">
             <OutputConsole
@@ -270,9 +256,9 @@ function MainLayout() {
       {/* Pied de page compact (une seule ligne) */}
       <footer className="app-footer">
         <div className="footer-content">
-          <span>PFE 2026 — Génie logiciel et des TI, ÉTS</span>
-          <span>•</span>
-          <span>{source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
+          <Text type="supporting" size="xsm">PFE 2026 — Génie logiciel et des TI, ÉTS</Text>
+          <Text type="supporting" size="xsm">•</Text>
+          <Text type="supporting" size="xsm">{source.length > 0 ? `${source.length} caractères` : 'vide'}</Text>
         </div>
       </footer>
     </div>

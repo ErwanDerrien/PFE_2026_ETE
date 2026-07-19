@@ -10,64 +10,82 @@ import {useAstStore, SyncButton} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
 import { ApiKeyInput } from '../api';
 
-export const DEFAULT_CODE : string = `// Bienvenue dans l'éditeur de code !
+export const DEFAULT_CODE: string = `
+// Bienvenue dans l'éditeur de code !
 // Appuyez sur "Run" pour exécuter ce code
-
-console.log("=== Démonstration - Exécution JavaScript ===");
+console.log("=== Démonstration - Exécution TypeScript ===");
 
 // Exemple 1: Fonctions de base
-function saluer(nom) {
+function saluer(nom: string): string {
   return \`Bonjour \${nom}!\`;
 }
 
 console.log(saluer("Étudiant"));
 
 // Exemple 2: Opérations mathématiques
-function calculerSurface(rayon) {
+function calculerSurface(rayon: number): number {
   return Math.PI * rayon * rayon;
 }
 
-const rayon = 5;
-const surface = calculerSurface(rayon);
+const rayon: number = 5;
+const surface: number = calculerSurface(rayon);
 console.log(\`Surface d'un cercle de rayon \${rayon} = \${surface.toFixed(2)}\`);
 
 // Exemple 3: Tableaux et boucles
-const nombres = [1, 2, 3, 4, 5];
+const nombres: number[] = [1, 2, 3, 4, 5];
+
 console.log("Nombres:", nombres);
 
-let somme = 0;
+let somme: number = 0;
 for (const n of nombres) {
   somme += n;
 }
 console.log(\`Somme des nombres = \${somme}\`);
 
 // Exemple 4: Conditions
-const age = 20;
+const age: number = 20;
 if (age >= 18) {
-  console.log(\`Âge: \${age} - Majeur\`);
+  console.log(\`Âge: \${age} - Majeur ✓\`);
 } else {
   console.log(\`Âge: \${age} - Mineur\`);
 }
 
 // Exemple 5: Objets et destructuring
-const personne = { nom: 'Alice', age: 25, ville: 'Montréal' };
-const { nom, personneAge = 30 } = personne;
-console.log(\`\${nom} habite à \${personne.ville}\`);
+interface Personne {
+  nom: string;
+  age: number;
+  ville: string;
+}
+
+const personne: Personne = {
+  nom: "Alice",
+  age: 25,
+  ville: "Montréal",
+};
+
+const { nom, age: personneAge, ville } = personne;
+
+console.log(\`\${nom} habite à \${ville}\`);
+console.log(\`\${nom} a \${personneAge} ans.\`);
 
 // Exemple 6: Map et Filter
-const resultats = nombres.map(n => n * 2).filter(n => n > 4);
+const resultats: number[] = nombres
+  .map((n: number) => n * 2)
+  .filter((n: number) => n > 4);
+
 console.log("Nombres doublés et filtrés:", resultats);
 
 // Exemple 7: Input utilisateur (fonction input() disponible)
-// Note: La fonction input() retourne une promesse, donc il faut utiliser await
-const nom_utilisateur = await input('Quel est votre nom?');
-if (nom_utilisateur) {
-  console.log(\`Bienvenue \${nom_utilisateur}!\`);
+const nomUtilisateur: string | null = await input("Quel est votre nom?");
+
+if (nomUtilisateur) {
+  console.log(\`Bienvenue \${nomUtilisateur}!\`);
 } else {
-  console.log('Vous avez annulé la saisie.');
+  console.log("Vous avez annulé la saisie.");
 }
 
-console.log("=== Exécution terminée avec succès! ===");`;
+console.log("=== Exécution terminée avec succès! ===");
+`;
 
 // Composant pour le layout principal avec onglets
 function MainLayout() {
@@ -110,11 +128,11 @@ function MainLayout() {
   }
 
   const handleRun = () => editorControlsRef.current?.run()
-  const handleStop = () => editorControlsRef.current?.stop()
-  const handleClear = () => {
-    setLogs([])
-    handleInputCancel()
+  const handleStop = () => {
+    handleInputCancel();
+    editorControlsRef.current?.stop();
   }
+  const handleClear = () => setLogs([])
 
   const handleInputRequest = (prompt: string): Promise<string> => {
     return new Promise((resolve) => {

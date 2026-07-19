@@ -2,6 +2,7 @@
 <html>
 <head>
   <script async src="https://cdn.jsdelivr.net/pyodide/v0.24.0/full/pyodide.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/typescript@5.4.5/lib/typescript.js"></script>
 </head>
 <body>
 <script>
@@ -31,13 +32,21 @@
   let executionAborted = false;
   const EXECUTION_TIMEOUT = 10000; // 10 seconds max
 
+  function markExecutionDone() {
+    try {
+      window.parent.postMessage({ type: 'execution-done' }, '*');
+    } catch (e) {
+      // Ignore errors from postMessage
+    }
+  }
+
   // Fonction input() disponible pour le code utilisateur (simule Python/Blockly)
   // Utilise un système de promesse pour la communication avec le parent
   function input(prompt_text = '') {
     return new Promise((resolve) => {
       // Envoyer une demande d'input au parent
       window.parent.postMessage({ type: 'request-input', prompt: prompt_text }, '*');
-      
+
       // Écouter la réponse
       const handler = (event) => {
         if (event.data && event.data.type === 'input-response') {
@@ -46,7 +55,7 @@
         }
       };
       window.addEventListener('message', handler);
-      
+
       // Timeout après 30 secondes si pas de réponse
       setTimeout(() => {
         window.removeEventListener('message', handler);
@@ -72,30 +81,54 @@
         executionAborted = true;
         send('error', ['Execution timeout: code took too long (>10s)']);
       }, EXECUTION_TIMEOUT);
-      
+
       const asyncCode = `(async () => {\n${code}\n})()`;
       await new Function(asyncCode)();
       clearTimeout(timeoutId);
-      
+
       // Mark execution done
-      try {
-        executionAborted = false;
-        window.parent.postMessage({ type: 'execution-done' }, '*');
-      } catch (e) {
-        // Ignore errors from postMessage
+      if (!executionAborted) {
+        markExecutionDone();
       }
     } catch (e) {
       if (!executionAborted) {
         send('error', [e.toString()]);
+        markExecutionDone();
       }
-      
-      // Mark execution done even on error
-      try {
-        executionAborted = false;
-        window.parent.postMessage({ type: 'execution-done' }, '*');
-      } catch (e2) {
-        // Ignore errors from postMessage
+    }
+  }
+
+  // Exécuter du code TypeScript (transpile -> JS, then reuse runJavaScript)
+  async function runTypeScript(code) {
+    try {
+      // `ts` is exposed globally once the CDN script tag has finished loading
+      if (typeof ts === 'undefined') {
+        send('error', ['TypeScript compiler not loaded yet, please try again in a moment']);
+        markExecutionDone();
+        return;
       }
+
+      const result = ts.transpileModule(code, {
+        compilerOptions: {
+          target: ts.ScriptTarget.ES2020,
+          module: ts.ModuleKind.None
+        },
+        reportDiagnostics: true
+      });
+
+      // transpileModule only catches syntactic issues, not full type-checking
+      if (result.diagnostics && result.diagnostics.length > 0) {
+        const messages = result.diagnostics.map(d =>
+                ts.flattenDiagnosticMessageText(d.messageText, '\n')
+        );
+        send('warn', ['TypeScript diagnostics:', ...messages]);
+      }
+
+      // Reuse the existing JS execution path (handles timeout + execution-done)
+      await runJavaScript(result.outputText);
+    } catch (e) {
+      send('error', [e.toString()]);
+      markExecutionDone();
     }
   }
 
@@ -103,13 +136,13 @@
   async function runPython(code) {
     try {
       const py = await initPyodide();
-            executionAborted = false;
-            const timeoutId = setTimeout(() => {
-              executionAborted = true;
-              send('error', ['Execution timeout: code took too long (>10s)']);
-            }, EXECUTION_TIMEOUT);
-      
-      
+      executionAborted = false;
+      const timeoutId = setTimeout(() => {
+        executionAborted = true;
+        send('error', ['Execution timeout: code took too long (>10s)']);
+      }, EXECUTION_TIMEOUT);
+
+
       // Capturer les print et autres outputs
       const interceptedCode = `
 import sys
@@ -117,7 +150,7 @@ from io import StringIO
 
 old_stdout = sys.stdout
 old_stderr = sys.stderr
-sys.stdout = StringIO() 
+sys.stdout = StringIO()
 sys.stderr = StringIO()
 
 try:
@@ -132,7 +165,7 @@ finally:
     if errors:
         print(errors, end='', file=sys.stderr)
 `;
-      
+
       py.runPython(interceptedCode);
       clearTimeout(timeoutId);
       if (!executionAborted) {
@@ -149,7 +182,7 @@ finally:
   window.addEventListener('message', async ({ data }) => {
     if (data?.type === 'run') {
       const { code } = data;
-      await runJavaScript(code);
+      await runTypeScript(code);
     } else if (data?.type === 'stop') {
       executionAborted = true;
       send('error', ['Execution stopped by user']);

@@ -858,27 +858,25 @@
 }
 
 /* --- Legend panel --- */
+/* Légende horizontale compacte (une seule ligne, bas-centre du canvas). */
 .legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   background: rgba(22, 22, 22, 0.88);
   border: 1px solid #3f3f3f;
   border-radius: 6px;
-  padding: 10px 12px;
-  font: 12px/1.7 var(--sans, system-ui, sans-serif);
+  padding: 4px 10px;
+  font: 11px/1.4 var(--sans, system-ui, sans-serif);
   color: #c9d1d9;
   backdrop-filter: blur(4px);
-}
-
-.legend-title {
-  font: 700 10px/1 var(--sans);
-  letter-spacing: 0.14em;
-  color: #6b7280;
-  margin-bottom: 6px;
+  white-space: nowrap;
 }
 
 .legend-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .legend-swatch {

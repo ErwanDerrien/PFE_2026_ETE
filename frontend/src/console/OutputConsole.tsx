@@ -113,7 +113,7 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
           title="Toggle theme"
           style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: 'transparent', color: darkMode ? '#ccc' : '#555', border: `1px solid ${borderColor}` }}
         >
-          {darkMode ? '🌙' : '☀️'}
+          ◐
         </button>
 
         <label style={{ color: textColor, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>

@@ -10,7 +10,7 @@ import {useAstStore, SyncButton} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
 import { ApiKeyInput } from '../api';
 
-export const DEFAULT_CODE : string = `// 🚀 Bienvenue dans l'Éditeur de Code!
+export const DEFAULT_CODE : string = `// Bienvenue dans l'éditeur de code !
 // Appuyez sur "Run" pour exécuter ce code
 
 console.log("=== Démonstration - Exécution JavaScript ===");
@@ -44,7 +44,7 @@ console.log(\`Somme des nombres = \${somme}\`);
 // Exemple 4: Conditions
 const age = 20;
 if (age >= 18) {
-  console.log(\`Âge: \${age} - Majeur ✓\`);
+  console.log(\`Âge: \${age} - Majeur\`);
 } else {
   console.log(\`Âge: \${age} - Mineur\`);
 }
@@ -149,45 +149,42 @@ function MainLayout() {
 
   return (
     <div className="app-container">
-      {/* Barre de navigation */}
+      {/* Barre de navigation compacte (une seule ligne : titre, onglets, sync) */}
       <nav className="app-nav">
         <div className="nav-title">
-          <h1>PFE 2026 - Éditeur Multi-vues</h1>
-          <div className="nav-subtitle">
-            <span>Sous-équipe B: Éditeur & Console</span>
-            <span>Sous-équipe A: Blocs Visuels</span>
-            <span>Transversal: Langage Naturel</span>
-          </div>
+          <h1>PFE 2026 — Éditeur Multi-vues</h1>
         </div>
-        
-        {/* Bouton global de synchronisation entre les vues (équipe A) */}
-        <SyncButton />
 
         <div className="nav-tabs">
           <Link
             to="/full"
             className={`nav-tab ${activeView === 'full' ? 'active' : ''}`}
           >
-            📊 Vue Complète (4 onglets)
+            Vue complète
           </Link>
-          <Link 
-            to="/code" 
+          <Link
+            to="/code"
             className={`nav-tab ${activeView === 'code' ? 'active' : ''}`}
           >
-            💻 Éditeur de Code
+            Éditeur de code
           </Link>
-          <Link 
-            to="/blocks" 
+          <Link
+            to="/blocks"
             className={`nav-tab ${activeView === 'blocks' ? 'active' : ''}`}
           >
-            🟦 Blocs Visuels
+            Blocs visuels
           </Link>
-          <Link 
-            to="/text" 
+          <Link
+            to="/text"
             className={`nav-tab ${activeView === 'text' ? 'active' : ''}`}
           >
-            📝 Langage Naturel
+            Langage naturel
           </Link>
+        </div>
+
+        {/* Bouton global de synchronisation entre les vues (équipe A) */}
+        <div className="nav-sync">
+          <SyncButton />
         </div>
       </nav>
 
@@ -202,7 +199,7 @@ function MainLayout() {
           style={{ display: showCodeEditor ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>💻 Éditeur de Code</h3>
+            <h3>Éditeur de code</h3>
             <span className="panel-team">Équipe B: Justin & Erwan</span>
           </div>
           <div className="panel-content">
@@ -224,7 +221,7 @@ function MainLayout() {
           style={{ display: showBlocksView ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>🟦 Blocs Visuels</h3>
+            <h3>Blocs visuels</h3>
             <span className="panel-team">Équipe A: Adel & Junior</span>
           </div>
           <div className="panel-content">
@@ -238,8 +235,10 @@ function MainLayout() {
           style={{ display: showNaturalLangPanel ? undefined : 'none' }}
         >
           <div className="panel-header">
-            <h3>📝 Langage Naturel</h3>
-            <span className="panel-team">Émie (Transversal)</span>
+            <h3>Langage naturel</h3>
+            {/* Clé API Claude : rattachée à la vue qui l'utilise (plus d'overlay
+                fixe qui chevauchait le bouton de synchronisation). */}
+            <ApiKeyInput />
           </div>
           <div className="panel-content">
             <NaturalLangPanel />
@@ -249,7 +248,7 @@ function MainLayout() {
         {/* --- Console de sortie : une seule instance, toujours montée, jamais recréée --- */}
         <div className="panel panel-console grid-item-console">
           <div className="panel-header">
-            <h3>📟 Console d'Exécution</h3>
+            <h3>Console d'exécution</h3>
             <span className="panel-team">Équipe B: Justin & Erwan</span>
           </div>
           <div className="panel-content">
@@ -268,17 +267,12 @@ function MainLayout() {
         </div>
       </div>
 
-      {/* Pied de page */}
+      {/* Pied de page compact (une seule ligne) */}
       <footer className="app-footer">
         <div className="footer-content">
-          <p>Projet de fin d'études - Département de génie logiciel et des TI - ÉTS 2026</p>
-          <div className="footer-links">
-            <span>Mode: {activeView === 'full' ? '4 onglets' : 'vue unique'}</span>
-            <span>•</span>
-            <span>Code source: {source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
-            <span>•</span>
-            <span>Serveur: <a href="http://localhost:5173" target="_blank" rel="noopener noreferrer">localhost:5173</a></span>
-          </div>
+          <span>PFE 2026 — Génie logiciel et des TI, ÉTS</span>
+          <span>•</span>
+          <span>{source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
         </div>
       </footer>
     </div>
@@ -292,7 +286,6 @@ function App() {
       <Routes>
         <Route path="/*" element={<MainLayout />} />
       </Routes>
-      <ApiKeyInput />
     </Router>
   )
 }

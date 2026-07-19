@@ -147,7 +147,8 @@ export default function BlocksCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
         <Controls showInteractive={false} />
-        <MiniMap pannable zoomable />
+        {/* Minimap réduite (coin bas-droit) pour laisser la place au canvas. */}
+        <MiniMap pannable zoomable style={{ width: 140, height: 90 }} />
         <Panel position="top-left">
           <button
             type="button"
@@ -158,17 +159,18 @@ export default function BlocksCanvas() {
             + Bloc libre
           </button>
         </Panel>
-        <Panel position="top-right" className="legend">
-          <div className="legend-title">LEGEND</div>
-          <div className="legend-row">
-            <span className="legend-swatch sw-exec" /> Execution Flow
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch sw-true" /> True Branch
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch sw-call" /> Function Call
-          </div>
+        {/* Légende compacte sur une ligne, en bas-centre : ne chevauche ni la
+            minimap (bas-droit) ni les contrôles de zoom (bas-gauche). */}
+        <Panel position="bottom-center" className="legend">
+          <span className="legend-row">
+            <span className="legend-swatch sw-exec" /> Exécution
+          </span>
+          <span className="legend-row">
+            <span className="legend-swatch sw-true" /> Branche vraie
+          </span>
+          <span className="legend-row">
+            <span className="legend-swatch sw-call" /> Appel
+          </span>
         </Panel>
       </ReactFlow>
       {pending && !formKind && (

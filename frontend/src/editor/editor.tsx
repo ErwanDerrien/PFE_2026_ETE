@@ -191,7 +191,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                     <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
                 </label>
                 <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, gap: "6px", fontFamily: "inherit", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
-                    {copied ? "✓ Copié !" : "🔗 Partager"}
+                    {copied ? "Copié !" : "Partager"}
                 </button>
             </div>
             {/* Éditeur */}

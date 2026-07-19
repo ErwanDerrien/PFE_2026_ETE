@@ -8,6 +8,8 @@
  */
 
 import { type CSSProperties, useEffect, useMemo } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { Text } from "@astryxdesign/core/Text";
 import type { InsertTarget } from "../../shared";
 import { useAstStore } from "../../sync";
 import { blockMeta } from "../block-meta";
@@ -48,7 +50,10 @@ export default function BlockPalette({ x, y, target, onPick, onClose }: Props) {
         style={{ left: x, top: y }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="palette-title">AJOUTER UN BLOC</div>
+        <div className="palette-head">
+          <Text type="label" weight="semibold">Ajouter un bloc</Text>
+          <Button label="Fermer" variant="ghost" size="sm" isIconOnly icon={<span aria-hidden>×</span>} onClick={onClose} />
+        </div>
         <div className="palette-grid">
           {PALETTE_KINDS.map((kind) => {
             const meta = blockMeta(astTypeForKind(kind), "statement");

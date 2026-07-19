@@ -18,7 +18,8 @@ export default function TerminusNode({ data }: NodeProps<TerminusFlowNode>) {
           style={{ top: TERMINUS_H / 2 }}
         />
       )}
-      <span className="terminus-label">{isStart ? "▶  START" : "■  END"}</span>
+      <span className="terminus-icon" aria-hidden>{isStart ? "▶" : "■"}</span>
+      <span className="terminus-label">{isStart ? "DÉMARRER" : "FIN"}</span>
       {isStart && (
         <Handle
           type="source"

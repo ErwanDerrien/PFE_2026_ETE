@@ -20,6 +20,7 @@ import {
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Button as XButton } from "@astryxdesign/core/Button";
 import type { InsertTarget } from "../../shared";
 import { useAstStore } from "../../sync";
 import { edgeTypes } from "../edges";
@@ -148,19 +149,29 @@ export default function BlocksCanvas() {
         minZoom={0.2}
         maxZoom={2}
       >
+        {/* Dégradé de la spine d'exécution (violet → teal), référencé par
+            graph-to-flow via stroke: url(#exec-gradient). */}
+        <svg style={{ position: "absolute", width: 0, height: 0 }} aria-hidden>
+          <defs>
+            <linearGradient id="exec-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#b794f4" />
+              <stop offset="100%" stopColor="#5adace" />
+            </linearGradient>
+          </defs>
+        </svg>
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
         <Controls showInteractive={false} />
         {/* Minimap réduite (coin bas-droit) pour laisser la place au canvas. */}
         <MiniMap pannable zoomable style={{ width: 140, height: 90 }} />
         <Panel position="top-left">
-          <button
-            type="button"
-            className="add-free-btn"
-            title="Créer un bloc libre (non relié)"
+          <XButton
+            label="Bloc libre"
+            icon={<span aria-hidden>+</span>}
+            variant="secondary"
+            size="sm"
+            tooltip="Créer un bloc libre (non relié)"
             onClick={(e) => requestInsert({ kind: "floating" }, { x: e.clientX, y: e.clientY })}
-          >
-            + Bloc libre
-          </button>
+          />
         </Panel>
         {/* Légende compacte sur une ligne, en bas-centre : ne chevauche ni la
             minimap (bas-droit) ni les contrôles de zoom (bas-gauche). */}

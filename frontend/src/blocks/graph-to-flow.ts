@@ -26,7 +26,7 @@ export interface FlowModel {
 }
 
 const EDGE_STYLE: Record<EdgeKind, { stroke: string; width: number; dash?: string }> = {
-  exec: { stroke: "#c8c8c8", width: 3 },
+  exec: { stroke: "url(#exec-gradient)", width: 2.5 },
   calls: { stroke: "#c084fc", width: 2, dash: "3 4" },
   "function-body": { stroke: "#818cf8", width: 2.5 },
   "branch-true": { stroke: "#2dd4bf", width: 2.5 },
@@ -168,7 +168,13 @@ export function graphToFlow(graph: TypedGraphModel): FlowModel {
         strokeWidth: style.width,
         strokeDasharray: style.dash,
       },
-      markerEnd: { type: MarkerType.ArrowClosed, color: style.stroke, width: 16, height: 16 },
+      // Un marker ne peut pas référencer un dégradé : flèche teal sur la spine.
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: edge.kind === "exec" ? "#5adace" : style.stroke,
+        width: 16,
+        height: 16,
+      },
     };
   });
 

@@ -73,15 +73,19 @@ export default function BlockSidebar({ node, onClose }: Props) {
             scopeAnchor={{ kind: "node", nodeId: node.id }}
             errors={errors}
           />
-          <HStack gap={1.5} hAlign="end">
-            <Button label="Appliquer" variant="primary" size="sm" isDisabled={invalid} onClick={apply} />
-          </HStack>
         </div>
       ) : (
         <div className="sidebar-body">
           <p className="bf-empty">Ce type de bloc n'est pas encore éditable.</p>
           {node.source && <code className="sidebar-source">{node.source}</code>}
         </div>
+      )}
+      {spec && (
+        <footer className="sidebar-foot">
+          <HStack gap={1.5} hAlign="end">
+            <Button label="Appliquer" variant="primary" size="sm" isDisabled={invalid} onClick={apply} />
+          </HStack>
+        </footer>
       )}
     </aside>
   );

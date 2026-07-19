@@ -56,44 +56,58 @@
   width: max-content;
   min-width: 180px;
   max-width: 520px;
-  border-radius: 7px;
-  background: #2b2b2b;
+  border-radius: 12px;
+  background: var(--color-background-surface);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65);
+  border-left: 3px solid var(--accent, var(--color-border));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
   overflow: visible; /* must NOT clip: handles stick out from both edges */
   position: relative; /* containing block for absolutely-positioned handles */
   font-family: var(--mono, ui-monospace, Consolas, monospace);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.bn:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent, #888) 35%, transparent),
+    0 6px 24px rgba(0, 0, 0, 0.55);
 }
 
 .bn.is-selected {
-  border-color: #2dd4bf;
+  border-color: var(--color-accent);
   box-shadow:
-    0 0 0 2px rgba(45, 212, 191, 0.45),
+    0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent),
     0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
-/* Header — solid accent fill (Bolt style), space for handles on both sides */
+/* Header — carte sombre, icône en pastille teintée, label accent (style Stitch) */
 .bn-head {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 30px;
+  gap: 8px;
+  padding: 0 30px 0 12px;
   height: 32px;
-  background: var(--accent, #555);
+  background: transparent;
   flex-shrink: 0;
-  border-radius: 6px 6px 0 0; /* match .bn top radius — no overflow:hidden to rely on */
+  border-radius: 11px 11px 0 0;
 }
 
 .bn-icon {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--accent, #888) 18%, transparent);
+  color: var(--accent, #ccc);
   flex-shrink: 0;
 }
 
 .bn-type {
-  font: 700 10px/1 var(--sans, system-ui, sans-serif);
+  font: 600 10px/1 var(--mono, ui-monospace, monospace);
   letter-spacing: 0.14em;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--accent, #ccc);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -517,10 +531,10 @@
 
 .palette-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
-  padding: 10px 8px;
+  gap: 10px;
+  padding: 10px 12px;
   background: #2b2b2b;
   border: 1px solid var(--color-border);
   border-left: 3px solid var(--accent, #555);
@@ -546,15 +560,22 @@
 }
 
 .palette-icon {
-  font-size: 18px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 13px;
   line-height: 1;
+  background: color-mix(in srgb, var(--accent, #888) 18%, transparent);
   color: var(--accent, #c9d1d9);
+  flex-shrink: 0;
 }
 
 .palette-label {
-  font: 700 9px/1 var(--sans, system-ui, sans-serif);
+  font: 600 10px/1 var(--mono, ui-monospace, monospace);
   letter-spacing: 0.1em;
-  color: #9ca3af;
+  color: var(--color-text);
 }
 
 /* --- Block creation form --- */
@@ -815,30 +836,51 @@
 /* --- Terminus (Start / End) nodes --- */
 .terminus {
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 120px;
   height: 32px;
-  border-radius: 16px;
-  border: 2px solid;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--color-background-surface);
+  border: 1px solid var(--color-border);
   position: relative;
-  overflow: visible;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 .terminus-start {
-  background: rgba(74, 222, 128, 0.1);
-  border-color: #4ade80;
+  border-left: 3px solid #5adace;
 }
 
 .terminus-end {
-  background: rgba(248, 113, 113, 0.1);
-  border-color: #f87171;
+  border-left: 3px solid #ffb4ab;
+}
+
+.terminus-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.terminus-start .terminus-icon {
+  background: color-mix(in srgb, #5adace 18%, transparent);
+  color: #5adace;
+}
+
+.terminus-end .terminus-icon {
+  background: color-mix(in srgb, #ffb4ab 18%, transparent);
+  color: #ffb4ab;
 }
 
 .terminus-label {
-  font: 700 10px/1 var(--sans, system-ui, sans-serif);
-  letter-spacing: 0.16em;
+  font: 700 11px/1 var(--mono, ui-monospace, monospace);
+  letter-spacing: 0.1em;
+  color: var(--color-text);
 }
 
 .terminus-start .terminus-label {
@@ -858,18 +900,17 @@
 }
 
 /* --- Legend panel --- */
-/* Légende horizontale compacte (une seule ligne, bas-centre du canvas). */
+/* Légende horizontale compacte (pilule à points, bas-centre du canvas). */
 .legend {
   display: flex;
   align-items: center;
   gap: 14px;
   background: var(--color-background-popover);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font: 11px/1.4 var(--sans, system-ui, sans-serif);
-  color: #c9d1d9;
-  backdrop-filter: blur(4px);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font: 11px/1.4 var(--mono, ui-monospace, monospace);
+  color: var(--color-text);
   white-space: nowrap;
 }
 
@@ -880,8 +921,9 @@
 }
 
 .legend-swatch {
-  width: 20px;
-  border-top: 3px solid transparent;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   display: inline-block;
 }
 
@@ -911,3 +953,23 @@
   outline: none;
 }
 .bf-native-input:focus { border-color: var(--color-accent); }
+
+
+/* Pied fixe de la sidebar d'édition (bouton Appliquer toujours visible). */
+.sidebar-foot {
+  margin-top: auto;
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* En-tête du popup palette (titre + bouton fermer, style Stitch). */
+.palette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 2px 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}

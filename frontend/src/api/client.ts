@@ -20,7 +20,11 @@ export async function codeToNaturalLanguage(code: string): Promise<string> {
   return data.result as string;
 }
 
-export async function naturalLanguageToCode(description: string): Promise<string> {
+export async function naturalLanguageToCode(
+  description: string,
+  currentCode: string = '',
+  currentDescription: string = ''
+): Promise<string> {
   const { apiKey, setVerified } = useApiKeyStore.getState();
 
   if (!apiKey) throw new Error('Clé API manquante — veuillez entrer votre clé Anthropic.');
@@ -28,7 +32,7 @@ export async function naturalLanguageToCode(description: string): Promise<string
   const response = await fetch(`${BACKEND_URL}/api/to-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description, apiKey }),
+    body: JSON.stringify({ description,currentCode, currentDescription, apiKey }),
   });
 
   if (!response.ok) throw new Error(`Erreur backend : ${response.status}`);

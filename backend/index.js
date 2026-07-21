@@ -34,6 +34,7 @@ app.post('/api/to-natural-lang', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
+        temperature: 0,
         messages: [
           {
             role: 'user',
@@ -62,7 +63,7 @@ app.post('/api/to-natural-lang', async (req, res) => {
  * Response: { result: string }
  */
 app.post('/api/to-code', async (req, res) => {
-  const { description, apiKey } = req.body;
+  const { description, currentCode, currentDescription, apiKey } = req.body;
 
   if (!description || !apiKey) {
     return res.status(400).json({ error: 'description et apiKey sont requis.' });
@@ -79,10 +80,13 @@ app.post('/api/to-code', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
+        temperature: 0,
         messages: [
           {
             role: 'user',
-            content: `Convertis cette description en code TypeScript valide. Réponds UNIQUEMENT avec le code, sans explication, sans balises markdown.\n\nDescription : ${description}`,
+            content: currentCode && currentDescription
+              ? `Voici un programme et sa description actuelle.\n\nCode actuel :\n${currentCode}\n\nDescription actuelle :\n${currentDescription}\n\nNouvelle description :\n${description}\n\nFais le minimum de changements au code pour que sa description corresponde à la nouvelle description. Si les deux descriptions sont identiques, retourne le code tel quel. Réponds UNIQUEMENT avec le code, sans explication, sans balises markdown.`
+              : `Convertis cette description en code TypeScript valide. Réponds UNIQUEMENT avec le code, sans explication, sans balises markdown.\n\nDescription : ${description}`,
           },
         ],
       }),
@@ -124,6 +128,7 @@ app.post('/api/verify-key', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1,
+        temperature: 0,
         messages: [{ role: 'user', content: 'ping' }],
       }),
     });

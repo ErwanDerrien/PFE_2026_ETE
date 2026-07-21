@@ -15,8 +15,7 @@
  * dans /sync. Lu par toutes les équipes.
  */
 
-import type { File } from './ast';
-import type { SupportedLanguage } from './ast';
+import type { File, SupportedLanguage } from './ast';
 import type { GraphModel, GraphNode, InsertTarget, SourceLoc } from './graph';
 
 /** Options de transformation AST -> graphe (réglages de l'équipe A). */

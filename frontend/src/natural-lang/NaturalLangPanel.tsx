@@ -7,7 +7,6 @@ import './NaturalLangPanel.css';
 
 export function NaturalLangPanel() {
   const source = useAstStore((s) => s.source);
-  const lastOrigin = useAstStore((s) => s.lastOrigin);
   const setSource = useAstStore((s) => s.setSource);
   const error = useAstStore((s) => s.error);
   const status = useApiKeyStore((s) => s.status);
@@ -21,32 +20,36 @@ export function NaturalLangPanel() {
 
   const displayDescription = source ? description : '';
 
-  useEffect(() => {
-  if (lastOrigin === 'natural-lang') return;
-  if (!source) return;
+const dirty = useAstStore((s) => s.dirty);
+
+const lastOrigin = useAstStore((s) => s.lastOrigin);
+
+useEffect(() => {
+  if (dirty) return;
   if (status !== 'verified') return;
+  if (!source) return;
+  if (lastOrigin === 'natural-lang') return; // on vient d'écrire nous-mêmes → pas de régénération
 
   const normalized = normalizeForComparison(source);
   if (normalized === lastNormalizedRef.current) return;
 
-  // Debounce : attendre 1.5 secondes après le dernier changement
-  const timer = setTimeout(async () => {
-    setIsLoading(true);
-    setApiError(null);
-    try {
-      const result = await codeToNaturalLanguage(source);
+  setIsLoading(true);
+  setApiError(null);
+
+  codeToNaturalLanguage(source)
+    .then((result) => {
       setDescription(result);
       lastNormalizedRef.current = normalized;
-    } catch (e) {
+    })
+    .catch((e) => {
       setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
-    } finally {
+    })
+    .finally(() => {
       setIsLoading(false);
-    }
-  }, 1500);
+    });
 
-  // Cleanup : annule le timer si source change avant les 1.5 secondes
-  return () => clearTimeout(timer);
-}, [source, lastOrigin, status]);
+}, [dirty, source, status, lastOrigin]);
+
 
   function handleEdit() {
     setEditValue(displayDescription);
@@ -59,19 +62,22 @@ export function NaturalLangPanel() {
     setApiError(null);
   }
 
-  async function handleApply() {
-    setIsLoading(true);
-    setApiError(null);
-    try {
-      const code = await naturalLanguageToCode(editValue);
-      setSource(code, 'natural-lang');
-      setIsEditing(false);
-    } catch (e) {
-      setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
-    } finally {
-      setIsLoading(false);
-    }
+  
+async function handleApply() {
+  setIsLoading(true);
+  setApiError(null);
+  try {
+    const code = await naturalLanguageToCode(editValue, source, description);
+    setSource(code, 'natural-lang');
+    setDescription(editValue); // garder D' comme canonique
+    lastNormalizedRef.current = normalizeForComparison(code);
+    setIsEditing(false);
+  } catch (e) {
+    setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
+  } finally {
+    setIsLoading(false);
   }
+}
 
   return (
     <div className="nl-content">

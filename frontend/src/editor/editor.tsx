@@ -7,20 +7,25 @@ import type { LogEntry } from '../console/OutputConsole';
 import { Compress } from './compressing';
 import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
 
+// Backend d'exécution TypeScript interactif (voir backend/index.js, WS /run-ws).
+// Override possible via VITE_BACKEND_URL en production.
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_WS_URL = BACKEND_URL.replace(/^http/, 'ws') + '/run-ws';
+
 interface CodeEditorProps {
-  onChange?: (value: string) => void;
-  onLogsChange?: (logs: LogEntry[]) => void;
-  isRunning?: boolean;
-  onRunStateChange?: (isRunning: boolean) => void;
-  onInputRequest?: (prompt: string) => Promise<string>;
-  onInputCancel?: () => void;
-  onRegisterControls?: (controls: { run: () => void; stop: () => void }) => void;
+    onChange?: (value: string) => void;
+    onLogsChange?: (logs: LogEntry[]) => void;
+    isRunning?: boolean;
+    onRunStateChange?: (isRunning: boolean) => void;
+    onInputRequest?: (prompt: string) => Promise<string>;
+    onInputCancel?: () => void;
+    onRegisterControls?: (controls: { run: () => void; stop: () => void }) => void;
 }
 
 function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel: _onInputCancel, onRegisterControls }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
-    const iframeRef = useRef<HTMLIFrameElement | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isRunning, setIsRunning] = useState(false);
@@ -36,6 +41,13 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     const lastOrigin = useAstStore((s) => s.lastOrigin);
     const setSource = useAstStore((s) => s.setSource);
 
+    // Fermer la connexion WebSocket si le composant est démonté en pleine exécution
+    useEffect(() => {
+        return () => {
+            wsRef.current?.close();
+        };
+    }, []);
+
     // Notify parent when logs change
     useEffect(() => {
         onLogsChange?.(logs);
@@ -46,30 +58,24 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         onRunStateChange?.(isRunning);
     }, [isRunning, onRunStateChange]);
 
-    // Écouter les messages du sandbox
-    useEffect(() => {
-        const handler = (event: MessageEvent) => {
-            if (event.data?.type === 'console') {
-                setLogs(prev => [...prev, {
-                    level: event.data.level,
-                    text: event.data.args.join(' '),
-                    timestamp: Date.now(),
-                }]);
-            } else if (event.data?.type === 'execution-done') {
-                setIsRunning(false);
-            } else if (event.data?.type === 'request-input') {
-                if (onInputRequest) {
-                    onInputRequest(event.data.prompt || 'Input: ').then((value) => {
-                        if (iframeRef.current?.contentWindow) {
-                            iframeRef.current.contentWindow.postMessage({ type: 'input-response', value }, '*');
-                        }
-                    });
-                }
-            }
-        };
-        window.addEventListener('message', handler);
-        return () => window.removeEventListener('message', handler);
-    }, [onInputRequest]);
+    // Appelé avant que Monaco ne monte l'éditeur : configure le service TypeScript
+    // pour qu'il corresponde à ce que le backend fait réellement (voir backend/index.js,
+    // fonction buildMainTs) plutôt qu'à ce que Monaco croit être un script isolé.
+    function handleEditorWillMount(monaco: Monaco) {
+        // Déclare le input() global injecté par le runtime du backend, sinon Monaco
+        // le signale comme "Cannot find name 'input'" (TS2304).
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(
+            'declare function input(prompt?: string): Promise<string>;',
+            'ts:global-input.d.ts'
+        );
+
+        monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+            diagnosticCodesToIgnore: [
+                1375, // 'await' au top-level nécessite un module (le backend enveloppe le code dans une IIFE async, donc ça s'exécute bien malgré l'avertissement)
+                1378, // Top-level 'await' nécessite module ES2022+/target ES2017+ — même raison
+            ],
+        });
+    }
 
     // Référence à l'éditeur et à Monaco
     function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {
@@ -85,19 +91,78 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         } catch (e) { /* ignore */ }
     }
 
-    // Exécuter le code
+    // Exécuter le code via le backend (WebSocket /run-ws) : connexion persistante,
+    // sortie streamée en temps réel, et input() interactif relayé bidirectionnellement.
     const runCode = useCallback(() => {
         const code = editorRef.current?.getValue();
         if (!code) return;
+
+        // Ferme toute connexion précédente encore ouverte avant d'en ouvrir une nouvelle
+        wsRef.current?.close();
+
         setLogs([]);
         setIsRunning(true);
-        iframeRef.current?.contentWindow?.postMessage({ type: 'run', code }, '*');
-    }, []);
 
-    // Arrêter l'exécution
+        const ws = new WebSocket(BACKEND_WS_URL);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'run', code }));
+        };
+
+        ws.onmessage = (event) => {
+            let msg: any;
+            try {
+                msg = JSON.parse(event.data);
+            } catch {
+                return;
+            }
+
+            if (msg.type === 'output') {
+                const lines = (msg.text as string).split('\n').filter((l: string) => l.length > 0);
+                if (lines.length > 0) {
+                    setLogs(prev => [...prev, ...lines.map((text: string) => ({
+                        level: 'log' as const,
+                        text,
+                        timestamp: Date.now(),
+                    }))]);
+                }
+            } else if (msg.type === 'error') {
+                setLogs(prev => [...prev, { level: 'error', text: msg.text, timestamp: Date.now() }]);
+            } else if (msg.type === 'input-request') {
+                if (onInputRequest) {
+                    onInputRequest(msg.prompt || 'Input: ').then((value) => {
+                        ws.send(JSON.stringify({ type: 'input', value }));
+                    });
+                } else {
+                    // Personne n'écoute les demandes d'input : on répond vide pour ne pas bloquer le process serveur
+                    ws.send(JSON.stringify({ type: 'input', value: '' }));
+                }
+            } else if (msg.type === 'done') {
+                setIsRunning(false);
+                ws.close();
+            }
+        };
+
+        ws.onerror = () => {
+            setLogs(prev => [...prev, {
+                level: 'error',
+                text: 'Erreur de connexion WebSocket avec le backend (vérifiez qu\'il tourne sur ' + BACKEND_URL + ').',
+                timestamp: Date.now(),
+            }]);
+        };
+
+        ws.onclose = () => {
+            setIsRunning(false);
+            if (wsRef.current === ws) wsRef.current = null;
+        };
+    }, [onInputRequest]);
+
+    // Arrêter l'exécution : demande au serveur de tuer le processus enfant, puis ferme la connexion
     const stopExecution = useCallback(() => {
+        wsRef.current?.send(JSON.stringify({ type: 'stop' }));
+        wsRef.current?.close();
         setIsRunning(false);
-        iframeRef.current?.contentWindow?.postMessage({ type: 'stop' }, '*');
     }, []);
 
     // Exporter le code
@@ -108,7 +173,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'code.js';
+        a.download = 'code.ts';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -198,9 +263,10 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
             <div className="nokey" style={{ flex: 1, minHeight: 0 }}>
                 <Editor
                     height="100%"
-                    language="javascript"
+                    language="typescript"
                     defaultValue={source}
                     value={lastOrigin === "editor" ? undefined : (pendingSource ?? source)}
+                    beforeMount={handleEditorWillMount}
                     onMount={handleEditorDidMount}
                     onChange={handleEditorChange}
                     onValidate={handleEditorValidation}
@@ -220,15 +286,6 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                     }}
                 />
             </div>
-
-            {/* Sandbox iframe caché */}
-            <iframe
-                ref={iframeRef}
-                src="/sandbox.html"
-                sandbox="allow-scripts"
-                style={{ display: "none" }}
-                title="code-sandbox"
-            />
         </div>
     );
 }

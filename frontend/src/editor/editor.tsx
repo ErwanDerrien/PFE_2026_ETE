@@ -5,7 +5,9 @@ import type { Monaco } from "@monaco-editor/react";
 import { useAstStore } from '../sync';
 import type { LogEntry } from '../console/OutputConsole';
 import { Compress } from './compressing';
-import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
+import { Button } from '@astryxdesign/core/Button';
+import { Icon } from '@astryxdesign/core/Icon';
+import { FolderUp, Download, Share2, Check } from 'lucide-react';
 
 // Backend d'exécution TypeScript interactif (voir backend/index.js, WS /run-ws).
 // Override possible via VITE_BACKEND_URL en production.
@@ -20,9 +22,10 @@ interface CodeEditorProps {
     onInputRequest?: (prompt: string) => Promise<string>;
     onInputCancel?: () => void;
     onRegisterControls?: (controls: { run: () => void; stop: () => void }) => void;
+    mode: 'light' | 'dark';
 }
 
-function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel: _onInputCancel, onRegisterControls }: CodeEditorProps) {
+function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onRunStateChange, onInputRequest, onInputCancel: _onInputCancel, onRegisterControls, mode }: CodeEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
@@ -30,7 +33,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [theme, setTheme] = useState<string>(() => localStorage.getItem('editorTheme') || 'vs-dark');
+    const theme = mode === 'dark' ? 'vs-dark' : 'light';
     const [fontSize, setFontSize] = useState<number>(() => {
         const v = Number(localStorage.getItem('editorFontSize'));
         return Number.isFinite(v) && v > 8 ? v : 14;
@@ -215,7 +218,6 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
     // Appliquer thème quand il change
     useEffect(() => {
         try { if (monacoRef.current) monacoRef.current.editor.setTheme(theme); } catch (e) {}
-        localStorage.setItem('editorTheme', theme);
     }, [theme]);
 
     // Appliquer fontSize quand il change
@@ -235,30 +237,52 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
         markers.forEach((marker: any) => console.log(`ERROR [Line ${marker.startLineNumber}]: ${marker.message}`));
     }
 
+    const darkMode = mode === 'dark';
+    const toolbarBg = 'var(--panel-header-bg)';
+    const toolbarBorder = darkMode ? '#333' : '#d0d0d0';
+    const toolbarText = darkMode ? '#ccc' : '#333';
+
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <input ref={fileInputRef} type="file" accept=".js,.ts,.jsx,.tsx" onChange={handleFileSelect} style={{ display: 'none' }} />
 
-            {/* Barre d'outils */}
-            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", padding: "4px 8px", backgroundColor: "#1e1e1e", borderBottom: "1px solid #333", flexShrink: 0, flexWrap: "wrap" }}>
-                <button onClick={handleImportFile} title="Import JS/TS file" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: "#4a5", color: "#fff" }}>
-                    📁 Import
-                </button>
-                <button onClick={exportCode} title="Export code to file" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: "#666", color: "#fff" }}>
-                    ⬇ Export
-                </button>
-                <div style={{ width: '1px', height: '18px', background: '#333', margin: '0 2px' }} />
-                <button onClick={() => setTheme(prev => prev === 'vs-dark' ? 'light' : 'vs-dark')} title="Toggle theme" style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: "#444", color: "#fff" }}>
-                    {theme === 'vs-dark' ? '🌙' : '☀️'}
-                </button>
-                <label style={{ color: '#ccc', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#888' }}>A</span>
-                    <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
-                </label>
-                <button onClick={handleShare} title="Compresser l'état et copier l'URL" style={{ ...TOOLBAR_BUTTON_BASE_STYLE, gap: "6px", fontFamily: "inherit", border: "1px solid #555", backgroundColor: copied ? "#1a472a" : "#2d2d2d", color: copied ? "#4ade80" : "#ccc", transition: "background-color 0.2s, color 0.2s" }}>
-                    {copied ? "Copié !" : "Partager"}
-                </button>
+            {/* Barre d'outils*/}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 8px", backgroundColor: toolbarBg, borderBottom: `1px solid ${toolbarBorder}`, flexShrink: 0, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Button
+                        label="Import"
+                        variant="ghost"
+                        size="sm"
+                        icon={<Icon icon={FolderUp} size="sm" />}
+                        onClick={handleImportFile}
+                        tooltip="Importer un fichier JS/TS"
+                    />
+                    <Button
+                        label="Export"
+                        variant="ghost"
+                        size="sm"
+                        icon={<Icon icon={Download} size="sm" />}
+                        onClick={exportCode}
+                        tooltip="Exporter le code dans un fichier"
+                    />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <label style={{ color: toolbarText, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ opacity: 0.6 }}>A</span>
+                        <input type="range" min={10} max={24} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ cursor: 'pointer' }} />
+                    </label>
+                    <Button
+                        label={copied ? "Copié !" : "Partager"}
+                        variant={copied ? "primary" : "secondary"}
+                        size="sm"
+                        icon={<Icon icon={copied ? Check : Share2} size="sm" />}
+                        onClick={handleShare}
+                        tooltip="Compresser l'état et copier l'URL"
+                    />
+                </div>
             </div>
+
             {/* Éditeur */}
             <div className="nokey" style={{ flex: 1, minHeight: 0 }}>
                 <Editor

@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { TOOLBAR_BUTTON_BASE_STYLE, TOOLBAR_ICON_BUTTON_STYLE } from '../shared';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
 
 export type LogEntry = {
   level: 'log' | 'error' | 'warn' | 'info';
@@ -18,13 +20,14 @@ interface OutputConsoleProps {
   onRun?: () => void;
   onStop?: () => void;
   onClear?: () => void;
+  mode: 'light' | 'dark';
 }
 
-function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '', onInputSubmit, onInputCancel, isRunning = false, onRun, onStop, onClear }: OutputConsoleProps) {
+function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '', onInputSubmit, onInputCancel, isRunning = false, onRun, onStop, onClear, mode }: OutputConsoleProps) {
   const consoleRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState('');
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = mode === 'dark';
   const [fontSize, setFontSize] = useState(12);
 
   // Focus input when it appears
@@ -56,7 +59,7 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
   const bg = darkMode ? '#1e1e1e' : '#f5f5f5';
   const textColor = darkMode ? '#cccccc' : '#1a1a1a';
   const borderColor = darkMode ? '#3e3e3e' : '#d0d0d0';
-  const toolbarBg = darkMode ? '#252526' : '#e8e8e8';
+  const toolbarBg = 'var(--panel-header-bg)';
 
   const handleSubmit = () => {
     onInputSubmit?.(inputValue);
@@ -89,32 +92,18 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
     URL.revokeObjectURL(url);
   }, [logs]);
 
-  const btnStyle = (color: string): React.CSSProperties => ({
-    ...TOOLBAR_BUTTON_BASE_STYLE,
-    background: color,
-    color: '#fff',
-  });
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: bg, ...style }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: toolbarBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, flexWrap: 'wrap' }}>
         {isRunning ? (
-          <button onClick={onStop} style={btnStyle('#f48771')}>⏹ Stop</button>
+          <Button label="Stop" variant="destructive" size="sm" onClick={onStop} />
         ) : (
-          <button onClick={onRun} style={btnStyle('#0e639c')}>▶ Run</button>
+          <Button label="Run" variant="primary" size="sm" onClick={onRun} />
         )}
-        <button onClick={onClear} style={btnStyle('#555')}>✖ Clear</button>
+        <Button label="Clear" variant="secondary" size="sm" onClick={onClear} />
 
         <div style={{ width: '1px', height: '18px', background: borderColor, margin: '0 2px' }} />
-
-        <button
-          onClick={() => setDarkMode(d => !d)}
-          title="Toggle theme"
-          style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: 'transparent', color: darkMode ? '#ccc' : '#555', border: `1px solid ${borderColor}` }}
-        >
-          ◐
-        </button>
 
         <label style={{ color: textColor, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ opacity: 0.6 }}>A</span>
@@ -125,14 +114,13 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
           />
         </label>
 
-        <button
+        <Button
+          label="Télécharger en .txt"
+          variant="ghost"
+          size="sm"
+          isDisabled={logs.length === 0}
           onClick={downloadLogs}
-          disabled={logs.length === 0}
-          title="Download as .txt"
-          style={{ ...btnStyle('#666'), opacity: logs.length === 0 ? 0.4 : 1 }}
-        >
-          ⬇ .txt
-        </button>
+        />
       </div>
 
       {/* Logs */}
@@ -164,12 +152,13 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
             onKeyDown={handleKeyDown}
             style={{ flex: 1, padding: '4px 6px', background: '#1e1e1e', border: '1px solid #555', color: '#cccccc', fontFamily: 'monospace', fontSize: '12px', borderRadius: '3px', outline: 'none' }}
           />
-          <button onClick={handleSubmit} style={{ ...TOOLBAR_BUTTON_BASE_STYLE, background: '#0e639c', color: '#fff', fontWeight: 'bold' }}>
-            OK
-          </button>
-          <button onClick={() => { setInputValue(''); onInputCancel?.(); }} title="Annuler (Ctrl+C)" style={{ ...TOOLBAR_ICON_BUTTON_STYLE, background: 'transparent', color: '#888', border: '1px solid #555' }}>
-            ✕
-          </button>
+          <Button label="OK" variant="primary" size="sm" onClick={handleSubmit} />
+          <IconButton
+            label="Annuler (Ctrl+C)"
+            onClick={() => { setInputValue(''); onInputCancel?.(); }}
+            icon={<Icon icon="close" />}
+            size="sm"
+          />
         </div>
       )}
     </div>

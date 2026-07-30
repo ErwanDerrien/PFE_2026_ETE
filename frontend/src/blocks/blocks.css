@@ -5,7 +5,7 @@
   position: fixed;
   inset: 0;
   display: flex;
-  background: #1e1e1e;
+  background: var(--blocks-background, #1e1e1e);
 }
 
 .code-pane {
@@ -47,7 +47,11 @@
 
 /* --- Canvas React Flow --- */
 .react-flow {
-  background: #1e1e1e;
+  background: var(--blocks-background, #1e1e1e);
+}
+
+.panel-blocks[data-mode="light"] {
+  --blocks-background: #f7fbff;
 }
 
 /* --- Node card (Bolt style) --- */
@@ -894,4 +898,230 @@
 .sw-call {
   border-top-color: #c084fc;
   border-top-style: dashed;
+}
+
+/* ===========================
+   COMPLETE LIGHT MODE BLOCKS
+   =========================== */
+
+.panel-blocks[data-mode="light"] {
+  --blocks-background: #f7fbff;
+}
+
+/* Workspace */
+.panel-blocks[data-mode="light"] .workspace {
+  background: #f7fbff;
+}
+
+/* Code editor */
+.panel-blocks[data-mode="light"] .code-pane {
+  background: #ffffff;
+  color: #1f2937;
+  border-right-color: #d1d5db;
+}
+
+/* React Flow canvas */
+.panel-blocks[data-mode="light"] .react-flow {
+  background: #f7fbff;
+}
+
+/* Main nodes */
+.panel-blocks[data-mode="light"] .bn {
+  background: #ffffff;
+  border-color: #d1d5db;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.panel-blocks[data-mode="light"] .bn-body code {
+  color: #1f2937;
+}
+
+.panel-blocks[data-mode="light"] .bn-body-label {
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.panel-blocks[data-mode="light"] .bn-row-detail {
+  color: #475569;
+}
+
+.panel-blocks[data-mode="light"] .bn-row-type {
+  color: #64748b;
+}
+
+.panel-blocks[data-mode="light"] .bn-row-value {
+  color: #166534;
+}
+
+.panel-blocks[data-mode="light"] .bn-row-key {
+  color: #0369a1;
+}
+
+.panel-blocks[data-mode="light"] .bn-chain-seg {
+  color: #a16207;
+}
+
+/* Node separators */
+.panel-blocks[data-mode="light"] .bn-foot {
+  border-color: #e2e8f0;
+}
+
+.panel-blocks[data-mode="light"] .bn-foot-cell + .bn-foot-cell {
+  border-color: #e2e8f0;
+}
+
+.panel-blocks[data-mode="light"] .bn-members {
+  border-color: #e2e8f0;
+}
+
+.panel-blocks[data-mode="light"] .bn-member-row {
+  border-color: #f1f5f9;
+}
+
+/* Data nodes */
+.panel-blocks[data-mode="light"] .xn {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+/* Edge labels */
+.panel-blocks[data-mode="light"] .react-flow__edge-textbg {
+  fill: #ffffff;
+}
+
+.panel-blocks[data-mode="light"] .edge-flow-label {
+  background: #ffffff;
+  color: #64748b;
+}
+
+/* Sidebar */
+.panel-blocks[data-mode="light"] .block-sidebar {
+  background: rgba(255,255,255,0.97);
+  border-color: #d1d5db;
+  box-shadow: -8px 0 24px rgba(0,0,0,0.12);
+}
+
+.panel-blocks[data-mode="light"] .sidebar-title {
+  color: #1f2937;
+}
+
+.panel-blocks[data-mode="light"] .sidebar-head {
+  border-color: #e2e8f0;
+}
+
+.panel-blocks[data-mode="light"] .sidebar-close {
+  color: #64748b;
+}
+
+.panel-blocks[data-mode="light"] .sidebar-close:hover {
+  background: #f1f5f9;
+  color: #1f2937;
+}
+
+.panel-blocks[data-mode="light"] .sidebar-source {
+  background: #f8fafc;
+  border-color: #d1d5db;
+  color: #334155;
+}
+
+.panel-blocks[data-mode="light"] .block-sidebar input,
+.panel-blocks[data-mode="light"] .block-sidebar select {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+/* Palette */
+.panel-blocks[data-mode="light"] .palette {
+  background: rgba(255,255,255,0.97);
+  border-color: #d1d5db;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.15);
+}
+
+.panel-blocks[data-mode="light"] .palette-title {
+  color: #64748b;
+}
+
+.panel-blocks[data-mode="light"] .palette-item {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #334155;
+}
+
+.panel-blocks[data-mode="light"] .palette-item:hover {
+  background: #f1f5f9;
+}
+
+.panel-blocks[data-mode="light"] .palette-label {
+  color: #475569;
+}
+
+/* Forms */
+.panel-blocks[data-mode="light"] .block-form {
+  background: rgba(255,255,255,0.98);
+  border-color: #d1d5db;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.15);
+}
+
+.panel-blocks[data-mode="light"] .block-form input,
+.panel-blocks[data-mode="light"] .block-form select {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+.panel-blocks[data-mode="light"] .block-form input::placeholder {
+  color: #94a3b8;
+}
+
+.panel-blocks[data-mode="light"] .bf-field > span {
+  color: #64748b;
+}
+
+.panel-blocks[data-mode="light"] .bf-cancel {
+  color: #64748b;
+}
+
+.panel-blocks[data-mode="light"] .bf-cancel:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+/* Legend */
+.panel-blocks[data-mode="light"] .legend {
+  background: rgba(255,255,255,0.95);
+  border-color: #d1d5db;
+  color: #334155;
+}
+
+/* Buttons */
+.panel-blocks[data-mode="light"] .edge-insert-btn,
+.panel-blocks[data-mode="light"] .bn-add-btn {
+  border-color: #ffffff;
+}
+
+/* Syntax highlighting */
+.panel-blocks[data-mode="light"] .tok-keyword {
+  color: #c02626;
+}
+
+.panel-blocks[data-mode="light"] .tok-string {
+  color: #0369a1;
+}
+
+.panel-blocks[data-mode="light"] .tok-number {
+  color: #7c3aed;
+}
+
+.panel-blocks[data-mode="light"] .tok-fn {
+  color: #7e22ce;
+}
+
+.panel-blocks[data-mode="light"] .tok-ident {
+  color: #1f2937;
+}
+
+.panel-blocks[data-mode="light"] .tok-punct {
+  color: #64748b;
 }

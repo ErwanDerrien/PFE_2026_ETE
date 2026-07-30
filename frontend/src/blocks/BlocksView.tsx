@@ -13,10 +13,10 @@
 import BlocksCanvas from "./Components/BlocksCanvas";
 import "./blocks.css";
 
-function BlocksView() {
+function BlocksView({ mode }: { mode: "light" | "dark" }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <BlocksCanvas />
+      <BlocksCanvas mode={mode} />
     </div>
   );
 }

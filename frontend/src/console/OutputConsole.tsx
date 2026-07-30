@@ -97,11 +97,11 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: toolbarBg, borderBottom: `1px solid ${borderColor}`, flexShrink: 0, flexWrap: 'wrap' }}>
         {isRunning ? (
-          <Button label="Stop" variant="destructive" size="sm" onClick={onStop} />
+          <Button label="Arrêter" variant="destructive" size="sm" onClick={onStop} />
         ) : (
-          <Button label="Run" variant="primary" size="sm" onClick={onRun} />
+          <Button label="Exécuter" variant="primary" size="sm" onClick={onRun} />
         )}
-        <Button label="Clear" variant="secondary" size="sm" onClick={onClear} />
+        <Button label="Effacer" variant="secondary" size="sm" onClick={onClear} />
 
         <div style={{ width: '1px', height: '18px', background: borderColor, margin: '0 2px' }} />
 
@@ -126,7 +126,7 @@ function OutputConsole({ logs, style, isWaitingForInput = false, inputPrompt = '
       {/* Logs */}
       <div ref={consoleRef} style={{ flex: 1, overflowY: 'auto', padding: '8px', fontFamily: 'monospace', fontSize: `${fontSize}px`, color: textColor }}>
         {logs.length === 0 ? (
-          <div style={{ color: darkMode ? '#666' : '#aaa', fontSize: '11px' }}>Output will appear here...</div>
+          <div style={{ color: darkMode ? '#666' : '#aaa', fontSize: '11px' }}>La sortie s'affichera ici...</div>
         ) : (
           logs.map((log, i) => {
             const time = new Date(log.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });

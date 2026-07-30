@@ -320,8 +320,6 @@ function MainLayout({
       <footer className="app-footer">
         <div className="footer-content">
           <span>PFE 2026 — Génie logiciel et des TI, ÉTS</span>
-          <span>•</span>
-          <span>{source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
         </div>
       </footer>
     </div>

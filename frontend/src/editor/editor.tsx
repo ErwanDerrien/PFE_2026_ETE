@@ -250,7 +250,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 8px", backgroundColor: toolbarBg, borderBottom: `1px solid ${toolbarBorder}`, flexShrink: 0, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <Button
-                        label="Import"
+                        label="Importer"
                         variant="ghost"
                         size="sm"
                         icon={<Icon icon={FolderUp} size="sm" />}
@@ -258,7 +258,7 @@ function CodeEditor({ onChange, onLogsChange, isRunning: _externalIsRunning, onR
                         tooltip="Importer un fichier JS/TS"
                     />
                     <Button
-                        label="Export"
+                        label="Exporter"
                         variant="ghost"
                         size="sm"
                         icon={<Icon icon={Download} size="sm" />}

@@ -36,7 +36,7 @@ import BlockForm from "./BlockForm";
 import BlockPalette from "./BlockPalette";
 import BlockSidebar from "./BlockSidebar";
 
-export default function BlocksCanvas() {
+export default function BlocksCanvas({mode}: {mode: 'light' | 'dark'}) {
   const graph = useAstStore((s) => s.graph);
   const deleteNode = useAstStore((s) => s.deleteNode);
   const insertNode = useAstStore((s) => s.insertNode);
@@ -143,7 +143,7 @@ export default function BlocksCanvas() {
         // code à taille lisible (on navigue au lieu de tout dézoomer).
         fitViewOptions={{ padding: 0.2, minZoom: 0.75 }}
         nodesConnectable={false}
-        colorMode="dark"
+        colorMode={mode}
         proOptions={{ hideAttribution: true }}
         minZoom={0.2}
         maxZoom={2}

@@ -2,39 +2,39 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #1e1e1e;
-  color: #cccccc;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  background-color: var(--color-background-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-body);
 }
 
 .nl-body {
   flex: 1;
-  padding: 16px;
+  padding: var(--spacing-4);
   overflow-y: auto;
 }
 
 .nl-description {
-  color: #cccccc;
+  color: var(--color-text-primary);
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
 }
 
 .nl-placeholder {
-  color: #8b949e;
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-style: italic;
   margin: 0;
 }
 
 .nl-loading {
-  color: #8b949e;
+  color: var(--color-text-secondary);
   font-size: 14px;
   margin: 0;
 }
 
 .nl-error {
-  color: #f48771;
+  color: var(--color-error);
   font-size: 14px;
   margin: 0;
 }
@@ -43,65 +43,28 @@
   width: 100%;
   height: 100%;
   resize: none;
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: var(--font-family-code);
   font-size: 14px;
   line-height: 1.6;
-  color: #cccccc;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 10px 12px;
+  color: var(--color-text-primary);
+  background: var(--color-background-body);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  padding: var(--spacing-3);
   box-sizing: border-box;
   outline: none;
 }
 
 .nl-textarea:focus {
-  border-color: #58a6ff;
+  border-color: var(--color-accent);
 }
 
 .nl-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid #30363d;
-  background: #1e1e1e;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background-surface);
   flex-shrink: 0;
-}
-
-.nl-btn {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.nl-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.nl-btn--ghost {
-  background: transparent;
-  border-color: #30363d;
-  color: #8b949e;
-}
-
-.nl-btn--ghost:hover:not(:disabled) {
-  border-color: #8b949e;
-  color: #cccccc;
-}
-
-.nl-btn--primary {
-  background: #238636;
-  color: #fff;
-  border-color: #238636;
-}
-
-.nl-btn--primary:hover:not(:disabled) {
-  background: #2ea043;
 }

@@ -3,6 +3,7 @@ import { useAstStore } from '../sync';
 import { codeToNaturalLanguage, naturalLanguageToCode } from '../api';
 import { useApiKeyStore } from '../api';
 import { normalizeForComparison } from './normalize';
+import { Button } from '@astryxdesign/core/Button';
 import './NaturalLangPanel.css';
 
 export function NaturalLangPanel() {
@@ -20,35 +21,35 @@ export function NaturalLangPanel() {
 
   const displayDescription = source ? description : '';
 
-const dirty = useAstStore((s) => s.dirty);
+  const dirty = useAstStore((s) => s.dirty);
 
-const lastOrigin = useAstStore((s) => s.lastOrigin);
+  const lastOrigin = useAstStore((s) => s.lastOrigin);
 
-useEffect(() => {
-  if (dirty) return;
-  if (status !== 'verified') return;
-  if (!source) return;
-  if (lastOrigin === 'natural-lang') return; // on vient d'écrire nous-mêmes → pas de régénération
+  useEffect(() => {
+    if (dirty) return;
+    if (status !== 'verified') return;
+    if (!source) return;
+    if (lastOrigin === 'natural-lang') return; // on vient d'écrire nous-mêmes → pas de régénération
 
-  const normalized = normalizeForComparison(source);
-  if (normalized === lastNormalizedRef.current) return;
+    const normalized = normalizeForComparison(source);
+    if (normalized === lastNormalizedRef.current) return;
 
-  setIsLoading(true);
-  setApiError(null);
+    setIsLoading(true);
+    setApiError(null);
 
-  codeToNaturalLanguage(source)
-    .then((result) => {
-      setDescription(result);
-      lastNormalizedRef.current = normalized;
-    })
-    .catch((e) => {
-      setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
-    })
-    .finally(() => {
-      setIsLoading(false);
-    });
+    codeToNaturalLanguage(source)
+      .then((result) => {
+        setDescription(result);
+        lastNormalizedRef.current = normalized;
+      })
+      .catch((e) => {
+        setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
 
-}, [dirty, source, status, lastOrigin]);
+  }, [dirty, source, status, lastOrigin]);
 
 
   function handleEdit() {
@@ -62,22 +63,22 @@ useEffect(() => {
     setApiError(null);
   }
 
-  
-async function handleApply() {
-  setIsLoading(true);
-  setApiError(null);
-  try {
-    const code = await naturalLanguageToCode(editValue, source, description);
-    setSource(code, 'natural-lang');
-    setDescription(editValue); // garder D' comme canonique
-    lastNormalizedRef.current = normalizeForComparison(code);
-    setIsEditing(false);
-  } catch (e) {
-    setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
-  } finally {
-    setIsLoading(false);
+
+  async function handleApply() {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const code = await naturalLanguageToCode(editValue, source, description);
+      setSource(code, 'natural-lang');
+      setDescription(editValue); // garder D' comme canonique
+      lastNormalizedRef.current = normalizeForComparison(code);
+      setIsEditing(false);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : 'Erreur inconnue');
+    } finally {
+      setIsLoading(false);
+    }
   }
-}
 
   return (
     <div className="nl-content">
@@ -117,29 +118,23 @@ async function handleApply() {
 
       <div className="nl-footer">
         {!isEditing ? (
-          <button
-            className="nl-btn nl-btn--ghost"
+          <Button
+            label="Modifier"
+            variant="secondary"
+            size="sm"
             onClick={handleEdit}
-            disabled={isLoading || !displayDescription}
-          >
-            Modifier
-          </button>
+            isDisabled={isLoading || !displayDescription}
+          />
         ) : (
           <>
-            <button
-              className="nl-btn nl-btn--ghost"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Annuler
-            </button>
-            <button
-              className="nl-btn nl-btn--primary"
+            <Button label="Annuler" variant="secondary" size="sm" onClick={handleCancel} isDisabled={isLoading} />
+            <Button
+              label={isLoading ? 'Conversion…' : 'Appliquer'}
+              variant="primary"
+              size="sm"
               onClick={handleApply}
-              disabled={isLoading || !editValue.trim()}
-            >
-              {isLoading ? 'Conversion…' : 'Appliquer'}
-            </button>
+              isDisabled={isLoading || !editValue.trim()}
+            />
           </>
         )}
       </div>

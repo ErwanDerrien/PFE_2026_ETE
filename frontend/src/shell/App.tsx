@@ -9,6 +9,11 @@ import "./App.css"
 import {useAstStore, SyncButton} from "../sync";
 import {Decrompress} from "../editor/compressing.ts";
 import { ApiKeyInput } from '../api';
+import { Theme } from '@astryxdesign/core';
+import { stoneTheme } from '@astryxdesign/theme-stone/built';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Sun, Moon } from 'lucide-react';
 
 export const DEFAULT_CODE: string = `
 // Bienvenue dans l'éditeur de code !
@@ -88,7 +93,13 @@ console.log("=== Exécution terminée avec succès! ===");
 `;
 
 // Composant pour le layout principal avec onglets
-function MainLayout() {
+function MainLayout({
+  mode,
+  onToggleMode,
+}: {
+  mode: 'light' | 'dark';
+  onToggleMode: () => void;
+}) {
   const location = useLocation()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [isRunning, setIsRunning] = useState(false)
@@ -165,8 +176,23 @@ function MainLayout() {
   // OutputConsole doit rester monté sur toutes les vues (il est toujours affiché quelque part)
   // -> une seule instance permanente, jamais démontée tant que MainLayout est monté
 
+  const tabActiveStyle: React.CSSProperties =
+    mode === 'dark'
+      ? { 
+          backgroundColor: '#DFE2E5',
+          borderColor: '#DFE2E5',
+          color: '#0A1317'
+        }
+      : {
+          backgroundColor: '#4f8fc7',
+          borderColor: '#4f8fc7',
+          color: '#ffffff'
+        };
+  const tabStyle = (view: string): React.CSSProperties | undefined =>
+    activeView === view ? tabActiveStyle : undefined;
+
   return (
-    <div className="app-container">
+    <div className="app-container" data-mode={mode}>
       {/* Barre de navigation compacte (une seule ligne : titre, onglets, sync) */}
       <nav className="app-nav">
         <div className="nav-title">
@@ -177,24 +203,28 @@ function MainLayout() {
           <Link
             to="/full"
             className={`nav-tab ${activeView === 'full' ? 'active' : ''}`}
+            style={tabStyle('full')}
           >
             Vue complète
           </Link>
           <Link
             to="/code"
             className={`nav-tab ${activeView === 'code' ? 'active' : ''}`}
+            style={tabStyle('code')}
           >
             Éditeur de code
           </Link>
           <Link
             to="/blocks"
             className={`nav-tab ${activeView === 'blocks' ? 'active' : ''}`}
+            style={tabStyle('blocks')}
           >
             Blocs visuels
           </Link>
           <Link
             to="/text"
             className={`nav-tab ${activeView === 'text' ? 'active' : ''}`}
+            style={tabStyle('text')}
           >
             Langage naturel
           </Link>
@@ -202,14 +232,17 @@ function MainLayout() {
 
         {/* Bouton global de synchronisation entre les vues (équipe A) */}
         <div className="nav-sync">
+          <IconButton
+            label={mode === 'light' ? 'Passer en mode sombre' : 'Passer en mode clair'}
+            onClick={onToggleMode}
+            icon={<Icon icon={mode === 'light' ? Moon : Sun} />}
+            size="sm"
+          />
           <SyncButton />
         </div>
       </nav>
 
       {/* Contenu principal basé sur la route */}
-      {/* Grille unique et persistante : les 4 panneaux + la console sont de VRAIS enfants directs
-          du même conteneur grid en permanence. Seule la classe "view-*" change la disposition
-          (grid-template-areas) ; aucun composant n'est jamais démonté lors du changement d'onglet. */}
       <div className={`main-content view-grid view-${activeView}`}>
         {/* --- Panneau Éditeur de code --- */}
         <div
@@ -218,7 +251,6 @@ function MainLayout() {
         >
           <div className="panel-header">
             <h3>Éditeur de code</h3>
-            <span className="panel-team">Équipe B: Justin & Erwan</span>
           </div>
           <div className="panel-content">
             <CodeEditor
@@ -229,6 +261,7 @@ function MainLayout() {
               onInputRequest={handleInputRequest}
               onInputCancel={handleInputCancel}
               onRegisterControls={handleRegisterControls}
+              mode={mode}
             />
           </div>
         </div>
@@ -236,14 +269,14 @@ function MainLayout() {
         {/* --- Panneau Blocs Visuels --- */}
         <div
           className="panel panel-blocks grid-item-blocks"
+          data-mode={mode}
           style={{ display: showBlocksView ? undefined : 'none' }}
         >
           <div className="panel-header">
             <h3>Blocs visuels</h3>
-            <span className="panel-team">Équipe A: Adel & Junior</span>
           </div>
           <div className="panel-content">
-            <BlocksView />
+            <BlocksView mode={mode}/>
           </div>
         </div>
 
@@ -254,8 +287,6 @@ function MainLayout() {
         >
           <div className="panel-header">
             <h3>Langage naturel</h3>
-            {/* Clé API Claude : rattachée à la vue qui l'utilise (plus d'overlay
-                fixe qui chevauchait le bouton de synchronisation). */}
             <ApiKeyInput />
           </div>
           <div className="panel-content">
@@ -267,7 +298,6 @@ function MainLayout() {
         <div className="panel panel-console grid-item-console">
           <div className="panel-header">
             <h3>Console d'exécution</h3>
-            <span className="panel-team">Équipe B: Justin & Erwan</span>
           </div>
           <div className="panel-content">
             <OutputConsole
@@ -280,6 +310,7 @@ function MainLayout() {
               onRun={handleRun}
               onStop={handleStop}
               onClear={handleClear}
+              mode={mode}
             />
           </div>
         </div>
@@ -289,22 +320,32 @@ function MainLayout() {
       <footer className="app-footer">
         <div className="footer-content">
           <span>PFE 2026 — Génie logiciel et des TI, ÉTS</span>
-          <span>•</span>
-          <span>{source.length > 0 ? `${source.length} caractères` : 'vide'}</span>
         </div>
       </footer>
     </div>
   )
 }
 
-// Composant App principal avec Router
+// Composant App principal avec Router 
 function App() {
+  const [mode, setMode] = useState<'light' | 'dark'>('dark');
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/*" element={<MainLayout />} />
-      </Routes>
-    </Router>
+    <Theme theme={stoneTheme} mode={mode}>
+      <Router>
+        <Routes>
+          <Route
+            path="/*"
+            element={
+              <MainLayout
+                mode={mode}
+                onToggleMode={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}
+              />
+            }
+          />
+        </Routes>
+      </Router>
+    </Theme>
   )
 }
 

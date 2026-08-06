@@ -1,14 +1,3 @@
-* {
-  box-sizing: border-box;
-}
-
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-}
-
 .app-container {
   height: 100vh;
   width: 100vw;
@@ -17,19 +6,49 @@ html, body, #root {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: #0d1117;
-  color: #e6edf3;
+  background-color: var(--color-background-body);
+  color: var(--color-text-primary);
 }
 
-/* Navigation — une seule ligne compacte : titre | onglets | sync */
+.app-container[data-mode="light"] {
+  --color-background-body: #eef5fb;
+  --color-background-surface: #ffffff;
+  --color-text-primary: #17212b;
+  --color-text-secondary: #617386;
+  --color-border: #cbdceb;
+
+  --color-accent: #4f8fc7;
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+
+  --panel-header-bg: #e7f1fa
+
+  --shadow-low: 
+    0 1px 2px rgba(30, 60, 90, 0.06),
+    0 1px 3px rgba(30, 60, 90, 0.08);
+
+  --shadow-high:
+    0 8px 24px rgba(30, 60, 90, 0.14),
+    0 2px 6px rgba(30, 60, 90, 0.08);
+}
+
+.app-container[data-mode="dark"] {
+  --panel-header-bg: #242428;
+
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #fbbf24;
+}
+
 .app-nav {
-  background-color: #161b22;
-  border-bottom: 1px solid #30363d;
-  padding: 8px 16px;
+  background-color: var(--color-background-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-2) var(--spacing-4);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 20px;
+  gap: var(--spacing-5);
   flex-shrink: 0;
 }
 
@@ -37,13 +56,13 @@ html, body, #root {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--color-text-primary);
   white-space: nowrap;
 }
 
 .nav-tabs {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-2);
   overflow-x: auto;
   flex: 1;
 }
@@ -51,15 +70,18 @@ html, body, #root {
 .nav-sync {
   margin-left: auto;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
 }
 
 .nav-tab {
   padding: 6px 14px;
-  background-color: #21262d;
-  color: #c9d1d9;
+  background-color: transparent;
+  color: var(--color-text-secondary);
   text-decoration: none;
-  border-radius: 6px;
-  border: 1px solid #30363d;
+  border-radius: var(--radius-element);
+  border: 1px solid var(--color-border);
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -67,46 +89,24 @@ html, body, #root {
 }
 
 .nav-tab:hover {
-  background-color: #30363d;
-  border-color: #8b949e;
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
 }
 
 .nav-tab.active {
-  background-color: #238636;
-  color: white;
-  border-color: #238636;
+  background-color: var(--color-text-primary);
+  color: var(--color-background-surface);
+  border-color: var(--color-text-primary);
 }
 
-/* Contenu principal */
-
-/*
-  === Grille persistante ===
-  Remplace l'ancien couple .four-panel-view / .single-view.
-  Un seul conteneur grid reste monté en permanence ; les 4 panneaux
-  (code, blocks, text, console) sont toujours des enfants directs.
-  On ne change QUE grid-template-areas/columns/rows selon la vue active
-  (via la classe view-full / view-code / view-blocks / view-text),
-  et les panneaux non affichés sont masqués avec display:none
-  sans jamais être retirés du DOM (donc jamais démontés).
-*/
 .view-grid {
   flex: 1;
   overflow: hidden;
-  padding: 10px;
+  padding: var(--spacing-3);
   display: grid;
-  gap: 10px;
+  gap: var(--spacing-3);
 }
 
-/*
-  === Disposition uniforme ===
-  Toutes les vues partagent la même structure : le contenu « chaud » occupe la
-  zone principale, et la console est TOUJOURS une bande horizontale en bas,
-  de même hauteur partout. En vue complète, les blocs visuels occupent une
-  colonne PLEINE HAUTEUR (plus large) pour maximiser la verticalité du canvas.
-*/
-
-/* Vue complète : éditeur + langage naturel empilés à gauche,
-   blocs pleine hauteur à droite, console en bande sous le tout. */
 .view-grid.view-full {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
   grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr) 220px;
@@ -116,7 +116,6 @@ html, body, #root {
     "console console";
 }
 
-/* Vues à panneau unique : même squelette (contenu + console en bande). */
 .view-grid.view-code {
   grid-template-columns: 1fr;
   grid-template-rows: minmax(0, 1fr) 220px;
@@ -160,18 +159,19 @@ html, body, #root {
 .panel {
   display: flex;
   flex-direction: column;
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  background-color: var(--color-background-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  box-shadow: var(--shadow-low);
   overflow: hidden;
   min-height: 0;
   min-width: 0;
 }
 
 .panel-header {
-  padding: 7px 12px;
-  background-color: #0d1117;
-  border-bottom: 1px solid #30363d;
+  padding: 7px var(--spacing-3);
+  background-color: var(--panel-header-bg);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -182,14 +182,7 @@ html, body, #root {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-}
-
-.panel-team {
-  font-size: 11px;
-  color: #8b949e;
-  background-color: rgba(139, 148, 158, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--color-text-primary);
 }
 
 .panel-content {
@@ -198,34 +191,22 @@ html, body, #root {
   position: relative;
 }
 
-.panel-code .panel-content,
-.panel-blocks .panel-content,
-.panel-text .panel-content {
-  background-color: #0d1117;
-}
-
-.panel-console .panel-content {
-  background-color: #1e1e1e;
-}
-
-/* Footer — une seule ligne discrète */
 .app-footer {
-  background-color: #161b22;
-  border-top: 1px solid #30363d;
-  padding: 5px 16px;
+  background-color: var(--color-background-surface);
+  border-top: 1px solid var(--color-border);
+  padding: 5px var(--spacing-4);
   flex-shrink: 0;
 }
 
 .footer-content {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-2);
   justify-content: center;
   align-items: center;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--color-text-secondary);
 }
 
-/* Responsive : en écran étroit, on empile — les blocs gardent le plus de hauteur. */
 @media (max-width: 1200px) {
   .view-grid.view-full {
     grid-template-columns: 1fr;
@@ -245,7 +226,7 @@ html, body, #root {
 @media (max-width: 768px) {
   .app-nav {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--spacing-2);
   }
 
   .nav-tabs {
@@ -253,21 +234,17 @@ html, body, #root {
   }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* --- Blocks canvas: React Flow background dots + edge label chip --- */
+.panel-blocks[data-mode="light"] .react-flow {
+  --xy-background-color-default: #f7fbff;
+  --xy-background-pattern-color-default: rgba(79, 143, 199, 0.16);
 }
 
-::-webkit-scrollbar-track {
-  background: #0d1117;
+.panel-blocks[data-mode="dark"] .react-flow {
+  --xy-background-color-default: #1e1e1e;
+  --xy-background-pattern-color-default: rgba(255, 255, 255, 0.06);
 }
 
-::-webkit-scrollbar-thumb {
-  background: #30363d;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #8b949e;
+.panel-blocks[data-mode="light"] .react-flow__edge-textbg {
+  fill: #efe8db;
 }

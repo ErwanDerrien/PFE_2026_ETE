@@ -68,3 +68,19 @@ Scaffold + **contrats** posés. Les quatre transformations
 **stubs typés** : le câblage du store est complet, l'implémentation reste à faire
 par l'équipe A. Chaque dossier d'équipe contient un `README.md` expliquant comment
 s'intégrer au store partagé.
+
+## Environment setup
+
+This project requires Node.js 22.13.0.
+
+### Frontend
+cd frontend
+nvm use
+npm install
+npm run dev
+
+### Backend
+cd backend
+nvm use
+npm install
+npm start

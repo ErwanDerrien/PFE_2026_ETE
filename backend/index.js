@@ -27,7 +27,7 @@ const TSC_PATH = path.join(path.dirname(require.resolve('typescript/package.json
 const TYPE_ROOTS = path.join(path.dirname(require.resolve('typescript/package.json')), '..', '@types');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Filet de sécurité: en Node 26+, une promesse rejetée sans catch termine le
 // processus par défaut. On log au lieu de crasher, le temps de traquer la cause.
@@ -35,7 +35,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled rejection (non fatal, backend reste actif):', reason);
 });
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173' }));
 app.use(express.json());
 
 app.post('/api/to-natural-lang', async (req, res) => {

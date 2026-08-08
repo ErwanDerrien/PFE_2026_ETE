@@ -27,7 +27,8 @@ const TSC_PATH = path.join(path.dirname(require.resolve('typescript/package.json
 const TYPE_ROOTS = path.join(path.dirname(require.resolve('typescript/package.json')), '..', '@types');
 
 const app = express();
-const PORT = 3001;
+// Port injecté par l'hébergeur (Railway, Render…) ; 3001 en local.
+const PORT = process.env.PORT || 3001;
 
 // Filet de sécurité: en Node 26+, une promesse rejetée sans catch termine le
 // processus par défaut. On log au lieu de crasher, le temps de traquer la cause.
@@ -35,7 +36,11 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled rejection (non fatal, backend reste actif):', reason);
 });
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+// Origines autorisées : dev local + frontend déployé (surchargables via CORS_ORIGINS,
+// liste séparée par des virgules).
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS ??
+  'http://localhost:5173,https://pfe-2026-multivues.vercel.app').split(',');
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json());
 
 app.post('/api/to-natural-lang', async (req, res) => {

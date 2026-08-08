@@ -1,0 +1,7 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "multiRegionConfig": { "us-east4-eqdc4a": { "numReplicas": 1 } },
+    "startCommand": "npm start"
+  }
+}

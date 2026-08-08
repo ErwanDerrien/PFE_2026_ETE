@@ -108,7 +108,6 @@ function MainLayout({
   const inputResolveRef = useRef<((value: string) => void) | null>(null)
   const editorControlsRef = useRef<{ run: () => void; stop: () => void } | null>(null)
 
-  const source = useAstStore((s) => s.source);
   const setSource = useAstStore((s) => s.setSource);
 
   const handleEditorChange = (value: string | undefined) => {
